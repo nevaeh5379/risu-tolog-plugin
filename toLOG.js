@@ -388,207 +388,267 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
  * @param {boolean} [applyStyles=true] - 인라인 스타일 적용 여부.
  * @returns {Promise<string>} 변환된 HTML 문자열.
  */
-    async function generateHtmlFromNodes(nodes, applyStyles = true) {
-        console.log(`[Log Exporter] generateHtmlFromNodes called with ${nodes.length} nodes`);
+   async function generateHtmlFromNodes(nodes, applyStyles = true) {
+    console.log(`[Log Exporter] generateHtmlFromNodes called with ${nodes.length} nodes`);
 
-        let finalHtml = '';
-        for (const node of nodes) {
-            if (node.querySelector('textarea')) {
-                console.log('[Log Exporter] Skipping message with textarea');
-                continue;
+    let finalHtml = '';
+    for (const node of nodes) {
+        if (node.querySelector('textarea')) {
+            console.log('[Log Exporter] Skipping message with textarea');
+            continue;
+        }
+
+        const clonedNode = node.cloneNode(true);
+        clonedNode.querySelector('.log-exporter-msg-btn-group')?.remove();
+        
+        const proseElContentCheck = clonedNode.querySelector('.prose, .chattext');
+        if (proseElContentCheck && proseElContentCheck.innerHTML.trim().replace(/<!--(.*?)-->/g, '').length === 0) {
+            const tempDiv = node.cloneNode(true);
+            tempDiv.querySelector('.unmargin.text-xl')?.remove();
+            tempDiv.querySelector('.flex-grow.flex.items-center.justify-end')?.remove();
+            const restoredText = tempDiv.textContent.trim();
+            if (restoredText) {
+                proseElContentCheck.innerHTML = `<p>${restoredText.replace(/\n/g, '<br>')}</p>`;
             }
+        }
 
-            const clonedNode = node.cloneNode(true);
-            clonedNode.querySelector('.log-exporter-msg-btn-group')?.remove();
+        // --- [수정] 더 안정적인 아바타 처리 로직 시작 ---
+        const avatarSelector = '.shadow-lg.rounded-md[style*="background"]';
+        const originalAvatarEl = node.querySelector(avatarSelector);
+        const clonedAvatarEl = clonedNode.querySelector(avatarSelector);
 
-            // --- 수정된 아바타 처리 로직 시작 (v2) ---
-
-            // 1. 원본과 복제된 노드에서 아바타 요소를 클래스 이름으로 찾습니다.
-            //    RisuAI 아바타는 보통 이 클래스 조합을 가집니다.
-            const avatarSelector = '.shadow-lg.rounded-md[style*="background"]';
-            const originalAvatarEl = node.querySelector(avatarSelector);
-            const clonedAvatarEl = clonedNode.querySelector(avatarSelector);
-
-            if (originalAvatarEl && clonedAvatarEl) {
-                const computedStyle = window.getComputedStyle(originalAvatarEl);
+        if (originalAvatarEl && clonedAvatarEl) {
+            const computedStyle = window.getComputedStyle(originalAvatarEl);
+            let imageUrl = null;
+            
+            // 1. HTML 태그의 style 속성에서 직접 URL을 찾는 것이 가장 안정적입니다.
+            const inlineStyle = originalAvatarEl.getAttribute('style');
+            if (inlineStyle && inlineStyle.includes('url(')) {
+                const match = inlineStyle.match(/url\(["']?([^"')]+)["']?\)/);
+                if (match && match[1]) {
+                    imageUrl = match[1];
+                }
+            }
+            
+            // 2. 만약 style 속성에 없다면, 렌더링된 스타일에 의존하는 기존 방식을 차선책으로 사용합니다.
+            if (!imageUrl) {
                 const bgImage = computedStyle.backgroundImage;
-
-                // 2. 기본 스타일을 명시적으로 설정합니다.
-                Object.assign(clonedAvatarEl.style, {
-                    height: computedStyle.height || '3.5rem',
-                    width: computedStyle.width || '3.5rem',
-                    minWidth: computedStyle.minWidth || '3.5rem',
-                    borderRadius: computedStyle.borderRadius || '0.375rem',
-                    flexShrink: '0',
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
-                    backgroundRepeat: 'no-repeat',
-                });
-
-                // 3. 배경 이미지가 있으면 Base64로 변환하여 적용합니다.
                 if (bgImage && bgImage !== 'none' && bgImage.includes('url(')) {
-                    const urlMatch = bgImage.match(/url\(["']?([^"')]+)["']?\)/);
-                    if (urlMatch && urlMatch[1]) {
-                        const base64Url = await imageUrlToBase64(urlMatch[1]);
-                        clonedAvatarEl.style.backgroundImage = `url("${base64Url}")`;
-                    }
-                } else {
-                    // 4. 배경 이미지가 없는 경우를 대비한 폴백(fallback) 처리
-                    clonedAvatarEl.style.backgroundColor = '#6b7280';
-                    clonedAvatarEl.style.display = 'flex';
-                    clonedAvatarEl.style.alignItems = 'center';
-                    clonedAvatarEl.style.justifyContent = 'center';
-                    clonedAvatarEl.innerHTML = `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#e5e7eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>`;
-                }
-            }
-            // --- 수정된 아바타 처리 로직 끝 ---
-
-            const elementsWithInlineBackground = clonedNode.querySelectorAll('[style*="background"]');
-            for (const el of elementsWithInlineBackground) {
-                if (el === clonedAvatarEl) continue; // 아바타는 이미 처리했으므로 건너뜁니다.
-
-                const style = el.getAttribute('style');
-                if (style && style.includes('url(')) {
-                    const urlMatch = style.match(/url\(["']?([^"')]+)["']?\)/);
-                    if (urlMatch && urlMatch[1]) {
-                        let url = urlMatch[1];
-                        url = url.replace(/&quot;/g, '"');
-                        const base64Url = await imageUrlToBase64(url);
-                        const newStyle = style.replace(/url\(["']?[^"')]+["']?\)/, `url("${base64Url}")`);
-                        el.setAttribute('style', newStyle);
+                    const match = bgImage.match(/url\(["']?([^"')]+)["']?\)/);
+                    if (match && match[1]) {
+                        imageUrl = match[1];
                     }
                 }
             }
 
-            if (applyStyles) {
-                const originalProseEl = node.querySelector('.prose, .chattext');
-                const clonedProseEl = clonedNode.querySelector('.prose, .chattext');
-                if (originalProseEl && clonedProseEl) {
-                    applyInlineStyles(originalProseEl, clonedProseEl);
-                }
-            } else {
-                clonedNode.querySelectorAll('[style]').forEach(el => {
-                    if (el === clonedAvatarEl) return; // 아바타 스타일은 유지
-                    const style = el.getAttribute('style');
-                    if (style && !style.includes('background') && !style.includes('width')) {
-                        el.removeAttribute('style');
-                    }
-                });
-            }
-
-            for (const img of clonedNode.querySelectorAll('img')) {
-                if (img.src) img.src = await imageUrlToBase64(img.src);
-                if (!applyStyles) {
-                    img.style.maxWidth = '100%';
-                    img.style.height = 'auto';
-                }
-            }
-
-            clonedNode.querySelectorAll('button').forEach(btn => {
-                if (btn.classList.contains('x-risu-tab-button')) return;
-                const buttonText = btn.textContent.trim();
-                const metaButtons = ['Plugin', 'System', 'Model', 'API'];
-                if (buttonText && metaButtons.some(meta => buttonText.toLowerCase().includes(meta.toLowerCase()))) {
-                    btn.remove();
-                    return;
-                }
-
-                // 버튼을 <span>으로 교체하는 대신, 비활성화하고 클릭 이벤트를 막습니다.
-                btn.disabled = true;
-                btn.style.pointerEvents = 'none';
-                // 이제 이 버튼은 스크립트의 다른 부분(applyInlineStyles)에서 스타일이 복사됩니다.
+            // 공통 스타일 적용
+            Object.assign(clonedAvatarEl.style, {
+                height: computedStyle.height || '3.5rem',
+                width: computedStyle.width || '3.5rem',
+                minWidth: computedStyle.minWidth || '3.5rem',
+                borderRadius: computedStyle.borderRadius || '0.375rem',
+                flexShrink: '0',
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                backgroundRepeat: 'no-repeat',
             });
 
-            finalHtml += clonedNode.outerHTML;
-        }
-        console.log('[Log Exporter] Generated HTML for', finalHtml ? 'messages' : '0 messages');
-
-        return finalHtml;
-    }
-    /**
-     * [신규] 메시지 DOM 노드에서 UI 관련 요소를 지능적으로 필터링합니다.
-     * @param {HTMLElement} elementToFilter - 필터링을 적용할 원본 DOM 요소.
-     * @param {object} options - 필터링 옵션 { complexityThreshold }.
-     * @returns {HTMLElement} 필터링이 적용된 복제된 DOM 요소.
-     */
-    function filterUiElementsFromNode(elementToFilter, options = {}) {
-        const { complexityThreshold = 25 } = options;
-        const tempEl = elementToFilter.cloneNode(true);
-
-        // 이미지 개수 확인
-        const imgCount = tempEl.querySelectorAll('img').length;
-        console.log('[Log Exporter] filterUiElementsFromNode - images before filter:', imgCount);
-
-        const childCountThreshold = Math.max(3, 30 - Math.floor(complexityThreshold / 2));
-        const textDensityMultiplier = Math.max(5, 40 - Math.floor(complexityThreshold / 2));
-        const keywordThreshold = Math.max(2, Math.floor(8 - complexityThreshold / 8));
-
-        // 이미지를 포함한 요소는 제거하지 않음
-        tempEl.querySelectorAll('table, details, summary, select, input, style, script, button, title, label, ul').forEach(el => {
-            if (!el.querySelector('img') && el.tagName !== 'IMG') {
-                el.remove();
+            // 3. 최종적으로 찾아낸 이미지 URL을 사용하거나, 실패 시 기본 아이콘을 표시합니다.
+            if (imageUrl) {
+                const base64Url = await imageUrlToBase64(imageUrl);
+                clonedAvatarEl.style.backgroundImage = `url("${base64Url}")`;
+                clonedAvatarEl.innerHTML = ''; // 기본 SVG 아이콘이 있다면 제거
+            } else {
+                clonedAvatarEl.style.backgroundColor = '#6b7280';
+                clonedAvatarEl.style.display = 'flex';
+                clonedAvatarEl.style.alignItems = 'center';
+                clonedAvatarEl.style.justifyContent = 'center';
+                clonedAvatarEl.innerHTML = `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#e5e7eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>`;
             }
+        }
+        // --- 아바타 처리 로직 끝 ---
+
+        const elementsWithInlineBackground = clonedNode.querySelectorAll('[style*="background"]');
+        for (const el of elementsWithInlineBackground) {
+            if (el === clonedAvatarEl) continue;
+
+            const style = el.getAttribute('style');
+            if (style && style.includes('url(')) {
+                const urlMatch = style.match(/url\(["']?([^"')]+)["']?\)/);
+                if (urlMatch && urlMatch[1]) {
+                    let url = urlMatch[1];
+                    url = url.replace(/&quot;/g, '"');
+                    const base64Url = await imageUrlToBase64(url);
+                    const newStyle = style.replace(/url\(["']?[^"')]+["']?\)/, `url("${base64Url}")`);
+                    el.setAttribute('style', newStyle);
+                }
+            }
+        }
+
+        if (applyStyles) {
+            const originalProseEl = node.querySelector('.prose, .chattext');
+            const clonedProseEl = clonedNode.querySelector('.prose, .chattext');
+            if (originalProseEl && clonedProseEl) {
+                applyInlineStyles(originalProseEl, clonedProseEl);
+            }
+        } else {
+            clonedNode.querySelectorAll('[style]').forEach(el => {
+                if (el === clonedAvatarEl) return;
+                const style = el.getAttribute('style');
+                if (style && !style.includes('background') && !style.includes('width')) {
+                    el.removeAttribute('style');
+                }
+            });
+        }
+
+        for (const img of clonedNode.querySelectorAll('img')) {
+            if (img.src) img.src = await imageUrlToBase64(img.src);
+            if (!applyStyles) {
+                img.style.maxWidth = '100%';
+                img.style.height = 'auto';
+            }
+        }
+
+        clonedNode.querySelectorAll('button').forEach(btn => {
+            btn.disabled = true;
+            btn.style.pointerEvents = 'none';
         });
 
+        finalHtml += clonedNode.outerHTML;
+    }
+    console.log('[Log Exporter] Generated HTML for', finalHtml ? 'messages' : '0 messages');
+
+    return finalHtml;
+}
+    // 대화 내용을 포함하는 x-risu 클래스들 (제거하면 안 되는 클래스들)
+const CONTENT_CLASSES = [
+    'x-risu-regex-quote-block',
+    'x-risu-regex-thought-block', 
+    'x-risu-regex-sound-block'
+];
+
+// UI 관련 x-risu 클래스들 (제거해도 되는 클래스들)
+const UI_CLASSES = [
+    'x-risu-base-container',
+    'x-risu-chapel-container',
+    'x-risu-succubus-container',
+    'x-risu-image-container',
+    'x-risu-button-container',
+    'x-risu-base-button',
+    'x-risu-chapel-button',
+    'x-risu-succubus-button'
+];
+
+// 수정된 filterUiElementsFromNode 함수
+function filterUiElementsFromNode(elementToFilter, options = {}) {
+    const { complexityThreshold = 25 } = options;
+    const tempEl = elementToFilter.cloneNode(true);
+
+    // 보존해야 할 대화 관련 클래스들
+    const PRESERVE_CLASSES = [
+        'x-risu-regex-quote-block',
+        'x-risu-regex-thought-block', 
+        'x-risu-regex-sound-block'
+    ];
+
+    // 이미지 개수 확인
+    const imgCount = tempEl.querySelectorAll('img').length;
+    console.log('[Log Exporter] filterUiElementsFromNode - images before filter:', imgCount);
+
+    // 대화 관련 요소들을 임시로 보호
+    const protectedElements = [];
+    PRESERVE_CLASSES.forEach(className => {
+        tempEl.querySelectorAll(`.${className}`).forEach((el, index) => {
+            const placeholder = document.createElement('span');
+            placeholder.setAttribute('data-preserve', `${className}-${index}`);
+            placeholder.textContent = el.textContent; // 텍스트는 보존
+            protectedElements.push({
+                placeholder: placeholder,
+                element: el.cloneNode(true),
+                key: `${className}-${index}`
+            });
+            el.replaceWith(placeholder);
+        });
+    });
+
+    const childCountThreshold = Math.max(3, 30 - Math.floor(complexityThreshold / 2));
+    const textDensityMultiplier = Math.max(5, 40 - Math.floor(complexityThreshold / 2));
+    const keywordThreshold = Math.max(2, Math.floor(8 - complexityThreshold / 8));
+
+    // 이미지를 포함한 요소나 보존된 요소는 제거하지 않음
+    tempEl.querySelectorAll('table, details, summary, select, input, style, script, button, title, label, ul').forEach(el => {
+        if (!el.querySelector('img') && el.tagName !== 'IMG' && !el.querySelector('[data-preserve]')) {
+            el.remove();
+        }
+    });
+
+    if (keywordThreshold < 8) {
         const uiKeywords = ['게시판', '정보', '설정', '퀘스트', '프로필', '새로고침', '글쓰기', '조회', '추천', '등록일', '작성자'];
         const allDivs = tempEl.querySelectorAll('div');
         for (let i = allDivs.length - 1; i >= 0; i--) {
             const div = allDivs[i];
             if (!div.parentElement) continue;
 
-            // 이미지를 포함한 div는 제거하지 않음
-            if (div.querySelector('img')) continue;
+            // 이미지나 보존된 요소를 포함한 div는 건너뛰기
+            if (div.querySelector('img') || div.querySelector('[data-preserve]')) continue;
 
-            if (keywordThreshold < 8) {
-                const text = div.textContent;
-                let keywordCount = 0;
-                uiKeywords.forEach(keyword => { if (text.includes(keyword)) keywordCount++; });
-                if (keywordCount >= keywordThreshold) {
-                    div.remove();
-                    continue;
-                }
+            const text = div.textContent;
+            let keywordCount = 0;
+            uiKeywords.forEach(keyword => { if (text.includes(keyword)) keywordCount++; });
+            if (keywordCount >= keywordThreshold) {
+                div.remove();
+                continue;
             }
         }
+    }
 
-        const allElements = tempEl.querySelectorAll('div, span, p');
-        for (let i = allElements.length - 1; i >= 0; i--) {
-            const el = allElements[i];
-            if (!el.parentElement) continue;
+    const allElements = tempEl.querySelectorAll('div, span, p');
+    for (let i = allElements.length - 1; i >= 0; i--) {
+        const el = allElements[i];
+        if (!el.parentElement) continue;
 
-            // 이미지를 포함한 요소는 건너뛰기
-            if (el.querySelector('img') || el.tagName === 'IMG') continue;
+        // 이미지나 보존된 요소를 포함한 요소는 건너뛰기
+        if (el.querySelector('img') || el.tagName === 'IMG' || el.querySelector('[data-preserve]')) continue;
 
-            if (el.matches('[class*="quote"], [class*="thought"], [class*="sound"]')) continue;
+        if (el.matches('[class*="quote"], [class*="thought"], [class*="sound"]')) continue;
 
-            const descendantCount = el.children.length;
-            const textLength = el.textContent.trim().length;
-            const containsParagraphs = el.querySelector('p');
+        const descendantCount = el.children.length;
+        const textLength = el.textContent.trim().length;
+        const containsParagraphs = el.querySelector('p');
 
-            if (descendantCount > childCountThreshold && textLength < descendantCount * textDensityMultiplier && !containsParagraphs) {
+        if (descendantCount > childCountThreshold && textLength < descendantCount * textDensityMultiplier && !containsParagraphs) {
+            el.remove();
+            continue;
+        }
+
+        if (descendantCount === 0 && textLength > 0 && textLength < 50 && !containsParagraphs) {
+            const cleanedText = el.textContent.trim();
+
+            const uiTextPattern = /:|\d+\s*\/\s*\d+|^\?{2,}$/;
+            const isAllCapsAbbreviation = /^[A-Z]{2,5}$/.test(cleanedText);
+            const isDateTimeMeta = /\d{4}-\d{2}-\d{2}|\d{2}:\d{2}:\d{2}/.test(cleanedText);
+
+            if (complexityThreshold > 15 && (uiTextPattern.test(cleanedText) || isAllCapsAbbreviation || isDateTimeMeta)) {
                 el.remove();
                 continue;
             }
-
-            if (descendantCount === 0 && textLength > 0 && textLength < 50 && !containsParagraphs) {
-                const cleanedText = el.textContent.trim();
-
-                const uiTextPattern = /:|\d+\s*\/\s*\d+|^\?{2,}$/;
-                const isAllCapsAbbreviation = /^[A-Z]{2,5}$/.test(cleanedText);
-                const isDateTimeMeta = /\d{4}-\d{2}-\d{2}|\d{2}:\d{2}:\d{2}/.test(cleanedText);
-
-                if (complexityThreshold > 15 && (uiTextPattern.test(cleanedText) || isAllCapsAbbreviation || isDateTimeMeta)) {
-                    el.remove();
-                    continue;
-                }
-            }
         }
-
-        // 필터링 후 이미지 개수 확인
-        const imgCountAfter = tempEl.querySelectorAll('img').length;
-        console.log('[Log Exporter] filterUiElementsFromNode - images after filter:', imgCountAfter);
-
-        return tempEl;
     }
+
+    // 보존된 요소들을 다시 복원
+    protectedElements.forEach(({ placeholder, element, key }) => {
+        const currentPlaceholder = tempEl.querySelector(`[data-preserve="${key}"]`);
+        if (currentPlaceholder) {
+            currentPlaceholder.replaceWith(element);
+        }
+    });
+
+    // 필터링 후 이미지 개수 확인
+    const imgCountAfter = tempEl.querySelectorAll('img').length;
+    console.log('[Log Exporter] filterUiElementsFromNode - images after filter:', imgCountAfter);
+
+    return tempEl;
+}
     /**
      * [수정] '기본' 형식을 위한 로그 문자열을 생성합니다.
      * UI 필터링을 지원하며, 가독성을 높인 카드 스타일의 HTML을 생성합니다.
@@ -596,7 +656,7 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
      * @param {object} [options={}] - 추가 옵션 (필터링 여부 및 강도).
      * @returns {Promise<string>} 형식화된 로그 HTML 문자열.
      */
-    async function generateBasicFormatLog(nodes, options = {}) {
+  async function generateBasicFormatLog(nodes, options = {}) {
     const { useFilter = false, complexityThreshold = 25 } = options;
     let log = '';
 
@@ -604,24 +664,27 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
         if (node.querySelector('textarea')) continue;
 
         let name = '';
-        const nameEl = node.querySelector('.chat-user-name') || node.querySelector('[class*="user-name"]');
+        // [수정 1] 화자 이름을 찾는 선택자를 정확하게 변경했습니다.
+        const nameEl = node.querySelector('.unmargin.text-xl');
         if (nameEl) {
             name = nameEl.textContent.trim();
         } else {
+            // 이름이 없는 경우 (시스템 메시지 등)에 대한 대비책
             name = node.classList.contains('justify-end') ? 'User' : 'Assistant';
         }
 
-        const messageEl = node.querySelector('.prose') || node.querySelector('[class*="prose"]');
+        const messageEl = node.querySelector('.prose, .chattext');
         if (!messageEl) continue;
 
-        let contentSourceEl;
+        let contentSourceEl = messageEl.cloneNode(true); // 원본 보호를 위해 복제
+
+        // [수정 2] 대화 내용을 지우던 버그가 있는 필터 로직을 안전한 방식으로 변경했습니다.
         if (useFilter) {
-            contentSourceEl = filterUiElementsFromNode(messageEl, { complexityThreshold });
-        } else {
-            contentSourceEl = messageEl.cloneNode(true);
+            // 이미지, 버튼 등 명백한 비-대화 UI 요소만 제거합니다.
+            contentSourceEl.querySelectorAll('.x-risu-image-container, .x-risu-button-container, .x-risu-message-box').forEach(el => el.remove());
         }
 
-        // 모든 이미지를 Base64로 변환
+        // 모든 이미지를 Base64로 변환 (이 로직은 유지)
         for (const img of contentSourceEl.querySelectorAll('img')) {
             if (img.src) {
                 img.src = await imageUrlToBase64(img.src);
@@ -635,20 +698,24 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
                 });
             }
         }
-
-        contentSourceEl.querySelectorAll('button, script, style, .log-exporter-msg-btn-group').forEach(el => {
-            if (!el.querySelector('img') && el.tagName !== 'IMG') {
-                el.remove();
-            }
+        
+        // 기타 불필요한 스크립트, 스타일 태그 제거
+        contentSourceEl.querySelectorAll('script, style, .log-exporter-msg-btn-group').forEach(el => el.remove());
+        
+        // 버튼은 비활성화 처리
+        contentSourceEl.querySelectorAll('button').forEach(btn => {
+            btn.disabled = true;
+            btn.style.pointerEvents = 'none';
         });
 
         const messageHtml = contentSourceEl.innerHTML.trim();
+        // 내용이 비어있으면 해당 메시지는 건너뜁니다.
         if (messageHtml.length === 0) continue;
         
         const isUser = node.classList.contains('justify-end');
         const cardBgColor = isUser ? '#414868' : '#24283b';
-        const nameColor = '#e0e7ff';  // 밝은 라벤더색으로 변경
-        const textColor = '#ffffff';   // 순수 하얀색으로 변경
+        const nameColor = '#e0e7ff';
+        const textColor = '#ffffff';
 
         log += `
             <div style="margin-bottom: 24px;">
@@ -671,105 +738,64 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
      * @param {object} [options={}] - 추가 옵션 (필터링 여부 및 강도).
      * @returns {Promise<string>} 형식화된 로그 문자열.
      */
-    async function generateFormattedLog(nodes, format, options = {}) {
-        const { useFilter = true, complexityThreshold = 25 } = options;
-        let log = '';
-        console.log('[Log Exporter] Generating formatted log for', nodes.length, 'messages');
-        for (const node of nodes) {
-            if (node.querySelector('textarea')) {
-                console.log('[Log Exporter] Skipping message with textarea');
-                continue;
-            }
-            const chatIdx = node.querySelector('[data-chat-index]')?.getAttribute('data-chat-index');
-            console.log('[Log Exporter] Processing text for message index:', chatIdx);
-            let name = '';
-            const nameEl = node.querySelector('.chat-user-name') || node.querySelector('[class*="user-name"]');
-            if (nameEl) {
-                name = nameEl.textContent.trim();
-            }
+async function generateFormattedLog(nodes, format, options = {}) {
+    // NOTE: 이 함수는 텍스트/마크다운 추출 전용입니다.
+    // 복잡한 UI 필터링은 오히려 대화 내용을 제거하는 버그를 유발하므로,
+    // 이미지/버튼 컨테이너 등 명백한 비텍스트 UI 요소만 제거하는 단순한 방식을 사용합니다.
+    const { useFilter = true } = options; // complexityThreshold는 더 이상 사용하지 않습니다.
+    let log = '';
+    
+    for (const node of nodes) {
+        if (node.querySelector('textarea')) {
+            continue;
+        }
+        
+        let name = '';
+        // 이름 추출 로직은 정확합니다.
+        const nameEl = node.querySelector('.unmargin.text-xl');
+        if (nameEl) {
+            name = nameEl.textContent.trim();
+        }
 
-            let message = '';
-            const messageEl = node.querySelector('.prose') || node.querySelector('[class*="prose"]');
+        let message = '';
+        const messageEl = node.querySelector('.prose, .chattext');
 
-            if (messageEl) {
-                if ((format === 'text' || format === 'markdown') && useFilter) {
-                    const tempEl = messageEl.cloneNode(true);
+        if (messageEl) {
+            if (useFilter) {
+                // 1. 메시지 요소를 복제하여 원본을 건드리지 않도록 합니다.
+                const tempEl = messageEl.cloneNode(true);
+                
+                // 2. 텍스트가 아닌 명백한 UI 컨테이너들을 제거합니다.
+                //    (이미지, 버튼 박스 등)
+                tempEl.querySelectorAll('.x-risu-image-container, .x-risu-button-container, .x-risu-message-box').forEach(el => el.remove());
 
-                    const childCountThreshold = Math.max(3, 30 - Math.floor(complexityThreshold / 2));
-                    const textDensityMultiplier = Math.max(5, 40 - Math.floor(complexityThreshold / 2));
-                    const keywordThreshold = Math.max(2, Math.floor(8 - complexityThreshold / 8));
-
-                    tempEl.querySelectorAll('table, details, summary, select, input, style, script, button, title, label, ul').forEach(el => el.remove());
-
-                    const uiKeywords = ['게시판', '정보', '설정', '퀘스트', '프로필', '새로고침', '글쓰기', '조회', '추천', '등록일', '작성자'];
-                    const allDivs = tempEl.querySelectorAll('div');
-                    for (let i = allDivs.length - 1; i >= 0; i--) {
-                        const div = allDivs[i];
-                        if (!div.parentElement) continue;
-                        if (keywordThreshold < 8) {
-                            const text = div.textContent;
-                            let keywordCount = 0;
-                            uiKeywords.forEach(keyword => { if (text.includes(keyword)) keywordCount++; });
-                            if (keywordCount >= keywordThreshold) {
-                                div.remove();
-                                continue;
-                            }
-                        }
-                    }
-
-                    const allElements = tempEl.querySelectorAll('div, span, p');
-                    for (let i = allElements.length - 1; i >= 0; i--) {
-                        const el = allElements[i];
-                        if (!el.parentElement) continue;
-                        if (el.matches('[class*="quote"], [class*="thought"], [class*="sound"]')) continue;
-
-                        const descendantCount = el.children.length;
-                        const textLength = el.textContent.trim().length;
-                        const containsParagraphs = el.querySelector('p');
-
-                        if (descendantCount > childCountThreshold && textLength < descendantCount * textDensityMultiplier && !containsParagraphs) {
-                            el.remove();
-                            continue;
-                        }
-
-                        if (descendantCount === 0 && textLength > 0 && textLength < 50 && !containsParagraphs) {
-                            const cleanedText = el.textContent.trim();
-
-                            const uiTextPattern = /:|\d+\s*\/\s*\d+|^\?{2,}$/;
-                            const isAllCapsAbbreviation = /^[A-Z]{2,5}$/.test(cleanedText);
-                            const isDateTimeMeta = /\d{4}-\d{2}-\d{2}|\d{2}:\d{2}:\d{2}/.test(cleanedText);
-
-                            if (complexityThreshold > 15 && (uiTextPattern.test(cleanedText) || isAllCapsAbbreviation || isDateTimeMeta)) {
-                                el.remove();
-                                continue;
-                            }
-                        }
-                    }
-
-                    message = tempEl.textContent.trim();
-                    message = message.replace(/\n\s*\n/g, '\n\n');
-
-                } else {
-                    message = messageEl.textContent.trim();
-                }
-            }
-
-            if (!name && !message) continue;
-            if (message.length === 0) continue;
-
-            if (!name) {
-                name = node.classList.contains('justify-end') ? 'User' : 'Assistant';
-            }
-
-            if (format === 'markdown') {
-                log += `**${name}:** ${message}\n\n---\n\n`;
+                // 3. 남은 요소에서 순수 텍스트만 추출합니다.
+                message = tempEl.textContent.trim();
+                
+                // 4. 요소 제거 후 발생할 수 있는 불필요한 공백들을 정리합니다.
+                message = message.replace(/\n\s*\n/g, '\n\n');
             } else {
-                log += `[${name}]\n${message}\n\n${'─'.repeat(40)}\n\n`;
+                // 필터링을 사용하지 않는 경우, 그대로 텍스트를 추출합니다.
+                message = messageEl.textContent.trim();
             }
         }
 
-        return log.trim();
+        // 내용이 없는 메시지는 건너뜁니다.
+        if (!message) continue;
+
+        if (!name) {
+            name = node.classList.contains('justify-end') ? 'User' : 'Assistant';
+        }
+
+        if (format === 'markdown') {
+            log += `**${name}:** ${message}\n\n---\n\n`;
+        } else {
+            log += `[${name}]\n${message}\n\n${'─'.repeat(40)}\n\n`;
+        }
     }
+
+    return log.trim();
+}
     /**
      * 주어진 콘텐츠를 사용자의 클립보드에 복사합니다.
      * 최신 Clipboard API를 우선적으로 사용하며, HTML 형식 복사도 지원합니다.
@@ -1014,19 +1040,30 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
     }
 
 /**
- * [개선됨] 메시지 노드들에서 사용된 모든 x-risu 클래스명을 수집하고,
- * 부모-자식 계층 구조와 이미지 포함 여부를 분석하여 구조화된 객체 배열로 반환합니다.
+ * [최종 수정] 메시지 노드들에서 사용된 UI 클래스명을 수집합니다.
+ * 대화 내용과 직접적으로 관련된 필수 클래스(인용구, 생각 등)는 필터링 목록에서 원천적으로 제외하여
+ * 대화 내용이 삭제되는 치명적인 버그를 수정합니다.
  * @param {HTMLElement[]} nodes - 분석할 메시지 DOM 노드의 배열.
  * @returns {{name: string, displayName: string, hasImage: boolean}[]} 클래스 정보 객체 배열.
  */
 function collectUIClasses(nodes) {
+    // 이 클래스들은 대화 내용 그 자체이므로 절대 UI 필터 목록에 포함되어서는 안 됩니다.
+    const CONTENT_CLASSES_TO_PRESERVE = [
+        'x-risu-regex-quote-block',
+        'x-risu-regex-thought-block',
+        'x-risu-regex-sound-block'
+    ];
+
     const classDetails = new Map();
     const classHierarchy = new Map();
 
     // 1단계: 모든 x-risu 클래스와 그 속성(이미지, 부모) 수집
     nodes.forEach(node => {
         node.querySelectorAll('*[class*="x-risu-"]').forEach(el => {
-            const currentClasses = Array.from(el.classList).filter(c => c.startsWith('x-risu-'));
+            // 필수 콘텐츠 클래스를 제외한 순수 UI 클래스만 추출합니다.
+            const currentClasses = Array.from(el.classList)
+                .filter(c => c.startsWith('x-risu-') && !CONTENT_CLASSES_TO_PRESERVE.includes(c));
+
             if (currentClasses.length === 0) return;
 
             const containsImage = el.querySelector('img') !== null;
@@ -1034,9 +1071,10 @@ function collectUIClasses(nodes) {
             let parentEl = el.parentElement;
             let parentRisuClass = null;
             while(parentEl && parentEl !== node) {
-                const parentClasses = Array.from(parentEl.classList).filter(c => c.startsWith('x-risu-'));
+                const parentClasses = Array.from(parentEl.classList)
+                    .filter(c => c.startsWith('x-risu-') && !CONTENT_CLASSES_TO_PRESERVE.includes(c));
                 if (parentClasses.length > 0) {
-                    parentRisuClass = parentClasses[0]; // 가장 가까운 첫 번째 부모 클래스를 대표로 삼음
+                    parentRisuClass = parentClasses[0];
                     break;
                 }
                 parentEl = parentEl.parentElement;
@@ -1074,7 +1112,7 @@ function collectUIClasses(nodes) {
         }
     }
 
-    // 3단계: 최종 출력 배열 생성 (계층 구조에 따라 재귀적으로)
+    // 3단계: 최종 출력 배열 생성
     const result = [];
     const buildDisplayList = (classNames, depth) => {
         classNames.sort().forEach(className => {
@@ -1083,7 +1121,7 @@ function collectUIClasses(nodes) {
 
             let displayName = ' '.repeat(depth * 2) + (depth > 0 ? '└ ' : '') + className;
             if (details.hasImage) {
-                displayName += ' (이미지 포함 되어 있음)';
+                displayName += ' (이미지 포함)';
             }
 
             result.push({
@@ -1151,456 +1189,417 @@ function collectUIClasses(nodes) {
         return tempEl;
     }
 
-    /**
-* 로그 내보내기 옵션을 설정하고 결과를 미리 볼 수 있는 메인 모달 창을 표시합니다.
+/**
+* [진단 코드 포함 버전] 로그 내보내기 옵션을 설정하고 결과를 미리 볼 수 있는 메인 모달 창을 표시합니다.
 * 이 함수는 모달의 생성, 이벤트 리스너 설정, 미리보기 업데이트 등 모든 UI 상호작용을 총괄합니다.
 * 사용자의 선택에 따라 다른 형식(HTML, 텍스트, 마크다운)의 로그를 생성하고 내보내기/복사 기능을 실행합니다.
 * @param {number} chatIndex - 내보낼 채팅의 인덱스.
 * @param {object} [options={}] - 추가 옵션 (특정 메시지부터 내보내기 등).
 */
-    async function showCopyPreviewModal(chatIndex, options = {}) {
-        try {
-            let { charName, chatName, charAvatarUrl, messageNodes } = await processChatLog(chatIndex);
+async function showCopyPreviewModal(chatIndex, options = {}) {
+    try {
+        let { charName, chatName, charAvatarUrl, messageNodes } = await processChatLog(chatIndex);
 
-            const { startIndex, singleMessage } = options;
-            if (typeof startIndex === 'number') {
-                if (singleMessage) {
-                    messageNodes = [messageNodes[startIndex]];
-                    chatName += ` (메시지 #${startIndex + 1})`;
-                } else {
-                    messageNodes = messageNodes.slice(startIndex);
-                    chatName += ` (메시지 #${startIndex + 1}부터)`;
-                }
+        const { startIndex, singleMessage } = options;
+        if (typeof startIndex === 'number') {
+            if (singleMessage) {
+                messageNodes = [messageNodes[startIndex]];
+                chatName += ` (메시지 #${startIndex + 1})`;
+            } else {
+                messageNodes = messageNodes.slice(startIndex);
+                chatName += ` (메시지 #${startIndex + 1}부터)`;
             }
+        }
 
-            const participants = new Set();
-            const getNameFromNode = (node) => {
-                if (node.classList.contains('justify-end')) return '사용자';
-                const nameEl = node.querySelector('.unmargin.text-xl');
-                return nameEl ? nameEl.textContent.trim() : charName;
-            };
+        const participants = new Set();
+        const getNameFromNode = (node) => {
+            const nameEl = node.querySelector('.unmargin.text-xl');
+            if (nameEl) return nameEl.textContent.trim();
+            if (node.classList.contains('justify-end')) return '사용자';
+            return charName;
+        };
 
-            messageNodes.forEach(node => {
-                const name = getNameFromNode(node);
-                if (name) participants.add(name);
-            });
+        messageNodes.forEach(node => {
+            const name = getNameFromNode(node);
+            if (name) participants.add(name);
+        });
 
-            let participantCheckboxesHtml = '';
-            participants.forEach(name => {
-                const safeName = name.replace(/"/g, '&quot;');
-                participantCheckboxesHtml += `
-                <label style="margin-right: 15px;">
-                    <input type="checkbox" class="participant-filter-checkbox" data-name="${safeName}" checked> ${name}
-                </label>
-            `;
-            });
+        let participantCheckboxesHtml = '';
+        participants.forEach(name => {
+            const safeName = name.replace(/"/g, '&quot;');
+            participantCheckboxesHtml += `
+            <label style="margin-right: 15px;">
+                <input type="checkbox" class="participant-filter-checkbox" data-name="${safeName}" checked> ${name}
+            </label>
+        `;
+        });
 
-            // x-risu UI 클래스 수집
-            const uiClasses = collectUIClasses(messageNodes);
+        const uiClasses = collectUIClasses(messageNodes);
 
-            // 일반적으로 필터링하면 좋은 x-risu 클래스들
-            const defaultFilterClasses = [
-                'x-risu-a-status-window',
-                'x-risu-game-alert-content',
-                'x-risu-hunter-container',
-                'x-risu-regex-game-system-alert-wrapper'
-            ];
-
-            // 커스텀 필터 체크박스 HTML 생성
-            let customFilterHtml = '';
-if (uiClasses.length > 0) {
-    customFilterHtml = `
-    <div id="custom-filter-section" style="display: none; ...">
-        <strong>RisuAI UI 요소 필터:</strong>
-        <div style="max-height: 200px; overflow-y: auto; ...">
-            ${uiClasses.map(classInfo => `
-                <label style="display: flex; align-items: center; ...">
-                    <input type="checkbox" class="custom-filter-class" data-class="${classInfo.name}" 
-                           ${!classInfo.hasImage ? 'checked' : ''}>
-                    <span style="font-size: 0.85em; margin-left: 5px; font-family: monospace;">${classInfo.displayName}</span>
-                </label>
-            `).join('')}
-        </div>
-        ...
-    </div>`;
-}
-
-            const modal = document.createElement('div');
-            modal.className = 'log-exporter-modal-backdrop';
-            modal.innerHTML = `
-            <div class="log-exporter-modal">
-                <div class="log-exporter-modal-header">로그 내보내기 옵션</div>
-                <div class="log-exporter-modal-content">
-                    <div class="log-exporter-modal-options">
-                        <strong>형식:</strong>
-                        <label><input type="radio" name="log-format" value="html" checked> HTML</label>
-                        <label><input type="radio" name="log-format" value="basic"> 기본</label>
-                        <label><input type="radio" name="log-format" value="markdown"> 마크다운</label>
-                        <label><input type="radio" name="log-format" value="text"> 일반 텍스트</label>
-                        <div id="image-scale-controls" style="display: flex; align-items: center; gap: 8px; margin-left: auto;">
-        <label for="image-scale-slider" title="미리보기의 모든 이미지 크기를 조절합니다." style="font-size:0.9em;">이미지 크기:</label>
-        <input type="range" id="image-scale-slider" min="10" max="100" value="100" step="5" style="width: 80px;">
-        <span id="image-scale-value" style="font-size: 0.9em; width: 35px; text-align: right;">100%</span>
-    </div>
-    
-    <div id="html-style-controls" style="display:inline-flex; align-items:center;">
-       <label><input type="checkbox" id="style-toggle-checkbox"> 스타일 인라인 적용</label>
-    </div>
-
-                        <div id="filter-controls">
-                            <label><input type="checkbox" id="filter-toggle-checkbox" checked> UI 필터링 적용</label>
-                            ${uiClasses.length > 0 ? `
-                                <button id="custom-filter-toggle" class="log-exporter-modal-btn" style="margin-left: 10px; padding: 3px 8px; font-size: 0.85em;">
-                                    커스텀 필터 설정 ▼
-                                </button>
-                            ` : ''}
-                            <div id="filter-slider-container" style="display: flex; align-items: center; gap: 8px;">
-                                <label for="filter-strength-slider" title="값이 높을수록 더 많은 UI를 제거합니다.">필터 강도:</label>
-                                <input type="range" id="filter-strength-slider" min="1" max="50" value="25" step="1" style="width: 80px;">
-                                <span id="filter-strength-value" style="font-size: 0.9em; width: 20px;">25</span>
-                            </div>
-                        </div>
-                    </div>
-                    ${customFilterHtml}
-                    <div style="background: #1f2335; padding: 10px; border-radius: 5px;">
-                        <strong>참가자 필터:</strong>
-                        <div id="participant-filter-container" style="display: flex; flex-wrap: wrap; margin-top: 8px;">
-                            ${participantCheckboxesHtml}
-                        </div>
-                    </div>
-                    <strong>미리보기:</strong>
-                    <div class="log-exporter-modal-preview"><div style="text-align:center;color:#8a98c9;">로그 데이터 생성 중...</div></div>
-                </div>
-                <div class="log-exporter-modal-footer" id="log-exporter-footer">
-                    <button class="log-exporter-modal-btn" id="log-exporter-close">닫기</button>
-                    <button class="log-exporter-modal-btn" id="log-exporter-save-file">HTML 파일로 저장</button>
-                    
-                    <div id="image-export-controls" style="display: flex; align-items: center; gap: 15px; margin-left: auto; flex-wrap: wrap;">
-                        <div style="display: flex; align-items: center; gap: 5px;">
-                            <label for="image-font-size" style="font-size: 0.9em; color: #a9b1d6;" title="이미지의 기준 폰트 크기를 조절합니다.">폰트:</label>
-                            <input type="number" id="image-font-size" value="16" step="1" style="width: 45px; background: #1a1b26; color: #c0caf5; border: 1px solid #414868; border-radius: 3px; padding: 2px;">
-                            <span style="font-size: 0.9em; color: #a9b1d6;">px</span>
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 5px;">
-                            <label for="image-width" style="font-size: 0.9em; color: #a9b1d6;" title="이미지의 가로 너비를 조절합니다.">너비:</label>
-                            <input type="number" id="image-width" value="400" step="10" style="width: 60px; background: #1a1b26; color: #c0caf5; border: 1px solid #414868; border-radius: 3px; padding: 2px;">
-                            <span style="font-size: 0.9em; color: #a9b1d6;">px</span>
-                        </div>
-                        <label style="font-size: 0.9em; color: #a9b1d6; cursor: pointer;" title="체크 시 원본 해상도로 저장하여 매우 선명하지만, 처리 시간이 길어집니다.">
-                            <input type="checkbox" id="high-res-toggle"> 고해상도
+        let customFilterHtml = '';
+        if (uiClasses.length > 0) {
+            customFilterHtml = `
+            <div id="custom-filter-section" style="display: none; border: 1px solid #414868; padding: 10px; border-radius: 5px; margin-top: 10px;">
+                <strong>RisuAI UI 요소 필터 (체크된 항목이 제거됩니다):</strong>
+                <div style="max-height: 150px; overflow-y: auto; border: 1px solid #2a2f41; padding: 8px; margin-top: 5px; background: #1a1b26;">
+                    ${uiClasses.map(classInfo => `
+                        <label style="display: block; margin-bottom: 4px; cursor: pointer;">
+                            <input type="checkbox" class="custom-filter-class" data-class="${classInfo.name}" 
+                                ${!classInfo.hasImage ? 'checked' : ''}>
+                            <span style="font-size: 0.85em; margin-left: 5px; font-family: monospace;">${classInfo.displayName}</span>
                         </label>
-                        <button class="log-exporter-modal-btn image-save" id="log-exporter-save-image">이미지로 저장</button>
-                    </div>
-                    
-                    <button class="log-exporter-modal-btn primary" id="log-exporter-copy">클립보드에 복사</button>
-                </div>
-                <div class="log-exporter-modal-footer" id="log-exporter-progress-footer" style="display: none; flex-direction: column; align-items: stretch; gap: 10px;">
-                    <div style="display: flex; justify-content: space-between; font-size: 0.9em;">
-                        <span id="progress-status-text">이미지 처리 중...</span>
-                        <span id="progress-percentage-text">0%</span>
-                    </div>
-                    <progress id="export-progress-bar" value="0" max="100" style="width: 100%; height: 10px;"></progress>
-                    <button class="log-exporter-modal-btn" id="log-exporter-cancel-image" style="background-color: #f7768e; color: #1a1b26;">취소</button>
+                    `).join('')}
                 </div>
             </div>`;
-            document.body.appendChild(modal);
+        }
 
-            const previewEl = modal.querySelector('.log-exporter-modal-preview');
-            const imageScaleControls = modal.querySelector('#image-scale-controls');
-            const imageScaleSlider = modal.querySelector('#image-scale-slider');
-            const imageScaleValue = modal.querySelector('#image-scale-value');
-            const saveFileBtn = modal.querySelector('#log-exporter-save-file');
-            const saveImageControls = modal.querySelector('#image-export-controls');
-            const htmlStyleControls = modal.querySelector('#html-style-controls');
-            const styleToggleCheckbox = modal.querySelector('#style-toggle-checkbox');
-            const filterControls = modal.querySelector('#filter-controls');
-            const filterToggleCheckbox = modal.querySelector('#filter-toggle-checkbox');
-            const filterSliderContainer = modal.querySelector('#filter-slider-container');
-            const filterSlider = modal.querySelector('#filter-strength-slider');
-            const filterValueDisplay = modal.querySelector('#filter-strength-value');
-            const applyImageScaling = () => {
-                const scale = imageScaleSlider.value;
-                imageScaleValue.textContent = `${scale}%`;
-                // 미리보기 안의 모든 이미지에 max-width 스타일 적용
-                previewEl.querySelectorAll('img').forEach(img => {
-                    img.style.maxWidth = `${scale}%`;
-                    img.style.height = 'auto'; // 종횡비 유지를 위해 height는 auto로 설정
-                });
-            };
-            imageScaleSlider.addEventListener('input', applyImageScaling);
-            const getFilteredNodes = () => {
-                const hiddenNames = Array.from(modal.querySelectorAll('.participant-filter-checkbox:not(:checked)'))
-                    .map(cb => cb.dataset.name);
-                if (hiddenNames.length === 0) return messageNodes;
-                return messageNodes.filter(node => {
-                    const name = getNameFromNode(node);
-                    return !hiddenNames.includes(name);
-                });
-            };
 
-            const [charAvatarBase64, extractedCss] = await Promise.all([
-                imageUrlToBase64(charAvatarUrl),
-                extractCssForNodes(messageNodes)
-            ]);
-
-            const buildFullHtml = (content) => {
-                return `<div style="padding:15px;background-color:#1a1b26;max-width:900px;width:100%;margin:auto;font-family:sans-serif;line-height:1.6;color:#c0caf5;box-sizing:border-box;">
-                <div style="text-align:center;padding-bottom:15px;margin-bottom:20px; border-bottom:1px solid #414868;">
-                    <img src="${charAvatarBase64}" alt="${charName}" style="width:60px;height:60px;border-radius:50%;object-fit:cover;margin:0 auto 10px;border:2px solid #414868;display:block;">
-                    <h2 style="margin:0 0 5px 0;font-size:1.5em;color:#c0caf5;font-weight:bold;">${charName}</h2>
-                    <p style="margin:0;color:#8a98c9;font-size:0.95em;">${chatName}</p>
+        const modal = document.createElement('div');
+        modal.className = 'log-exporter-modal-backdrop';
+        modal.innerHTML = `
+        <div class="log-exporter-modal">
+            <div class="log-exporter-modal-header">로그 내보내기 옵션</div>
+            <div class="log-exporter-modal-content">
+                <div class="log-exporter-modal-options">
+                    <strong>형식:</strong>
+                    <label><input type="radio" name="log-format" value="html" checked> HTML</label>
+                    <label><input type="radio" name="log-format" value="basic"> 기본</label>
+                    <label><input type="radio" name="log-format" value="markdown"> 마크다운</label>
+                    <label><input type="radio" name="log-format" value="text"> 일반 텍스트</label>
+                    <div id="image-scale-controls" style="display: flex; align-items: center; gap: 8px; margin-left: auto;">
+                        <label for="image-scale-slider" title="미리보기의 모든 이미지 크기를 조절합니다." style="font-size:0.9em;">이미지 크기:</label>
+                        <input type="range" id="image-scale-slider" min="10" max="100" value="100" step="5" style="width: 80px;">
+                        <span id="image-scale-value" style="font-size: 0.9em; width: 35px; text-align: right;">100%</span>
+                    </div>
+                    <div id="html-style-controls" style="display:inline-flex; align-items:center;">
+                        <label><input type="checkbox" id="style-toggle-checkbox"> 스타일 인라인 적용</label>
+                    </div>
+                    <div id="filter-controls">
+                        <label><input type="checkbox" id="filter-toggle-checkbox" checked> UI 필터링 적용</label>
+                        ${uiClasses.length > 0 ? `
+                            <button id="custom-filter-toggle" class="log-exporter-modal-btn" style="margin-left: 10px; padding: 3px 8px; font-size: 0.85em;">
+                                커스텀 필터 설정 ▼
+                            </button>
+                        ` : ''}
+                        <div id="filter-slider-container" style="display: flex; align-items: center; gap: 8px;">
+                            <label for="filter-strength-slider" title="값이 높을수록 더 많은 UI를 제거합니다.">필터 강도:</label>
+                            <input type="range" id="filter-strength-slider" min="1" max="50" value="25" step="1" style="width: 80px;">
+                            <span id="filter-strength-value" style="font-size: 0.9em; width: 20px;">25</span>
+                        </div>
+                    </div>
                 </div>
-                <div>${content}</div>
-            </div>`;
-            };
+                ${customFilterHtml}
+                <div style="background: #1f2335; padding: 10px; border-radius: 5px;">
+                    <strong>참가자 필터:</strong>
+                    <div id="participant-filter-container" style="display: flex; flex-wrap: wrap; margin-top: 8px;">
+                        ${participantCheckboxesHtml}
+                    </div>
+                </div>
+                <strong>미리보기:</strong>
+                <div class="log-exporter-modal-preview"><div style="text-align:center;color:#8a98c9;">로그 데이터 생성 중...</div></div>
+            </div>
+            <div class="log-exporter-modal-footer" id="log-exporter-footer">
+                <button class="log-exporter-modal-btn" id="log-exporter-close">닫기</button>
+                <button class="log-exporter-modal-btn" id="log-exporter-save-file">HTML 파일로 저장</button>
+                <div id="image-export-controls" style="display: flex; align-items: center; gap: 15px; margin-left: auto; flex-wrap: wrap;">
+                    <div style="display: flex; align-items: center; gap: 5px;">
+                        <label for="image-font-size" style="font-size: 0.9em; color: #a9b1d6;" title="이미지의 기준 폰트 크기를 조절합니다.">폰트:</label>
+                        <input type="number" id="image-font-size" value="16" step="1" style="width: 45px; background: #1a1b26; color: #c0caf5; border: 1px solid #414868; border-radius: 3px; padding: 2px;">
+                        <span style="font-size: 0.9em; color: #a9b1d6;">px</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 5px;">
+                        <label for="image-width" style="font-size: 0.9em; color: #a9b1d6;" title="이미지의 가로 너비를 조절합니다.">너비:</label>
+                        <input type="number" id="image-width" value="400" step="10" style="width: 60px; background: #1a1b26; color: #c0caf5; border: 1px solid #414868; border-radius: 3px; padding: 2px;">
+                        <span style="font-size: 0.9em; color: #a9b1d6;">px</span>
+                    </div>
+                    <label style="font-size: 0.9em; color: #a9b1d6; cursor: pointer;" title="체크 시 원본 해상도로 저장하여 매우 선명하지만, 처리 시간이 길어집니다.">
+                        <input type="checkbox" id="high-res-toggle"> 고해상도
+                    </label>
+                    <button class="log-exporter-modal-btn image-save" id="log-exporter-save-image">이미지로 저장</button>
+                </div>
+                <button class="log-exporter-modal-btn primary" id="log-exporter-copy">클립보드에 복사</button>
+            </div>
+            <div class="log-exporter-modal-footer" id="log-exporter-progress-footer" style="display: none; flex-direction: column; align-items: stretch; gap: 10px;">
+                <div style="display: flex; justify-content: space-between; font-size: 0.9em;">
+                    <span id="progress-status-text">이미지 처리 중...</span>
+                    <span id="progress-percentage-text">0%</span>
+                </div>
+                <progress id="export-progress-bar" value="0" max="100" style="width: 100%; height: 10px;"></progress>
+                <button class="log-exporter-modal-btn" id="log-exporter-cancel-image" style="background-color: #f7768e; color: #1a1b26;">취소</button>
+            </div>
+        </div>`;
+        document.body.appendChild(modal);
 
-            // updatePreview를 먼저 함수 선언문으로 정의
-            async function updatePreview() {
-                const selectedFormat = modal.querySelector('input[name="log-format"]:checked').value;
-                const isImageFormat = selectedFormat === 'html' || selectedFormat === 'basic';
-                imageScaleControls.style.display = isImageFormat ? 'flex' : 'none';
+        const previewEl = modal.querySelector('.log-exporter-modal-preview');
+        const imageScaleControls = modal.querySelector('#image-scale-controls');
+        const imageScaleSlider = modal.querySelector('#image-scale-slider');
+        const imageScaleValue = modal.querySelector('#image-scale-value');
+        const saveFileBtn = modal.querySelector('#log-exporter-save-file');
+        const saveImageControls = modal.querySelector('#image-export-controls');
+        const htmlStyleControls = modal.querySelector('#html-style-controls');
+        const styleToggleCheckbox = modal.querySelector('#style-toggle-checkbox');
+        const filterControls = modal.querySelector('#filter-controls');
+        const filterToggleCheckbox = modal.querySelector('#filter-toggle-checkbox');
+        const filterSliderContainer = modal.querySelector('#filter-slider-container');
+        const filterSlider = modal.querySelector('#filter-strength-slider');
+        const filterValueDisplay = modal.querySelector('#filter-strength-value');
+        const applyImageScaling = () => {
+            const scale = imageScaleSlider.value;
+            imageScaleValue.textContent = `${scale}%`;
+            previewEl.querySelectorAll('img').forEach(img => {
+                img.style.maxWidth = `${scale}%`;
+                img.style.height = 'auto';
+            });
+        };
+        imageScaleSlider.addEventListener('input', applyImageScaling);
+        const getFilteredNodes = () => {
+            const hiddenNames = Array.from(modal.querySelectorAll('.participant-filter-checkbox:not(:checked)'))
+                .map(cb => cb.dataset.name);
+            if (hiddenNames.length === 0) return messageNodes;
+            return messageNodes.filter(node => {
+                const name = getNameFromNode(node);
+                return !hiddenNames.includes(name);
+            });
+        };
 
-                previewEl.innerHTML = `<div style="text-align:center;color:#8a98c9;">미리보기 생성 중...</div>`;
-                let filteredNodes = getFilteredNodes();
+        const [charAvatarBase64, extractedCss] = await Promise.all([
+            imageUrlToBase64(charAvatarUrl),
+            extractCssForNodes(messageNodes)
+        ]);
 
-                // 커스텀 필터 적용
-                const customFilterSection = modal.querySelector('#custom-filter-section');
-                if (filterToggleCheckbox.checked && customFilterSection) {
-                    const selectedClasses = Array.from(modal.querySelectorAll('.custom-filter-class:checked'))
-                        .map(cb => cb.dataset.class);
+        const buildFullHtml = (content) => {
+            return `<div style="padding:15px;background-color:#1a1b26;max-width:900px;width:100%;margin:auto;font-family:sans-serif;line-height:1.6;color:#c0caf5;box-sizing:border-box;">
+            <div style="text-align:center;padding-bottom:15px;margin-bottom:20px; border-bottom:1px solid #414868;">
+                <img src="${charAvatarBase64}" alt="${charName}" style="width:60px;height:60px;border-radius:50%;object-fit:cover;margin:0 auto 10px;border:2px solid #414868;display:block;">
+                <h2 style="margin:0 0 5px 0;font-size:1.5em;color:#c0caf5;font-weight:bold;">${charName}</h2>
+                <p style="margin:0;color:#8a98c9;font-size:0.95em;">${chatName}</p>
+            </div>
+            <div>${content}</div>
+        </div>`;
+        };
 
-                    if (selectedClasses.length > 0) {
-                        // 각 노드를 복제하여 필터링 적용
-                        filteredNodes = filteredNodes.map(node => {
-                            const clonedNode = node.cloneNode(true);
+        async function updatePreview() {
+            const selectedFormat = modal.querySelector('input[name="log-format"]:checked').value;
+            const isImageFormat = selectedFormat === 'html' || selectedFormat === 'basic';
+            imageScaleControls.style.display = isImageFormat ? 'flex' : 'none';
 
-                            // 이미지 관련 테이블은 특별 처리
-                            const assetTables = clonedNode.querySelectorAll('.x-risu-asset-table');
-                            const savedAssetTables = Array.from(assetTables).map(table => ({
-                                table: table.cloneNode(true),
-                                parent: table.parentElement,
-                                nextSibling: table.nextSibling
-                            }));
+            previewEl.innerHTML = `<div style="text-align:center;color:#8a98c9;">미리보기 생성 중...</div>`;
+            let filteredNodes = getFilteredNodes();
 
-                            // 필터 적용
-                            const filtered = filterWithCustomClasses(clonedNode, selectedClasses);
+            // ==========================[ 진단 로그 시작 ]==========================
+            console.clear(); // 이전 로그를 지워 깔끔하게 만듭니다.
+            console.log("==============[ Chat Log Exporter 진단 시작 ]==============");
+            try {
+                const problemNodeBefore = filteredNodes.find(node => {
+                    const nameEl = node.querySelector('.unmargin.text-xl');
+                    return nameEl && nameEl.textContent.trim() === '지훈';
+                });
 
-                            // 이미지 테이블 복원 (필요한 경우)
-                            if (selectedClasses.includes('x-risu-asset-table')) {
-                                // 사용자가 asset-table을 제거하기로 선택한 경우는 복원하지 않음
-                            } else {
-                                // asset-table이 실수로 제거된 경우 복원
-                                savedAssetTables.forEach(({ table, parent, nextSibling }) => {
-                                    const targetParent = filtered.querySelector(`:scope > *:nth-child(${Array.from(parent.children).indexOf(table) + 1})`);
-                                    if (targetParent && !filtered.querySelector('.x-risu-asset-table')) {
-                                        if (nextSibling) {
-                                            parent.insertBefore(table, nextSibling);
-                                        } else {
-                                            parent.appendChild(table);
-                                        }
-                                    }
-                                });
-                            }
-
-                            return filtered;
-                        });
+                if (problemNodeBefore) {
+                    console.log("✅ [진단 1] '지훈' 메시지 노드를 찾았습니다. 처리 전 원본 내용은 다음과 같습니다:");
+                    const proseEl = problemNodeBefore.querySelector('.prose, .chattext');
+                    if (proseEl) {
+                        console.log("콘텐츠 영역(.prose)의 HTML:", proseEl.outerHTML);
+                    } else {
+                        console.error("❌ [진단 1] '지훈' 메시지에서 콘텐츠 영역(.prose)을 찾지 못했습니다!");
                     }
-                }
-
-                const useFilter = filterToggleCheckbox.checked;
-                const threshold = parseInt(filterSlider.value, 10);
-                filterSliderContainer.style.display = useFilter ? 'flex' : 'none';
-
-                if (selectedFormat === 'html') {
-                    filterControls.style.display = 'none';
-                    htmlStyleControls.style.display = 'inline-flex';
-                    saveImageControls.style.display = 'flex';
-                    saveFileBtn.style.display = 'inline-block';
-                    const useStyled = styleToggleCheckbox.checked;
-                    const content = await generateHtmlFromNodes(filteredNodes, useStyled);
-                    previewEl.innerHTML = buildFullHtml(content);
-                } else if (selectedFormat === 'basic') {
-                    filterControls.style.display = 'flex';
-                    htmlStyleControls.style.display = 'none';
-                    saveImageControls.style.display = 'none';
-                    saveFileBtn.style.display = 'none';
-                    const content = await generateBasicFormatLog(filteredNodes, { useFilter, complexityThreshold: threshold });
-                    previewEl.innerHTML = content;
                 } else {
-                    filterControls.style.display = 'flex';
-                    htmlStyleControls.style.display = 'none';
-                    saveImageControls.style.display = 'none';
-                    saveFileBtn.style.display = 'none';
-                    const content = await generateFormattedLog(filteredNodes, selectedFormat, { useFilter, complexityThreshold: threshold });
-                    previewEl.innerHTML = `<pre>${content.replace(/</g, "&lt;")}</pre>`;
+                    console.warn("⚠️ [진단 1] 현재 화면에서 '지훈' 메시지를 찾을 수 없습니다.");
                 }
-                applyImageScaling();
+            } catch (e) {
+                console.error("❌ [진단 1] 에러 발생:", e);
             }
+            console.log("-------------------------------------------------------------");
+            // ===========================[ 진단 로그 끝 ]===========================
 
-            // 이제 updatePreview를 사용하는 이벤트 리스너들 설정
-            const customFilterToggle = modal.querySelector('#custom-filter-toggle');
+
             const customFilterSection = modal.querySelector('#custom-filter-section');
-
-            if (customFilterToggle && customFilterSection) {
-                customFilterToggle.addEventListener('click', () => {
-                    const isVisible = customFilterSection.style.display !== 'none';
-                    customFilterSection.style.display = isVisible ? 'none' : 'block';
-                    customFilterToggle.textContent = isVisible ? '커스텀 필터 설정 ▼' : '커스텀 필터 설정 ▲';
-                });
-
-                modal.querySelector('#select-all-filters')?.addEventListener('click', () => {
-                    modal.querySelectorAll('.custom-filter-class').forEach(cb => cb.checked = true);
-                    updatePreview();
-                });
-
-                modal.querySelector('#clear-all-filters')?.addEventListener('click', () => {
-                    modal.querySelectorAll('.custom-filter-class').forEach(cb => cb.checked = false);
-                    updatePreview();
-                });
-
-                modal.querySelector('#reset-default-filters')?.addEventListener('click', () => {
-                     const classInfoMap = new Map(uiClasses.map(info => [info.name, info]));
-    modal.querySelectorAll('.custom-filter-class').forEach(cb => {
-        const info = classInfoMap.get(cb.dataset.class);
-        if (info) {
-            cb.checked = !info.hasImage; // hasImage가 false이면 true (체크됨)
-        }
-    });
-    updatePreview();
-                });
-
-                modal.querySelectorAll('.custom-filter-class').forEach(cb => {
-                    cb.addEventListener('change', updatePreview);
-                });
-            }
-
-            modal.querySelectorAll('input[name="log-format"], #style-toggle-checkbox, #filter-toggle-checkbox, .participant-filter-checkbox').forEach(el => {
-                el.addEventListener('change', updatePreview);
-            });
-            filterSlider.addEventListener('input', () => {
-                filterValueDisplay.textContent = filterSlider.value;
-                updatePreview();
-            });
-
-            // 초기 프리뷰 생성
-            updatePreview();
-
-            // 나머지 이벤트 리스너들...
-            const closeModal = () => modal.remove();
-            modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
-            modal.querySelector('#log-exporter-close').addEventListener('click', closeModal);
-
-            saveFileBtn.addEventListener('click', async () => {
-                try {
-                    const filteredNodes = getFilteredNodes();
-                    const useStyled = styleToggleCheckbox.checked;
-                    const messagesHtml = await generateHtmlFromNodes(filteredNodes, useStyled);
-                    await generateAndDownloadHtmlFile(charName, chatName, charAvatarUrl, messagesHtml, useStyled, extractedCss);
-                    closeModal();
-                } catch (e) { console.error('[Log Exporter] File save error from modal:', e); }
-            });
-
-            const footer = modal.querySelector('#log-exporter-footer');
-            const progressFooter = modal.querySelector('#log-exporter-progress-footer');
-            const progressBar = modal.querySelector('#export-progress-bar');
-            const progressStatusText = modal.querySelector('#progress-status-text');
-            const progressPercentageText = modal.querySelector('#progress-percentage-text');
-            const cancelBtn = modal.querySelector('#log-exporter-cancel-image');
-            const saveImageBtn = modal.querySelector('#log-exporter-save-image');
-
-            const fontSizeInput = modal.querySelector('#image-font-size');
-            const imageWidthInput = modal.querySelector('#image-width');
-
-            let cancellationToken = { cancelled: false };
-
-            const updateProgress = (status, value, max) => {
-                if (cancellationToken.cancelled) return;
-                progressStatusText.textContent = status;
-                progressBar.value = value;
-                progressBar.max = max;
-                progressPercentageText.textContent = `${Math.round((value / max) * 100)}%`;
-            };
-
-            saveImageBtn.addEventListener('click', async () => {
-                const useHighRes = modal.querySelector('#high-res-toggle').checked;
-                const baseFontSize = parseInt(fontSizeInput.value, 10) || 16;
-                const imageWidth = parseInt(imageWidthInput.value, 10) || 400;
-
-                cancellationToken.cancelled = false;
-
-                footer.style.display = 'none';
-                progressFooter.style.display = 'flex';
-                updateProgress('이미지 생성 준비 중...', 0, 100);
-
-                const success = await savePreviewAsImage(previewEl, updateProgress, cancellationToken, charName, chatName, useHighRes, baseFontSize, imageWidth);
-
-                footer.style.display = 'flex';
-                progressFooter.style.display = 'none';
-
-                if (success) {
-                    closeModal();
-                } else {
-                    if (!cancellationToken.cancelled) {
-                        alert("이미지 저장이 실패했거나 중단되었습니다.", "error");
-                    }
-                }
-            });
-
-            cancelBtn.addEventListener('click', () => {
-                cancellationToken.cancelled = true;
-                console.log('[Log Exporter] Image export cancelled by user.');
-            });
-
-            modal.querySelector('#log-exporter-copy').addEventListener('click', async () => {
-                let filteredNodes = getFilteredNodes();
-                const selectedFormat = modal.querySelector('input[name="log-format"]:checked').value;
-
-                // 커스텀 필터 적용 (updatePreview와 동일하게)
-                const customFilterSection = modal.querySelector('#custom-filter-section');
-                if (filterToggleCheckbox.checked && customFilterSection) {
-                    const selectedClasses = Array.from(modal.querySelectorAll('.custom-filter-class:checked'))
+            if (filterToggleCheckbox.checked && customFilterSection) {
+                 const selectedClasses = Array.from(modal.querySelectorAll('.custom-filter-class:checked'))
                         .map(cb => cb.dataset.class);
 
-                    if (selectedClasses.length > 0) {
-                        filteredNodes = filteredNodes.map(node => {
-                            return filterWithCustomClasses(node, selectedClasses);
-                        });
-                    }
+                // ==========================[ 진단 로그 시작 ]==========================
+                console.log("✅ [진단 2] UI 필터링이 활성화되어 있습니다.");
+                console.log("다음 클래스를 가진 요소들이 제거될 예정입니다:", selectedClasses);
+                if(selectedClasses.includes('x-risu-regex-quote-block')) {
+                    console.error("🚨🚨🚨 [치명적 오류] 대화 내용 클래스('x-risu-regex-quote-block')가 제거 목록에 포함되어 있습니다! 이것이 문제의 원인입니다.");
                 }
+                console.log("-------------------------------------------------------------");
+                // ===========================[ 진단 로그 끝 ]===========================
 
-                const useFilter = filterToggleCheckbox.checked;
-                const threshold = parseInt(filterSlider.value, 10);
-
-                let toCopy, copyFormat;
-
-                if (selectedFormat === 'html') {
-                    const useStyled = styleToggleCheckbox.checked;
-                    const htmlContent = await generateHtmlFromNodes(filteredNodes, useStyled);
-                    toCopy = buildFullHtml(htmlContent).replace('<div style="padding:15px;background-color:#1a1b26', '<div style="border:1px solid #414868;border-radius:8px;padding:15px;background-color:#1a1b26');
-                    copyFormat = 'html';
-                } else if (selectedFormat === 'basic') {
-                    // 필터링 옵션을 전달
-                    toCopy = await generateBasicFormatLog(filteredNodes, { useFilter, complexityThreshold: threshold });
-                    copyFormat = 'html';
-                } else {
-                    // markdown/text 형식도 필터링 옵션 전달
-                    toCopy = await generateFormattedLog(filteredNodes, selectedFormat, { useFilter, complexityThreshold: threshold });
-                    copyFormat = 'text';
+                if (selectedClasses.length > 0) {
+                    filteredNodes = filteredNodes.map(node => {
+                        return filterWithCustomClasses(node, selectedClasses);
+                    });
                 }
+            } else {
+                 console.log("ℹ️ [진단 2] UI 필터링이 비활성화되어 있습니다.");
+                 console.log("-------------------------------------------------------------");
+            }
 
-                const success = await copyToClipboard(toCopy, copyFormat);
-                if (success) {
-                    closeModal();
-                } else {
-                    alert("복사에 실패했습니다. 수동으로 복사해주세요.", "error");
-                }
+            const useFilter = filterToggleCheckbox.checked;
+            const threshold = parseInt(filterSlider.value, 10);
+            filterSliderContainer.style.display = useFilter ? 'flex' : 'none';
+
+            if (selectedFormat === 'html') {
+                filterControls.style.display = 'none';
+                htmlStyleControls.style.display = 'inline-flex';
+                saveImageControls.style.display = 'flex';
+                saveFileBtn.style.display = 'inline-block';
+                const useStyled = styleToggleCheckbox.checked;
+                const content = await generateHtmlFromNodes(filteredNodes, useStyled);
+                previewEl.innerHTML = buildFullHtml(content);
+            } else if (selectedFormat === 'basic') {
+                filterControls.style.display = 'flex';
+                htmlStyleControls.style.display = 'none';
+                saveImageControls.style.display = 'none'; 
+                saveFileBtn.style.display = 'none'; 
+                const content = await generateBasicFormatLog(filteredNodes, { useFilter, complexityThreshold: threshold });
+                previewEl.innerHTML = content;
+            } else {
+                filterControls.style.display = 'flex';
+                htmlStyleControls.style.display = 'none';
+                saveImageControls.style.display = 'none';
+                saveFileBtn.style.display = 'none';
+                const content = await generateFormattedLog(filteredNodes, selectedFormat, { useFilter, complexityThreshold: threshold });
+                previewEl.innerHTML = `<pre>${content.replace(/</g, "&lt;")}</pre>`;
+            }
+            applyImageScaling();
+        }
+
+        const customFilterToggle = modal.querySelector('#custom-filter-toggle');
+        const customFilterSection = modal.querySelector('#custom-filter-section');
+
+        if (customFilterToggle && customFilterSection) {
+            customFilterToggle.addEventListener('click', () => {
+                const isVisible = customFilterSection.style.display !== 'none';
+                customFilterSection.style.display = isVisible ? 'none' : 'block';
+                customFilterToggle.textContent = isVisible ? '커스텀 필터 설정 ▼' : '커스텀 필터 설정 ▲';
             });
 
-        } catch (e) {
-            console.error('[Log Exporter] Modal open error:', e);
-            alert(`오류 발생: ${e.message}`, "error");
+            modal.querySelectorAll('.custom-filter-class').forEach(cb => {
+                cb.addEventListener('change', updatePreview);
+            });
         }
+
+        modal.querySelectorAll('input[name="log-format"], #style-toggle-checkbox, #filter-toggle-checkbox, .participant-filter-checkbox').forEach(el => {
+            el.addEventListener('change', updatePreview);
+        });
+        filterSlider.addEventListener('input', () => {
+            filterValueDisplay.textContent = filterSlider.value;
+            updatePreview();
+        });
+
+        updatePreview();
+
+        const closeModal = () => modal.remove();
+        modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+        modal.querySelector('#log-exporter-close').addEventListener('click', closeModal);
+
+        saveFileBtn.addEventListener('click', async () => {
+            try {
+                const filteredNodes = getFilteredNodes();
+                const useStyled = styleToggleCheckbox.checked;
+                const messagesHtml = await generateHtmlFromNodes(filteredNodes, useStyled);
+                await generateAndDownloadHtmlFile(charName, chatName, charAvatarUrl, messagesHtml, useStyled, extractedCss);
+                closeModal();
+            } catch (e) { console.error('[Log Exporter] File save error from modal:', e); }
+        });
+        
+        const footer = modal.querySelector('#log-exporter-footer');
+        const progressFooter = modal.querySelector('#log-exporter-progress-footer');
+        const progressBar = modal.querySelector('#export-progress-bar');
+        const progressStatusText = modal.querySelector('#progress-status-text');
+        const progressPercentageText = modal.querySelector('#progress-percentage-text');
+        const cancelBtn = modal.querySelector('#log-exporter-cancel-image');
+        const saveImageBtn = modal.querySelector('#log-exporter-save-image');
+        const fontSizeInput = modal.querySelector('#image-font-size');
+        const imageWidthInput = modal.querySelector('#image-width');
+        let cancellationToken = { cancelled: false };
+
+        const updateProgress = (status, value, max) => {
+            if (cancellationToken.cancelled) return;
+            progressStatusText.textContent = status;
+            progressBar.value = value;
+            progressBar.max = max;
+            progressPercentageText.textContent = `${Math.round((value / max) * 100)}%`;
+        };
+        
+        saveImageBtn.addEventListener('click', async () => {
+            const useHighRes = modal.querySelector('#high-res-toggle').checked;
+            const baseFontSize = parseInt(fontSizeInput.value, 10) || 16;
+            const imageWidth = parseInt(imageWidthInput.value, 10) || 400;
+
+            cancellationToken.cancelled = false;
+            footer.style.display = 'none';
+            progressFooter.style.display = 'flex';
+            updateProgress('이미지 생성 준비 중...', 0, 100);
+
+            const success = await savePreviewAsImage(previewEl, updateProgress, cancellationToken, charName, chatName, useHighRes, baseFontSize, imageWidth);
+
+            footer.style.display = 'flex';
+            progressFooter.style.display = 'none';
+
+            if (success) {
+                closeModal();
+            } else {
+                if (!cancellationToken.cancelled) {
+                    alert("이미지 저장이 실패했거나 중단되었습니다.", "error");
+                }
+            }
+        });
+
+        cancelBtn.addEventListener('click', () => {
+            cancellationToken.cancelled = true;
+            console.log('[Log Exporter] Image export cancelled by user.');
+        });
+        
+        modal.querySelector('#log-exporter-copy').addEventListener('click', async () => {
+            let filteredNodes = getFilteredNodes();
+            const selectedFormat = modal.querySelector('input[name="log-format"]:checked').value;
+
+            const customFilterSection = modal.querySelector('#custom-filter-section');
+            if (filterToggleCheckbox.checked && customFilterSection) {
+                const selectedClasses = Array.from(modal.querySelectorAll('.custom-filter-class:checked'))
+                    .map(cb => cb.dataset.class);
+
+                if (selectedClasses.length > 0) {
+                    filteredNodes = filteredNodes.map(node => {
+                        return filterWithCustomClasses(node, selectedClasses);
+                    });
+                }
+            }
+
+            const useFilter = filterToggleCheckbox.checked;
+            const threshold = parseInt(filterSlider.value, 10);
+            let toCopy, copyFormat;
+
+            if (selectedFormat === 'html') {
+                const useStyled = styleToggleCheckbox.checked;
+                const htmlContent = await generateHtmlFromNodes(filteredNodes, useStyled);
+                toCopy = buildFullHtml(htmlContent).replace('<div style="padding:15px;background-color:#1a1b26', '<div style="border:1px solid #414868;border-radius:8px;padding:15px;background-color:#1a1b26');
+                copyFormat = 'html';
+            } else if (selectedFormat === 'basic') {
+                toCopy = await generateBasicFormatLog(filteredNodes, { useFilter, complexityThreshold: threshold });
+                copyFormat = 'html';
+            } else {
+                toCopy = await generateFormattedLog(filteredNodes, selectedFormat, { useFilter, complexityThreshold: threshold });
+                copyFormat = 'text';
+            }
+
+            const success = await copyToClipboard(toCopy, copyFormat);
+            if (success) {
+                closeModal();
+            } else {
+                alert("복사에 실패했습니다. 수동으로 복사해주세요.", "error");
+            }
+        });
+
+    } catch (e) {
+        console.error('[Log Exporter] Modal open error:', e);
+        alert(`오류 발생: ${e.message}`, "error");
     }
+}
     /**
  * RisuAI 인터페이스의 채팅 목록과 각 메시지 말풍선에 '로그 내보내기' 버튼을 동적으로 주입합니다.
  * 이미 버튼이 존재하는 경우 중복 생성을 방지합니다.
