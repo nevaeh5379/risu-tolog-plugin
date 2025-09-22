@@ -301,7 +301,7 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
 
         return htmlToImagePromise;
     }
-let jszipPromise = null;
+    let jszipPromise = null;
     function ensureJSZip() {
         if (typeof window.JSZip !== 'undefined') {
             return Promise.resolve();
@@ -365,7 +365,7 @@ let jszipPromise = null;
             // [수정] 이미지 URL을 받아 안정적인 파일명으로 ZIP에 추가하는 로직으로 복원
             const addImageToZip = (src) => {
                 if (!src || src.startsWith('data:')) return; // 데이터 URL은 zipping에서 제외
-                
+
                 imageCounter++;
                 // [수정] sequentialNaming 플래그에 따라 두 가지 방식의 안정적인 파일명 생성
                 const filename = sequentialNaming
@@ -410,7 +410,7 @@ let jszipPromise = null;
             await Promise.all(imagePromises);
 
             const content = await zip.generateAsync({ type: "blob" });
-            
+
             const safeCharName = charName.replace(/[\/\\?%*:|"<>]/g, '-');
             const safeChatName = chatName.replace(/[\/\\?%*:|"<>]/g, '-');
             const zipFilename = `Risu_Log_Images_${safeCharName}_${safeChatName}${sequentialNaming ? '_Arca' : ''}.zip`;
@@ -428,7 +428,7 @@ let jszipPromise = null;
             alert('이미지 ZIP 파일 생성 중 오류가 발생했습니다.', 'error');
         }
     }
-    
+
     function injectModalStyles() {
         if (document.getElementById('log-exporter-styles')) return;
         const style = document.createElement('style');
@@ -463,7 +463,7 @@ let jszipPromise = null;
                 .log-exporter-modal { width: 95%; max-width: none; } 
                 .log-exporter-modal-options { flex-direction: column; align-items: stretch; } 
                 .log-exporter-modal-footer { justify-content: center; } 
-                #filter-controls { margin-left: 0; flex-direction: column; gap: 10px; align-items: stretch; } 
+                #filter-controls { margin-left: 0; flex-direction: column, gap: 10px; align-items: stretch; } 
             }
         `;
         document.head.appendChild(style);
@@ -563,10 +563,11 @@ let jszipPromise = null;
             .chat-message-container > div:first-child:not(.flex-grow) { flex-shrink: 0; }
             img[alt="user avatar"] { width: 40px; height: 40px; border-radius: 9999px; object-fit: cover; }
             .chat-message-container > .flex-grow { display: flex; flex-direction: column; max-width: calc(100% - 50px); }
-            .justify-end > .flex-grow { align-items: flex-end; }
+           .justify-end > .flex-grow { align-items: flex-end; }
             .chat-user-name { font-weight: bold; margin-bottom: 4px; color: #a9b1d6; font-size: 0.9em; }
             .prose { padding: 10px 15px; border-radius: 12px; background-color: #24283b; word-break: break-word; max-width: 100%;}
             .justify-end .prose { background-color: #414868; }
+            .prose p { margin: 0.5em 0 !important;}
             .prose p { margin: 0.5em 0; }
         `;
         const styleBlock = applyStyles
@@ -601,7 +602,7 @@ let jszipPromise = null;
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
     }
-    
+
     async function generateHtmlFromNodes(nodes, applyStyles = true, embedImagesAsBase64 = true) {
         console.log(`[Log Exporter] generateHtmlFromNodes called with ${nodes.length} nodes. Embed Base64: ${embedImagesAsBase64}`);
 
@@ -614,7 +615,7 @@ let jszipPromise = null;
 
             const clonedNode = node.cloneNode(true);
             clonedNode.querySelector('.log-exporter-msg-btn-group')?.remove();
-            
+
             const proseElContentCheck = clonedNode.querySelector('.prose, .chattext');
             if (proseElContentCheck && proseElContentCheck.innerHTML.trim().replace(/<!--(.*?)-->/g, '').length === 0) {
                 const tempDiv = node.cloneNode(true);
@@ -633,7 +634,7 @@ let jszipPromise = null;
             if (originalAvatarEl && clonedAvatarEl) {
                 const computedStyle = window.getComputedStyle(originalAvatarEl);
                 let imageUrl = null;
-                
+
                 const inlineStyle = originalAvatarEl.getAttribute('style');
                 if (inlineStyle && inlineStyle.includes('url(')) {
                     const match = inlineStyle.match(/url\(["']?([^"')]+)["']?\)/);
@@ -641,7 +642,7 @@ let jszipPromise = null;
                         imageUrl = match[1];
                     }
                 }
-                
+
                 if (!imageUrl) {
                     const bgImage = computedStyle.backgroundImage;
                     if (bgImage && bgImage !== 'none' && bgImage.includes('url(')) {
@@ -739,7 +740,7 @@ let jszipPromise = null;
 
     const CONTENT_CLASSES = [
         'x-risu-regex-quote-block',
-        'x-risu-regex-thought-block', 
+        'x-risu-regex-thought-block',
         'x-risu-regex-sound-block'
     ];
 
@@ -754,7 +755,7 @@ let jszipPromise = null;
         'x-risu-succubus-button'
     ];
 
-    
+
     function extractAvatarFromNode(node) {
         const avatarEl = node.querySelector('.shadow-lg.rounded-md[style*="background"]');
         if (avatarEl) {
@@ -768,10 +769,10 @@ let jszipPromise = null;
         }
         return null;
     }
-    
+
     async function collectCharacterAvatars(nodes, useBase64 = true) {
         const avatarMap = new Map();
-        
+
         for (const node of nodes) {
             const nameEl = node.querySelector('.unmargin.text-xl');
             if (nameEl) {
@@ -785,68 +786,15 @@ let jszipPromise = null;
                 }
             }
         }
-        
+
         return avatarMap;
     }
 
-    async function generateBasicFormatLog(nodes, selectedTheme = 'dark', embedImagesAsBase64 = true) {
+        async function generateBasicFormatLog(nodes, selectedTheme = 'dark', embedImagesAsBase64 = true) {
         const theme = THEMES[selectedTheme] || THEMES.dark;
         let log = '';
         
         const avatarMap = await collectCharacterAvatars(nodes, embedImagesAsBase64);
-
-        function applyQuoteStylesToTextNodes(element, theme) {
-            const walker = document.createTreeWalker(
-                element,
-                NodeFilter.SHOW_TEXT,
-                {
-                    acceptNode: function(node) {
-                        const parent = node.parentNode;
-                        if (parent && (parent.tagName === 'MARK' || parent.tagName === 'A' || (parent.tagName === 'SPAN' && parent.style.length > 0))) {
-                            return NodeFilter.FILTER_REJECT;
-                        }
-                        return NodeFilter.FILTER_ACCEPT;
-                    }
-                }
-            );
-
-            const textNodes = [];
-            while (walker.nextNode()) {
-                textNodes.push(walker.currentNode);
-            }
-
-            textNodes.forEach(node => {
-                const text = node.nodeValue;
-                const regex = /(["""])([^""]+)(["""])|(['''])([^''']+)(['''])/g;
-
-                if (!regex.test(text)) return;
-
-                const fragment = document.createDocumentFragment();
-                let lastIndex = 0;
-
-                text.replace(regex, (match, openD, contentD, closeD, openS, contentS, closeS, offset) => {
-                    const open = openD || openS;
-                    const content = contentD || contentS;
-                    const close = closeD || closeS;
-
-                    fragment.appendChild(document.createTextNode(text.substring(lastIndex, offset)));
-                    fragment.appendChild(document.createTextNode(open));
-                    
-                    const span = document.createElement('span');
-                    span.style.fontStyle = 'italic';
-                    span.style.color = theme.quoteText;
-                    span.textContent = content;
-                    fragment.appendChild(span);
-                    
-                    fragment.appendChild(document.createTextNode(close));
-
-                    lastIndex = offset + match.length;
-                });
-
-                fragment.appendChild(document.createTextNode(text.substring(lastIndex)));
-                node.replaceWith(fragment);
-            });
-        }
 
         for (const node of nodes) {
             if (node.querySelector('textarea')) continue;
@@ -864,38 +812,23 @@ let jszipPromise = null;
 
             let contentSourceEl = messageEl.cloneNode(true);
 
-            contentSourceEl.querySelectorAll('.x-risu-regex-quote-block').forEach(quoteEl => {
+            const styleBlock = (el, bg, color, border = null) => {
                 const p = document.createElement('p');
-                p.innerHTML = quoteEl.innerHTML;
-                p.style.backgroundColor = theme.quoteBg;
-                p.style.padding = '8px 12px';
-                p.style.borderLeft = `3px solid ${theme.quoteText}`;
-                p.style.borderRadius = '4px';
-                p.style.fontStyle = 'italic';
-                p.style.color = theme.quoteText;
-                quoteEl.replaceWith(p);
-            });
-
-            contentSourceEl.querySelectorAll('.x-risu-regex-thought-block').forEach(thoughtEl => {
-                const p = document.createElement('p');
-                p.innerHTML = thoughtEl.innerHTML;
-                p.style.backgroundColor = theme.thoughtBg;
-                p.style.padding = '8px 12px';
-                p.style.borderRadius = '4px';
-                p.style.fontStyle = 'italic';
-                p.style.color = theme.thoughtText;
-                thoughtEl.replaceWith(p);
-            });
-
-            contentSourceEl.querySelectorAll('.x-risu-regex-sound-block').forEach(soundEl => {
-                const p = document.createElement('p');
-                p.innerHTML = soundEl.innerHTML;
-                p.style.backgroundColor = theme.soundBg;
-                p.style.padding = '8px 12px';
-                p.style.borderRadius = '4px';
-                p.style.color = theme.soundText;
-                soundEl.replaceWith(p);
-            });
+                p.innerHTML = el.innerHTML;
+                Object.assign(p.style, {
+                    backgroundColor: bg,
+                    padding: '8px 12px',
+                    borderRadius: '4px',
+                    fontStyle: 'italic',
+                    color: color,
+                    margin: '0.5em 0'
+                });
+                if (border) p.style.borderLeft = `3px solid ${border}`;
+                el.replaceWith(p);
+            };
+            contentSourceEl.querySelectorAll('.x-risu-regex-quote-block').forEach(el => styleBlock(el, theme.quoteBg, theme.quoteText, theme.quoteText));
+            contentSourceEl.querySelectorAll('.x-risu-regex-thought-block').forEach(el => styleBlock(el, theme.thoughtBg, theme.thoughtText));
+            contentSourceEl.querySelectorAll('.x-risu-regex-sound-block').forEach(el => styleBlock(el, theme.soundBg, theme.soundText));
 
             for (const img of contentSourceEl.querySelectorAll('img')) {
                 if (img.src) {
@@ -907,8 +840,7 @@ let jszipPromise = null;
                         height: 'auto',
                         borderRadius: '8px',
                         display: 'block',
-                        marginTop: '12px',
-                        marginBottom: '12px',
+                        margin: '12px auto',
                         boxShadow: theme.shadow
                     });
                 }
@@ -919,7 +851,7 @@ let jszipPromise = null;
                 btn.disabled = true;
                 btn.style.pointerEvents = 'none';
             });
-
+            
             contentSourceEl.querySelectorAll('mark[risu-mark^="quote"]').forEach(markEl => {
                 markEl.style.fontStyle = 'italic';
                 markEl.style.color = theme.quoteText;
@@ -927,103 +859,52 @@ let jszipPromise = null;
                     markEl.style.backgroundColor = theme.quoteBg;
                 }
             });
-            
-            applyQuoteStylesToTextNodes(contentSourceEl, theme);
 
-            const messageHtml = contentSourceEl.innerHTML.trim();
+            let messageHtml = contentSourceEl.innerHTML.trim();
+            
             if (messageHtml.length === 0) continue;
 
             const isUser = node.classList.contains('justify-end');
             const cardBgColor = isUser ? theme.cardBgUser : theme.cardBg;
-
             const avatarSrc = avatarMap.get(name);
             let avatarHtml = '';
             
-            if (!isUser) {
-                if (avatarSrc) {
-                    avatarHtml = `
-                        <div style="width: 48px; height: 48px; min-width: 48px; border-radius: 50%; 
-                                    background: url('${avatarSrc}'); background-size: cover; background-position: center;
-                                    box-shadow: ${theme.shadow}; border: 2px solid ${theme.avatarBorder}; 
-                                    margin-right: 12px;">
-                        </div>
-                    `;
+            const createAvatarDiv = (src, isUser) => {
+                const margin = isUser ? 'margin-left:12px;' : 'margin-right:12px;';
+                const baseStyle = `width:48px;height:48px;min-width:48px;border-radius:50%;box-shadow:${theme.shadow};border:2px solid ${theme.avatarBorder};${margin}`;
+                if (src) {
+                    return `<div style="${baseStyle}background:url('${src}');background-size:cover;background-position:center;"></div>`;
                 } else {
-                    avatarHtml = `
-                        <div style="width: 48px; height: 48px; min-width: 48px; border-radius: 50%; 
-                                    background: linear-gradient(135deg, ${theme.nameColor}, ${theme.avatarBorder}); 
-                                    display: flex; align-items: center; justify-content: center; margin-right: 12px;
-                                    box-shadow: ${theme.shadow}; border: 2px solid ${theme.avatarBorder};">
-                            <span style="color: ${theme.background}; font-weight: bold; font-size: 1.2em;">
-                                ${name.charAt(0).toUpperCase()}
-                            </span>
-                        </div>
-                    `;
+                    const bgColor = isUser ? theme.textSecondary : theme.avatarBorder;
+                    const letter = isUser ? 'U' : name.charAt(0).toUpperCase();
+                    return `<div style="${baseStyle}background-color:${bgColor};display:flex;align-items:center;justify-content:center;"><span style="color:${theme.background};font-weight:bold;font-size:1.2em;">${letter}</span></div>`;
                 }
-            }
+            };
+            avatarHtml = createAvatarDiv(avatarSrc, isUser);
 
-            if (isUser) {
-                const userAvatar = avatarMap.get(name);
-                if (userAvatar) {
-                    avatarHtml = `
-                        <div style="width: 48px; height: 48px; min-width: 48px; border-radius: 50%; 
-                                    background: url('${userAvatar}'); background-size: cover; background-position: center;
-                                    box-shadow: ${theme.shadow}; border: 2px solid ${theme.avatarBorder}; 
-                                    margin-left: 12px;">
-                        </div>
-                    `;
-                } else {
-                    avatarHtml = `
-                        <div style="width: 48px; height: 48px; min-width: 48px; border-radius: 50%; 
-                                    background: linear-gradient(135deg, ${theme.border}, ${theme.textSecondary}); 
-                                    display: flex; align-items: center; justify-content: center; margin-left: 12px;
-                                    box-shadow: ${theme.shadow}; border: 2px solid ${theme.border};">
-                            <span style="color: ${theme.background}; font-weight: bold; font-size: 1.2em;">
-                                U
-                            </span>
-                        </div>
-                    `;
-                }
-            }
-
-            log += `
-                <div style="display: flex; align-items: flex-start; margin-bottom: 28px; ${isUser ? 'flex-direction: row-reverse;' : ''}">
-                    ${avatarHtml}
-                    <div style="flex: 1; max-width: ${isUser ? '75%' : '80%'};">
-                        <strong style="color: ${theme.nameColor}; font-weight: 600; font-size: 0.95em; display: block; margin-bottom: 8px; 
-                                       padding-left: ${isUser ? '0' : '4px'}; padding-right: ${isUser ? '4px' : '0'};
-                                       text-align: ${isUser ? 'right' : 'left'};">
-                            ${name}
-                        </strong>
-                        <div style="background-color: ${cardBgColor}; color: ${theme.text}; border-radius: 16px; padding: 14px 18px; 
-                                    line-height: 1.8; word-wrap: break-word; box-shadow: ${theme.shadow};
-                                    border: 1px solid ${theme.border}; position: relative;
-                                    ${isUser ? 'margin-left: auto;' : ''}">
-                            ${messageHtml}
-                        </div>
-                    </div>
-                </div>
-            `;
+            let logEntry = '';
+            logEntry += '<div style="display:flex;align-items:flex-start;margin-bottom:28px;' + (isUser ? 'flex-direction:row-reverse;' : '') + '">';
+            logEntry += avatarHtml;
+            logEntry += '<div style="flex:1;max-width:' + (isUser ? '75%;' : '80%;') + '">';
+            logEntry += '<strong style="color:' + theme.nameColor + ';font-weight:600;font-size:0.95em;display:block;margin-bottom:8px;padding-left:' + (isUser ? '0;' : '4px;') + 'padding-right:' + (isUser ? '4px;' : '0;') + 'text-align:' + (isUser ? 'right;' : 'left;') + '">' + name + '</strong>';
+            logEntry += '<div style="background-color:' + cardBgColor + ';color:' + theme.text + ';border-radius:16px;padding:14px 18px;line-height:1.8;word-wrap:break-word;box-shadow:' + theme.shadow + ';border:1px solid ' + theme.border + ';position:relative;' + (isUser ? 'margin-left:auto;' : '') + '">' + messageHtml + '</div>';
+            logEntry += '</div></div>';
+            
+            log += logEntry;
         }
 
-        return `
-            <div style="padding: 24px 20px; background-color: ${theme.background}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
-                        color: ${theme.text}; min-height: 100vh;">
-                <div style="max-width: 800px; margin: 0 auto;">
-                    ${log}
-                </div>
-            </div>
-        `;
+        // [수정] 이제 이 함수는 순수한 로그 HTML 덩어리만 반환합니다.
+        return log;
     }
 
     async function generateFormattedLog(nodes, format) {
         let log = '';
-        
+
         for (const node of nodes) {
             if (node.querySelector('textarea')) {
                 continue;
             }
-            
+
             let name = '';
             const nameEl = node.querySelector('.unmargin.text-xl');
             if (nameEl) {
@@ -1061,7 +942,7 @@ let jszipPromise = null;
                 if (format === 'html') {
                     const htmlBlob = new Blob([content], { type: 'text/html' });
                     const textBlob = new Blob([content.replace(/<[^>]*>/g, '')], { type: 'text/plain' });
-                    
+
                     await navigator.clipboard.write([
                         new ClipboardItem({
                             'text/html': htmlBlob,
@@ -1072,28 +953,28 @@ let jszipPromise = null;
                     await navigator.clipboard.writeText(content);
                 }
                 return true;
-            } catch (err) { 
-                console.warn('Clipboard API failed, falling back.', err); 
+            } catch (err) {
+                console.warn('Clipboard API failed, falling back.', err);
                 return copyUsingExecCommand(content, format);
             }
         }
         return copyUsingExecCommand(content, format);
     }
-    
+
     function copyUsingExecCommand(content, format) {
         const textArea = document.createElement("textarea");
         textArea.value = format === 'html' ? content : content;
         textArea.style.cssText = 'position: fixed; top: -9999px; left: -9999px;';
         document.body.appendChild(textArea);
         textArea.select();
-        
+
         let success = false;
-        try { 
-            success = document.execCommand('copy'); 
-        } catch (err) { 
-            console.error('execCommand failed', err); 
+        try {
+            success = document.execCommand('copy');
+        } catch (err) {
+            console.error('execCommand failed', err);
         }
-        
+
         document.body.removeChild(textArea);
         return success;
     }
@@ -1287,10 +1168,10 @@ let jszipPromise = null;
                 if (currentClasses.length === 0) return;
 
                 const containsImage = el.querySelector('img') !== null;
-                
+
                 let parentEl = el.parentElement;
                 let parentRisuClass = null;
-                while(parentEl && parentEl !== node) {
+                while (parentEl && parentEl !== node) {
                     const parentClasses = Array.from(parentEl.classList)
                         .filter(c => c.startsWith('x-risu-') && !CONTENT_CLASSES_TO_PRESERVE.includes(c));
                     if (parentClasses.length > 0) {
@@ -1316,7 +1197,7 @@ let jszipPromise = null;
         });
 
         const imageRelatedClasses = ['x-risu-asset-table', 'x-risu-image-cell', 'x-risu-in-table'];
-        
+
         const topLevelClasses = [];
         for (const [className, details] of classDetails.entries()) {
             if (imageRelatedClasses.includes(className)) continue;
@@ -1353,7 +1234,7 @@ let jszipPromise = null;
                 }
             });
         };
-        
+
         buildDisplayList(topLevelClasses, 0);
 
         return result;
@@ -1372,7 +1253,7 @@ let jszipPromise = null;
 
         return tempEl;
     }
-    
+
     // --- 아카라이브 연동 기능 추가 ---
     /**
      * 아카라이브용 HTML 템플릿을 생성합니다.
@@ -1380,13 +1261,13 @@ let jszipPromise = null;
      */
     async function generateArcaLiveTemplate(nodes, themeKey = 'dark') {
         let imageCounter = 0;
-        
+
         // '기본' 형식의 HTML을 먼저 생성합니다. (embedImagesAsBase64=false 로 원본 URL 유지)
         const baseHtml = await generateBasicFormatLog(nodes, themeKey, false);
-        
+
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = baseHtml;
-        
+
         // 모든 이미지 태그를 찾아서 자리표시자로 교체
         tempDiv.querySelectorAll('img').forEach(img => {
             imageCounter++;
@@ -1396,11 +1277,11 @@ let jszipPromise = null;
 
         // 배경 이미지도 자리표시자로 교체 (아바타 포함)
         tempDiv.querySelectorAll('[style*="background-image"]').forEach(el => {
-             const style = el.getAttribute('style');
-             if (style && style.includes('url(')) {
+            const style = el.getAttribute('style');
+            if (style && style.includes('url(')) {
                 imageCounter++;
                 const placeholder = document.createComment(` ARCA_IMG_PLACEHOLDER_${imageCounter} `);
-                
+
                 // 배경 이미지를 가진 요소 자체를 placeholder로 교체하고, 스타일을 제거하여 텍스트만 남깁니다.
                 // 아바타의 경우, 내부 텍스트(예: 'U' 또는 캐릭터 첫글자)가 보이도록 합니다.
                 const newEl = document.createElement('div');
@@ -1408,21 +1289,21 @@ let jszipPromise = null;
                 Object.assign(newEl.style, el.style);
                 newEl.style.backgroundImage = 'none';
                 newEl.style.background = THEMES[themeKey].avatarBorder; // 배경색으로 대체
-                
+
                 const wrapper = document.createElement('div');
                 wrapper.appendChild(placeholder);
                 wrapper.appendChild(newEl);
-                
+
                 el.replaceWith(wrapper);
-             }
+            }
         });
-        
+
         // 서식 유지를 위해 innerHTML 대신 outerHTML을 사용합니다.
         // 이때, 최상위 래퍼 div는 제거합니다.
         return tempDiv.innerHTML;
     }
 
-          async function showCopyPreviewModal(chatIndex, options = {}) {
+    async function showCopyPreviewModal(chatIndex, options = {}) {
         try {
             let { charName, chatName, charAvatarUrl, messageNodes } = await processChatLog(chatIndex);
 
@@ -1500,9 +1381,9 @@ let jszipPromise = null;
                         <div id="theme-selector-container" style="display: none; margin-left: auto; align-items: center; gap: 10px;">
                             <label for="theme-selector" style="font-size: 0.9em;">테마:</label>
                             <select id="theme-selector">
-                                ${Object.entries(THEMES).map(([key, theme]) => 
-                                    `<option value="${key}" ${key === 'dark' ? 'selected' : ''}>${theme.name}</option>`
-                                ).join('')}
+                                ${Object.entries(THEMES).map(([key, theme]) =>
+                `<option value="${key}" ${key === 'dark' ? 'selected' : ''}>${theme.name}</option>`
+            ).join('')}
                             </select>
                         </div>
                         <div id="image-scale-controls" style="display: flex; align-items: center; gap: 8px; margin-left: auto;">
@@ -1520,6 +1401,11 @@ let jszipPromise = null;
                                     커스텀 필터 설정 ▼
                                 </button>
                             ` : ''}
+                        </div>
+                        <div id="avatar-toggle-controls" style="display: none; align-items: center; gap: 8px; margin-left: 10px;">
+                            <label style="font-size:0.9em;">
+                                <input type="checkbox" id="avatar-toggle-checkbox" checked> 아바타 표시
+                            </label>
                         </div>
                     </div>
                     ${customFilterHtml}
@@ -1578,6 +1464,10 @@ let jszipPromise = null;
             </div>`;
             document.body.appendChild(modal);
 
+            // [추가] 아바타 토글 컨트롤 변수 정의 (ReferenceError 방지)
+            const avatarToggleControls = modal.querySelector('#avatar-toggle-controls');
+            const avatarToggleCheckbox = modal.querySelector('#avatar-toggle-checkbox');
+
             const previewEl = modal.querySelector('.log-exporter-modal-preview');
             const imageScaleControls = modal.querySelector('#image-scale-controls');
             const imageScaleSlider = modal.querySelector('#image-scale-slider');
@@ -1590,7 +1480,7 @@ let jszipPromise = null;
             const filterToggleCheckbox = modal.querySelector('#filter-toggle-checkbox');
             const themeSelector = modal.querySelector('#theme-selector');
             const themeSelectorContainer = modal.querySelector('#theme-selector-container');
-            
+
             const arcaHelperSection = modal.querySelector('#arca-helper-section');
             const arcaHelperToggleBtn = modal.querySelector('#arca-helper-toggle-btn');
             const arcaTemplateHtml = modal.querySelector('#arca-template-html');
@@ -1639,32 +1529,33 @@ let jszipPromise = null;
             let lastGeneratedHtml = '';
 
             async function updatePreview() {
-                arcaHelperSection.style.display = 'none'; 
+                arcaHelperSection.style.display = 'none';
                 const selectedFormat = modal.querySelector('input[name="log-format"]:checked').value;
                 const selectedTheme = themeSelector.value;
-                
+                updateAvatarOptionVisibility();
+
                 arcaHelperToggleBtn.style.display = (selectedFormat === 'basic') ? 'inline-block' : 'none';
-                
+
                 const isImageFormat = selectedFormat === 'html' || selectedFormat === 'basic';
                 imageScaleControls.style.display = isImageFormat ? 'flex' : 'none';
                 saveImageControls.style.display = isImageFormat ? 'flex' : 'none';
-                
+
                 previewEl.innerHTML = `<div style="text-align:center;color:#8a98c9;">미리보기 생성 중...</div>`;
                 let filteredNodes = getFilteredNodes();
-                
+
                 const customFilterSection = modal.querySelector('#custom-filter-section');
 
                 if (selectedFormat !== 'html' && filterToggleCheckbox.checked && customFilterSection) {
-                     const selectedClasses = Array.from(modal.querySelectorAll('.custom-filter-class:checked'))
-                            .map(cb => cb.dataset.class);
+                    const selectedClasses = Array.from(modal.querySelectorAll('.custom-filter-class:checked'))
+                        .map(cb => cb.dataset.class);
                     if (selectedClasses.length > 0) {
                         filteredNodes = filteredNodes.map(node => filterWithCustomClasses(node, selectedClasses));
                     }
                 }
-                
+
                 const rawBtn = modal.querySelector('#log-exporter-raw-toggle');
                 rawBtn.style.display = (selectedFormat === 'html' || selectedFormat === 'basic') ? 'inline-block' : 'none';
-                
+
                 if (selectedFormat === 'html') {
                     filterControls.style.display = 'none';
                     themeSelectorContainer.style.display = 'none';
@@ -1674,7 +1565,7 @@ let jszipPromise = null;
                     const useStyled = styleToggleCheckbox.checked;
                     const content = await generateHtmlFromNodes(filteredNodes, useStyled, true);
                     lastGeneratedHtml = buildFullHtml(content, 'dark');
-                    
+
                     if (isRawMode) {
                         previewEl.innerHTML = `<pre style="white-space: pre-wrap; word-wrap: break-word; font-family: monospace; font-size: 0.85em;">${lastGeneratedHtml.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre>`;
                     } else {
@@ -1685,9 +1576,9 @@ let jszipPromise = null;
                     themeSelectorContainer.style.display = 'flex';
                     htmlStyleControls.style.display = 'none';
                     saveFileBtn.style.display = 'none';
-                    const content = await generateBasicFormatLog(filteredNodes, selectedTheme, true);
+                    const content = await generateBasicFormatLog(filteredNodes, selectedTheme, true, avatarToggleCheckbox.checked);
                     lastGeneratedHtml = content;
-                    
+
                     if (isRawMode) {
                         previewEl.innerHTML = `<pre style="white-space: pre-wrap; word-wrap: break-word; font-family: monospace; font-size: 0.85em;">${content.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre>`;
                     } else {
@@ -1702,7 +1593,7 @@ let jszipPromise = null;
                     const content = await generateFormattedLog(filteredNodes, selectedFormat);
                     previewEl.innerHTML = `<pre>${content.replace(/</g, "&lt;")}</pre>`;
                 }
-                
+
                 if (!isRawMode) {
                     applyImageScaling();
                 }
@@ -1734,11 +1625,17 @@ let jszipPromise = null;
                 });
             }
 
-            modal.querySelectorAll('input[name="log-format"], #style-toggle-checkbox, #filter-toggle-checkbox, .participant-filter-checkbox').forEach(el => {
+            // [아바타 옵션 UI 표시/숨김 제어]
+            function updateAvatarOptionVisibility() {
+                const selectedFormat = modal.querySelector('input[name="log-format"]:checked').value;
+                avatarToggleControls.style.display = (selectedFormat === 'basic') ? 'flex' : 'none';
+            }
+
+            modal.querySelectorAll('input[name="log-format"], #style-toggle-checkbox, #filter-toggle-checkbox, .participant-filter-checkbox, #avatar-toggle-checkbox').forEach(el => {
                 el.addEventListener('change', updatePreview);
             });
             themeSelector.addEventListener('change', updatePreview);
-            
+
             updatePreview();
 
             const closeModal = () => modal.remove();
@@ -1749,19 +1646,20 @@ let jszipPromise = null;
                 try {
                     const filteredNodes = getFilteredNodes();
                     const useStyled = styleToggleCheckbox.checked;
+                    const showAvatar = avatarToggleCheckbox.checked;
                     const messagesHtml = await generateHtmlFromNodes(filteredNodes, useStyled, true);
                     await generateAndDownloadHtmlFile(charName, chatName, charAvatarUrl, messagesHtml, useStyled, extractedCss);
                     closeModal();
                 } catch (e) { console.error('[Log Exporter] File save error from modal:', e); }
             });
-            
+
             const footer = modal.querySelector('#log-exporter-footer');
             const progressFooter = modal.querySelector('#log-exporter-progress-footer');
             const progressBar = modal.querySelector('#export-progress-bar');
             const progressStatusText = modal.querySelector('#progress-status-text');
             const progressPercentageText = modal.querySelector('#progress-percentage-text');
             const cancelBtn = modal.querySelector('#log-exporter-cancel-image');
-            
+
             // [복원] 이미지 저장 옵션 요소들
             const saveImageBtn = modal.querySelector('#log-exporter-save-image');
             const highResCheckbox = modal.querySelector('#image-high-res-checkbox');
@@ -1776,7 +1674,7 @@ let jszipPromise = null;
                 progressBar.max = max;
                 progressPercentageText.textContent = `${Math.round((value / max) * 100)}%`;
             };
-            
+
             // [수정] 이미지 저장 버튼 클릭 시 옵션 값들 읽어서 전달
             saveImageBtn.addEventListener('click', async () => {
                 cancellationToken.cancelled = false;
@@ -1787,9 +1685,9 @@ let jszipPromise = null;
                 const useHighRes = highResCheckbox.checked;
                 const baseFontSize = parseInt(fontSizeInput.value) || 16;
                 const imageWidth = parseInt(imageWidthInput.value) || 900;
-                
+
                 const success = await savePreviewAsImage(previewEl, updateProgress, cancellationToken, charName, chatName, useHighRes, baseFontSize, imageWidth);
-                
+
                 footer.style.display = 'flex';
                 progressFooter.style.display = 'none';
                 if (success) closeModal();
@@ -1800,7 +1698,7 @@ let jszipPromise = null;
                 cancellationToken.cancelled = true;
                 console.log('[Log Exporter] Image export cancelled by user.');
             });
-            
+
             modal.querySelector('#log-exporter-download-zip').addEventListener('click', async () => {
                 const filteredNodes = getFilteredNodes();
                 const btn = modal.querySelector('#log-exporter-download-zip');
@@ -1812,7 +1710,7 @@ let jszipPromise = null;
                 btn.textContent = originalText;
                 btn.disabled = false;
             });
-            
+
             arcaHelperToggleBtn.addEventListener('click', async () => {
                 const isVisible = arcaHelperSection.style.display === 'flex';
                 if (isVisible) {
@@ -1820,12 +1718,12 @@ let jszipPromise = null;
                 } else {
                     arcaHelperSection.style.display = 'flex';
                     const filteredNodes = getFilteredNodes();
-                    
+
                     const customFilterSection = modal.querySelector('#custom-filter-section');
                     let nodesForTemplate = filteredNodes;
                     if (filterToggleCheckbox.checked && customFilterSection) {
-                         const selectedClasses = Array.from(modal.querySelectorAll('.custom-filter-class:checked'))
-                                .map(cb => cb.dataset.class);
+                        const selectedClasses = Array.from(modal.querySelectorAll('.custom-filter-class:checked'))
+                            .map(cb => cb.dataset.class);
                         if (selectedClasses.length > 0) {
                             nodesForTemplate = filteredNodes.map(node => filterWithCustomClasses(node, selectedClasses));
                         }
@@ -1834,7 +1732,7 @@ let jszipPromise = null;
                     const selectedTheme = themeSelector.value;
                     const template = await generateArcaLiveTemplate(nodesForTemplate, selectedTheme);
                     arcaTemplateHtml.value = template;
-                    
+
                     alert("아카라이브용 템플릿이 생성되었습니다.\n이제 '이미지 ZIP 다운로드' 버튼을 눌러주세요.", 'info');
                 }
             });
@@ -1842,31 +1740,31 @@ let jszipPromise = null;
             arcaConvertBtn.addEventListener('click', () => {
                 const template = arcaTemplateHtml.value;
                 const source = arcaSourceHtml.value;
-                
+
                 if (!template || !source) {
                     alert('템플릿 HTML과 아카라이브 소스 HTML을 모두 입력해주세요.', 'error');
                     return;
                 }
-                
+
                 const imageUrls = [...source.matchAll(/<img[^>]+src="([^"]+)"/g)].map(match => match[1]);
-                
+
                 if (imageUrls.length === 0) {
                     alert('아카라이브 소스에서 이미지 URL을 찾을 수 없습니다. 이미지를 올바르게 업로드했는지 확인해주세요.', 'error');
                     return;
                 }
-                
+
                 let finalHtml = template;
                 let usedUrlCount = 0;
-                
+
                 finalHtml = finalHtml.replace(/<!--\s*ARCA_IMG_PLACEHOLDER_(\d+)\s*-->/g, (match, p1) => {
                     const index = parseInt(p1, 10) - 1;
                     if (index < imageUrls.length) {
                         usedUrlCount++;
                         return `<img src="${imageUrls[index]}" style="max-width: 100%; height: auto; border-radius: 8px; display: block; margin: 12px 0;">`;
                     }
-                    return match; 
+                    return match;
                 });
-                
+
                 arcaFinalHtml.value = finalHtml;
                 alert(`변환 완료! ${usedUrlCount}개의 이미지 위치가 교체되었습니다. 최종 결과물을 복사하여 사용하세요.`, 'success');
             });
@@ -1882,13 +1780,14 @@ let jszipPromise = null;
                         filteredNodes = filteredNodes.map(node => filterWithCustomClasses(node, selectedClasses));
                     }
                 }
-                
+
+                const showAvatar = avatarToggleCheckbox.checked;
                 const generateHtmlForCopy = async (nodes, format, theme) => {
                     let htmlContent;
                     if (format === 'html') {
                         htmlContent = await generateHtmlFromNodes(nodes, styleToggleCheckbox.checked, false);
                     } else if (format === 'basic') {
-                        htmlContent = await generateBasicFormatLog(nodes, theme, false);
+                        htmlContent = await generateBasicFormatLog(nodes, theme, false, showAvatar);
                     } else {
                         return '';
                     }
@@ -1897,13 +1796,23 @@ let jszipPromise = null;
                     tempDiv.querySelectorAll('img').forEach(img => img.remove());
                     tempDiv.querySelectorAll('[style*="background-image"]').forEach(el => el.style.backgroundImage = 'none');
 
+                    // --- 수정된 부분 ---
+                    // 클립보드 복사 시 P 태그에 인라인 마진 스타일을 강제로 적용하여 서식 깨짐 방지
+                    tempDiv.querySelectorAll('.prose p, .chattext p, div[style*="line-height"] p').forEach(p => {
+                        if (!p.style.margin && !p.style.marginTop && !p.style.marginBottom) {
+                            p.style.setProperty('margin-top', '0.5em', 'important');
+                            p.style.setProperty('margin-bottom', '0.5em', 'important');
+                        }
+                    });
+                    // --- 수정 끝 ---
+
                     if (format === 'basic') {
                         const selectedThemeObj = THEMES[theme] || THEMES.dark;
                         tempDiv.querySelectorAll('[style*="background: url"]').forEach(el => {
-                            el.style.background = selectedThemeObj.avatarBorder; 
+                            el.style.background = selectedThemeObj.avatarBorder;
                         });
                     }
-                    
+
                     return (format === 'html') ? buildFullHtml(tempDiv.innerHTML, 'dark') : tempDiv.innerHTML;
                 };
 
