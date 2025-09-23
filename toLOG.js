@@ -1231,7 +1231,8 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
         document.body.removeChild(textArea);
         return success;
     }
-          /**
+
+        /**
      * 미리보기 컨테이너를 이미지 파일로 저장합니다.
      * 단일 파일 저장 시에도 분할 저장 시에 안정적으로 동작했던 toCanvas()를 먼저 호출하는 방식으로 통일하여
      * 라이브러리의 내부적인 toDataURL() 오류를 근본적으로 회피합니다.
@@ -1247,10 +1248,10 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
      * @returns {Promise<boolean>} 저장 성공 여부.
      */
     async function savePreviewAsImage(previewContainer, onProgress, cancellationToken, charName, chatName, useHighRes = false, baseFontSize = 16, imageWidth = 900) {
-        console.log(`[Log Exporter] savePreviewAsImage: 미리보기를 이미지로 저장 시작. 고해상도: ${useHighRes}, 너비: ${imageWidth}`);
+        console.log(`[Log Exporter] savePreviewAsImage: 미리보기를 이미지로 저장 시작. (컨테이너 교체 방식)`);
         const MAX_SAFE_CANVAS_HEIGHT = 65000;
 
-        const captureTarget = previewContainer.firstElementChild;
+        let captureTarget = previewContainer.firstElementChild; // let으로 변경
         if (!captureTarget) return false;
 
         const rootHtml = document.documentElement;
@@ -1261,53 +1262,41 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
         };
 
         const domReplacements = [];
+        const originalCaptureTarget = captureTarget; // 원본 컨테이너 참조 저장
 
         try {
             await ensureHtmlToImage();
             const htmlToImage = window.__htmlToImageLib || window.htmlToImage;
 
+            // --- 비디오 프레임 캡처 로직 (동일) ---
             onProgress('비디오 프레임 캡처 중...', 5, 100);
             const videoElements = Array.from(previewContainer.querySelectorAll('video'));
-            
+            // ... (기존 비디오 캡처 코드와 동일하게 유지) ...
             const frameCapturePromises = videoElements.map(videoEl => {
                 return new Promise(async (resolve) => {
                     const videoSrc = videoEl.querySelector('source')?.src || videoEl.src;
                     if (!videoSrc) return resolve();
-
                     let objectURL = '';
                     try {
                         const response = await fetch(videoSrc);
                         if (!response.ok) throw new Error('Failed to fetch');
                         const videoBlob = await response.blob();
                         objectURL = URL.createObjectURL(videoBlob);
-
                         const tempVideo = document.createElement('video');
                         tempVideo.muted = true;
                         tempVideo.src = objectURL;
-
                         tempVideo.addEventListener('seeked', () => {
                             const canvas = document.createElement('canvas');
                             canvas.width = tempVideo.videoWidth;
                             canvas.height = tempVideo.videoHeight;
-                            const ctx = canvas.getContext('2d');
-                            ctx.drawImage(tempVideo, 0, 0, canvas.width, canvas.height);
-
+                            canvas.getContext('2d').drawImage(tempVideo, 0, 0, canvas.width, canvas.height);
                             const imgDoppelganger = new Image();
                             imgDoppelganger.src = canvas.toDataURL();
-                            
                             imgDoppelganger.className = videoEl.className;
                             imgDoppelganger.style.cssText = videoEl.style.cssText;
                             imgDoppelganger.style.width = '100%';
                             imgDoppelganger.style.height = 'auto';
-                            imgDoppelganger.style.display = 'block';
-                            imgDoppelganger.style.verticalAlign = 'middle';
-                            imgDoppelganger.style.margin = '0';
-                            domReplacements.push({ 
-                                original: videoEl, 
-                                parent: videoEl.parentNode, 
-                                replacement: imgDoppelganger,
-                                objectURL: objectURL 
-                            });
+                            domReplacements.push({ original: videoEl, parent: videoEl.parentNode, replacement: imgDoppelganger, objectURL: objectURL });
                             resolve();
                         });
                         tempVideo.addEventListener('loadeddata', () => { tempVideo.currentTime = 0; });
@@ -1315,17 +1304,14 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
                     } catch (e) { resolve(); }
                 });
             });
-
             await Promise.all(frameCapturePromises);
-
             domReplacements.forEach(({ parent, original, replacement }) => {
-                if (parent && parent.contains(original)) {
-                    parent.replaceChild(replacement, original);
-                }
+                if (parent && parent.contains(original)) parent.replaceChild(replacement, original);
             });
-
             await new Promise(resolve => setTimeout(resolve, 100));
 
+
+            // --- 캡처 준비 (동일) ---
             onProgress('렌더링 준비 중...', 10, 100);
             const pixelRatio = useHighRes ? (window.devicePixelRatio || 2) : 1;
             rootHtml.style.fontSize = `${baseFontSize}px`;
@@ -1336,37 +1322,61 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
             const totalWidth = captureTarget.scrollWidth;
             const MAX_CHUNK_HEIGHT = Math.floor(MAX_SAFE_CANVAS_HEIGHT / pixelRatio) - 100;
             const commonOptions = { quality: 1.0, pixelRatio, backgroundColor: captureTarget.style.backgroundColor || '#1a1b26' };
-            
+
             if (totalHeight <= MAX_CHUNK_HEIGHT) {
+                // --- 단일 이미지 저장 (동일) ---
                 onProgress('이미지 생성 중...', 50, 100);
                 if (cancellationToken.cancelled) throw new Error("Cancelled");
-                const singleShotOptions = { ...commonOptions, width: totalWidth, height: totalHeight };
                 previewContainer.style.height = `${totalHeight}px`;
                 await new Promise(resolve => requestAnimationFrame(resolve));
-                
-                // --- [핵심 수정] 성공이 확인된 toCanvas() 방식으로 통일 ---
-                const canvas = await htmlToImage.toCanvas(previewContainer, singleShotOptions);
-                const dataUrl = canvas.toDataURL('image/png', 1.0);
-                
-                downloadImage(dataUrl, charName, chatName);
+                const canvas = await htmlToImage.toCanvas(previewContainer, { ...commonOptions, width: totalWidth, height: totalHeight });
+                downloadImage(canvas.toDataURL('image/png', 1.0), charName, chatName);
             } else {
-                const messageContainers = Array.from(captureTarget.querySelectorAll('.chat-message-container'));
+                // --- [핵심] 분할 저장 로직 (컨테이너 교체 방식) ---
+                const messageContainers = Array.from(originalCaptureTarget.querySelectorAll('.chat-message-container'));
                 const confirmMsg = confirm(`[알림] 로그가 너무 길어 단일 이미지로 만들 수 없습니다.\n\n메시지 그룹별로 여러 개의 이미지 파일로 나누어 저장합니다.\n\n계속하시겠습니까?`);
                 if (!confirmMsg) return false;
-                const messageStates = messageContainers.map(msg => ({ element: msg, originalDisplay: msg.style.display }));
+
+                // 그룹 분할 로직 (동일)
                 const groups = [];
                 let currentGroup = [], accumulatedHeight = 0;
                 for (const msg of messageContainers) {
                     const msgHeight = msg.offsetHeight + parseInt(window.getComputedStyle(msg).marginBottom);
-                    if (currentGroup.length > 0 && accumulatedHeight + msgHeight > MAX_CHUNK_HEIGHT) { groups.push([...currentGroup]); currentGroup = [msg]; accumulatedHeight = msgHeight; } else { currentGroup.push(msg); accumulatedHeight += msgHeight; }
+                    if (currentGroup.length > 0 && accumulatedHeight + msgHeight > MAX_CHUNK_HEIGHT) {
+                        groups.push([...currentGroup]);
+                        currentGroup = [msg];
+                        accumulatedHeight = msgHeight;
+                    } else {
+                        currentGroup.push(msg);
+                        accumulatedHeight += msgHeight;
+                    }
                 }
                 if (currentGroup.length > 0) groups.push(currentGroup);
+
+                // 각 그룹을 새로운 컨테이너에서 렌더링 및 캡처
                 for (let groupIdx = 0; groupIdx < groups.length; groupIdx++) {
                     if (cancellationToken.cancelled) throw new Error("Cancelled");
-                    const group = groups[groupIdx];
+                    const groupMessages = groups[groupIdx];
                     onProgress(`그룹 ${groupIdx + 1}/${groups.length} 렌더링 중...`, groupIdx, groups.length);
-                    messageContainers.forEach(msg => { msg.style.display = group.includes(msg) ? '' : 'none'; });
-                    await new Promise(r => setTimeout(r, 150));
+
+                    // 1. 현재 그룹을 위한 새로운 '무대(컨테이너)' 생성
+                    const groupContainer = originalCaptureTarget.cloneNode(false); // 껍데기만 복사
+
+                    // 2. 새 무대에 현재 그룹의 메시지만 (복제하여) 추가
+                    groupMessages.forEach(msg => {
+                        groupContainer.appendChild(msg.cloneNode(true));
+                    });
+                    
+                    // 3. 기존 무대를 새로운 무대로 DOM에서 교체
+                    previewContainer.replaceChild(groupContainer, captureTarget);
+                    captureTarget = groupContainer; // 현재 캡처 대상을 새 무대로 업데이트
+
+                    // 4. 브라우저가 새 무대를 렌더링하도록 강제 동기화
+                    await new Promise(resolve => requestAnimationFrame(resolve));
+                    const _ = captureTarget.scrollHeight; // reflow 강제
+                    await new Promise(resolve => requestAnimationFrame(resolve));
+
+                    // 5. 캡처 및 저장
                     const visibleHeight = captureTarget.scrollHeight;
                     const groupOptions = { ...commonOptions, width: totalWidth, height: visibleHeight };
                     const canvas = await htmlToImage.toCanvas(previewContainer, groupOptions);
@@ -1374,26 +1384,36 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
                     downloadImage(canvas.toDataURL('image/png', 1.0), charName, chatName, { partNumber: groupIdx + 1, showCompletionAlert: false });
                     await new Promise(r => setTimeout(r, 200));
                 }
-                messageStates.forEach(state => { state.element.style.display = state.originalDisplay || ''; });
-                if (!cancellationToken.cancelled) { alert(`${groups.length}개의 이미지로 분할하여 저장되었습니다.`, 'success'); }
+
+                if (!cancellationToken.cancelled) {
+                    alert(`${groups.length}개의 이미지로 분할하여 저장되었습니다.`, 'success');
+                }
             }
             return true;
 
         } catch (e) {
-            if (e.message !== "Cancelled") { console.error('[Log Exporter] Image save error:'); console.dir(e); alert('이미지 저장 중 알 수 없는 오류가 발생했습니다. 개발자 콘솔(F12)을 확인해주세요.', 'error'); }
+            if (e.message !== "Cancelled") {
+                console.error('[Log Exporter] Image save error:', e);
+                alert('이미지 저장 중 알 수 없는 오류가 발생했습니다. 개발자 콘솔(F12)을 확인해주세요.', 'error');
+            }
             return false;
         } finally {
+            // --- 최종 정리 ---
+            // 루프가 끝난 후, 현재의 captureTarget(마지막 그룹)을 원래의 전체 로그 컨테이너로 복원
+            if (previewContainer.contains(captureTarget) && captureTarget !== originalCaptureTarget) {
+                 previewContainer.replaceChild(originalCaptureTarget, captureTarget);
+            }
+            // 비디오 프레임 캡처용 이미지 DOM 정리
             domReplacements.forEach(({ original, parent, replacement, objectURL }) => {
-                if (parent && parent.contains(replacement)) {
-                    parent.replaceChild(original, replacement);
-                }
+                if (parent && parent.contains(replacement)) parent.replaceChild(original, replacement);
                 if (objectURL) URL.revokeObjectURL(objectURL);
             });
+            // 원본 스타일 복원
             Object.assign(previewContainer.style, originalStyles.preview);
-            Object.assign(captureTarget.style, originalStyles.target);
+            Object.assign(originalCaptureTarget.style, originalStyles.target); // 원본 컨테이너에 스타일 복원
             rootHtml.style.fontSize = originalStyles.rootHtml.fontSize;
         }
-    }
+    } 
     /**
      * 데이터 URL을 받아 이미지 파일로 다운로드합니다.
      * @param {string} dataUrl - 다운로드할 이미지의 데이터 URL.
