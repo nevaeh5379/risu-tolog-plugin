@@ -1095,7 +1095,7 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
             }
 
             let logEntry = '';
-            logEntry += '<div style="display:flex;align-items:flex-start;margin-bottom:28px;' + (isUser ? 'flex-direction:row-reverse;' : '') + '">';
+            logEntry += '<div class="chat-message-container" style="display:flex;align-items:flex-start;margin-bottom:28px;' + (isUser ? 'flex-direction:row-reverse;' : '') + '">';
             logEntry += avatarHtml;
             logEntry += '<div style="flex:1;">';
             const namePadding = showAvatar ? '4px;' : '0;';
@@ -1231,10 +1231,10 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
         document.body.removeChild(textArea);
         return success;
     }
-
-    /**
+          /**
      * 미리보기 컨테이너를 이미지 파일로 저장합니다.
-     * 매우 긴 로그의 경우 이미지를 여러 청크로 분할하여 처리합니다.
+     * 단일 파일 저장 시에도 분할 저장 시에 안정적으로 동작했던 toCanvas()를 먼저 호출하는 방식으로 통일하여
+     * 라이브러리의 내부적인 toDataURL() 오류를 근본적으로 회피합니다.
      * @async
      * @param {HTMLElement} previewContainer - 캡처할 미리보기 컨테이너 요소.
      * @param {Function} onProgress - 진행 상황을 보고하는 콜백 함수.
@@ -1248,7 +1248,7 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
      */
     async function savePreviewAsImage(previewContainer, onProgress, cancellationToken, charName, chatName, useHighRes = false, baseFontSize = 16, imageWidth = 900) {
         console.log(`[Log Exporter] savePreviewAsImage: 미리보기를 이미지로 저장 시작. 고해상도: ${useHighRes}, 너비: ${imageWidth}`);
-        const MAX_SAFE_CANVAS_HEIGHT = 65535;
+        const MAX_SAFE_CANVAS_HEIGHT = 65000;
 
         const captureTarget = previewContainer.firstElementChild;
         if (!captureTarget) return false;
@@ -1260,97 +1260,140 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
             rootHtml: { fontSize: rootHtml.style.fontSize }
         };
 
+        const domReplacements = [];
+
         try {
             await ensureHtmlToImage();
             const htmlToImage = window.__htmlToImageLib || window.htmlToImage;
 
-            onProgress('리소스 목록 수집 중...', 0, 100);
+            onProgress('비디오 프레임 캡처 중...', 5, 100);
+            const videoElements = Array.from(previewContainer.querySelectorAll('video'));
+            
+            const frameCapturePromises = videoElements.map(videoEl => {
+                return new Promise(async (resolve) => {
+                    const videoSrc = videoEl.querySelector('source')?.src || videoEl.src;
+                    if (!videoSrc) return resolve();
 
-            onProgress('렌더링 준비 중...', 90, 100);
+                    let objectURL = '';
+                    try {
+                        const response = await fetch(videoSrc);
+                        if (!response.ok) throw new Error('Failed to fetch');
+                        const videoBlob = await response.blob();
+                        objectURL = URL.createObjectURL(videoBlob);
+
+                        const tempVideo = document.createElement('video');
+                        tempVideo.muted = true;
+                        tempVideo.src = objectURL;
+
+                        tempVideo.addEventListener('seeked', () => {
+                            const canvas = document.createElement('canvas');
+                            canvas.width = tempVideo.videoWidth;
+                            canvas.height = tempVideo.videoHeight;
+                            const ctx = canvas.getContext('2d');
+                            ctx.drawImage(tempVideo, 0, 0, canvas.width, canvas.height);
+
+                            const imgDoppelganger = new Image();
+                            imgDoppelganger.src = canvas.toDataURL();
+                            
+                            imgDoppelganger.className = videoEl.className;
+                            imgDoppelganger.style.cssText = videoEl.style.cssText;
+                            imgDoppelganger.style.width = '100%';
+                            imgDoppelganger.style.height = 'auto';
+                            imgDoppelganger.style.display = 'block';
+                            imgDoppelganger.style.verticalAlign = 'middle';
+                            imgDoppelganger.style.margin = '0';
+                            domReplacements.push({ 
+                                original: videoEl, 
+                                parent: videoEl.parentNode, 
+                                replacement: imgDoppelganger,
+                                objectURL: objectURL 
+                            });
+                            resolve();
+                        });
+                        tempVideo.addEventListener('loadeddata', () => { tempVideo.currentTime = 0; });
+                        tempVideo.addEventListener('error', () => resolve());
+                    } catch (e) { resolve(); }
+                });
+            });
+
+            await Promise.all(frameCapturePromises);
+
+            domReplacements.forEach(({ parent, original, replacement }) => {
+                if (parent && parent.contains(original)) {
+                    parent.replaceChild(replacement, original);
+                }
+            });
+
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            onProgress('렌더링 준비 중...', 10, 100);
             const pixelRatio = useHighRes ? (window.devicePixelRatio || 2) : 1;
-
             rootHtml.style.fontSize = `${baseFontSize}px`;
             captureTarget.style.width = `${imageWidth}px`;
             Object.assign(previewContainer.style, { height: 'auto', maxHeight: 'none', overflowY: 'visible', border: 'none', padding: '0', width: `${imageWidth}px` });
-
             await new Promise(resolve => requestAnimationFrame(resolve));
-
             const totalHeight = captureTarget.scrollHeight;
             const totalWidth = captureTarget.scrollWidth;
-            const MAX_CHUNK_HEIGHT = 8000;
-            const options = { quality: 1.0, pixelRatio, backgroundColor: '#1a1b26', width: totalWidth, height: MAX_CHUNK_HEIGHT };
-
-            if (totalHeight * pixelRatio <= MAX_SAFE_CANVAS_HEIGHT) {
-                const finalCanvas = document.createElement('canvas');
-                finalCanvas.width = totalWidth * pixelRatio;
-                finalCanvas.height = totalHeight * pixelRatio;
-                const ctx = finalCanvas.getContext('2d');
-                Object.assign(previewContainer.style, { height: `${MAX_CHUNK_HEIGHT}px`, width: `${totalWidth}px`, overflow: 'hidden' });
-                const numChunks = Math.ceil(totalHeight / MAX_CHUNK_HEIGHT);
-
-                const processChunk = async (chunkIndex) => {
-                    if (cancellationToken.cancelled) throw new Error("Cancelled");
-                    if (chunkIndex >= numChunks) return;
-                    const chunkY = chunkIndex * MAX_CHUNK_HEIGHT;
-                    onProgress(`이미지 분할 생성 중... (${chunkIndex + 1}/${numChunks})`, chunkIndex, numChunks);
-                    captureTarget.style.transform = `translateY(-${chunkY}px)`;
-                    await new Promise(resolve => requestAnimationFrame(resolve));
-                    const chunkCanvas = await htmlToImage.toCanvas(previewContainer, options);
-                    const heightToDraw = Math.min(MAX_CHUNK_HEIGHT, totalHeight - chunkY);
-                    const sourceHeight = heightToDraw * pixelRatio;
-                    ctx.drawImage(chunkCanvas, 0, 0, chunkCanvas.width, sourceHeight, 0, chunkY * pixelRatio, chunkCanvas.width, sourceHeight);
-                    await new Promise(resolve => setTimeout(resolve, 20));
-                    await processChunk(chunkIndex + 1);
-                };
-                await processChunk(0);
+            const MAX_CHUNK_HEIGHT = Math.floor(MAX_SAFE_CANVAS_HEIGHT / pixelRatio) - 100;
+            const commonOptions = { quality: 1.0, pixelRatio, backgroundColor: captureTarget.style.backgroundColor || '#1a1b26' };
+            
+            if (totalHeight <= MAX_CHUNK_HEIGHT) {
+                onProgress('이미지 생성 중...', 50, 100);
                 if (cancellationToken.cancelled) throw new Error("Cancelled");
-                onProgress('이미지 병합 및 finalizing...', numChunks, numChunks);
-                downloadImage(finalCanvas.toDataURL('image/png', 1.0), charName, chatName);
-
+                const singleShotOptions = { ...commonOptions, width: totalWidth, height: totalHeight };
+                previewContainer.style.height = `${totalHeight}px`;
+                await new Promise(resolve => requestAnimationFrame(resolve));
+                
+                // --- [핵심 수정] 성공이 확인된 toCanvas() 방식으로 통일 ---
+                const canvas = await htmlToImage.toCanvas(previewContainer, singleShotOptions);
+                const dataUrl = canvas.toDataURL('image/png', 1.0);
+                
+                downloadImage(dataUrl, charName, chatName);
             } else {
-                const numImages = Math.ceil(totalHeight / MAX_CHUNK_HEIGHT);
-                const userConfirmed = confirm(`[알림] 로그가 너무 길어 단일 이미지로 만들 수 없습니다.\n\n대신 ${numImages}개의 이미지 파일로 분할하여 저장합니다. 계속하시겠습니까?`);
-                if (!userConfirmed) return false;
-
-                Object.assign(previewContainer.style, { height: `${MAX_CHUNK_HEIGHT}px`, width: `${totalWidth}px`, overflow: 'hidden' });
-
-                const saveChunkAsImage = async (chunkIndex) => {
+                const messageContainers = Array.from(captureTarget.querySelectorAll('.chat-message-container'));
+                const confirmMsg = confirm(`[알림] 로그가 너무 길어 단일 이미지로 만들 수 없습니다.\n\n메시지 그룹별로 여러 개의 이미지 파일로 나누어 저장합니다.\n\n계속하시겠습니까?`);
+                if (!confirmMsg) return false;
+                const messageStates = messageContainers.map(msg => ({ element: msg, originalDisplay: msg.style.display }));
+                const groups = [];
+                let currentGroup = [], accumulatedHeight = 0;
+                for (const msg of messageContainers) {
+                    const msgHeight = msg.offsetHeight + parseInt(window.getComputedStyle(msg).marginBottom);
+                    if (currentGroup.length > 0 && accumulatedHeight + msgHeight > MAX_CHUNK_HEIGHT) { groups.push([...currentGroup]); currentGroup = [msg]; accumulatedHeight = msgHeight; } else { currentGroup.push(msg); accumulatedHeight += msgHeight; }
+                }
+                if (currentGroup.length > 0) groups.push(currentGroup);
+                for (let groupIdx = 0; groupIdx < groups.length; groupIdx++) {
                     if (cancellationToken.cancelled) throw new Error("Cancelled");
-                    if (chunkIndex >= numImages) return;
-                    const chunkY = chunkIndex * MAX_CHUNK_HEIGHT;
-                    onProgress(`이미지 ${chunkIndex + 1}/${numImages} 저장 중...`, chunkIndex, numImages);
-                    captureTarget.style.transform = `translateY(-${chunkY}px)`;
-                    await new Promise(resolve => requestAnimationFrame(resolve));
-                    const chunkCanvas = await htmlToImage.toCanvas(previewContainer, options);
-                    const heightToDraw = Math.min(MAX_CHUNK_HEIGHT, totalHeight - chunkY);
-
-                    const finalChunkCanvas = document.createElement('canvas');
-                    finalChunkCanvas.width = totalWidth * pixelRatio;
-                    finalChunkCanvas.height = heightToDraw * pixelRatio;
-                    const chunkCtx = finalChunkCanvas.getContext('2d');
-                    chunkCtx.drawImage(chunkCanvas, 0, 0, finalChunkCanvas.width, finalChunkCanvas.height, 0, 0, finalChunkCanvas.width, finalChunkCanvas.height);
-
-                    downloadImage(finalChunkCanvas.toDataURL('image/png', 1.0), charName, chatName, { partNumber: chunkIndex + 1, showCompletionAlert: false });
-
-                    await new Promise(resolve => setTimeout(resolve, 500));
-                    await saveChunkAsImage(chunkIndex + 1);
-                };
-                await saveChunkAsImage(0);
-                if (cancellationToken.cancelled) throw new Error("Cancelled");
-                alert(`${numImages}개의 이미지 파일로 분할하여 저장되었습니다.`, 'success');
+                    const group = groups[groupIdx];
+                    onProgress(`그룹 ${groupIdx + 1}/${groups.length} 렌더링 중...`, groupIdx, groups.length);
+                    messageContainers.forEach(msg => { msg.style.display = group.includes(msg) ? '' : 'none'; });
+                    await new Promise(r => setTimeout(r, 150));
+                    const visibleHeight = captureTarget.scrollHeight;
+                    const groupOptions = { ...commonOptions, width: totalWidth, height: visibleHeight };
+                    const canvas = await htmlToImage.toCanvas(previewContainer, groupOptions);
+                    onProgress(`그룹 ${groupIdx + 1}/${groups.length} 저장 중...`, groupIdx + 1, groups.length);
+                    downloadImage(canvas.toDataURL('image/png', 1.0), charName, chatName, { partNumber: groupIdx + 1, showCompletionAlert: false });
+                    await new Promise(r => setTimeout(r, 200));
+                }
+                messageStates.forEach(state => { state.element.style.display = state.originalDisplay || ''; });
+                if (!cancellationToken.cancelled) { alert(`${groups.length}개의 이미지로 분할하여 저장되었습니다.`, 'success'); }
             }
             return true;
 
         } catch (e) {
-            if (e.message !== "Cancelled") console.error('[Log Exporter] Image save error:', e);
+            if (e.message !== "Cancelled") { console.error('[Log Exporter] Image save error:'); console.dir(e); alert('이미지 저장 중 알 수 없는 오류가 발생했습니다. 개발자 콘솔(F12)을 확인해주세요.', 'error'); }
             return false;
         } finally {
+            domReplacements.forEach(({ original, parent, replacement, objectURL }) => {
+                if (parent && parent.contains(replacement)) {
+                    parent.replaceChild(original, replacement);
+                }
+                if (objectURL) URL.revokeObjectURL(objectURL);
+            });
             Object.assign(previewContainer.style, originalStyles.preview);
             Object.assign(captureTarget.style, originalStyles.target);
-            Object.assign(rootHtml.style, originalStyles.rootHtml);
+            rootHtml.style.fontSize = originalStyles.rootHtml.fontSize;
         }
     }
-
     /**
      * 데이터 URL을 받아 이미지 파일로 다운로드합니다.
      * @param {string} dataUrl - 다운로드할 이미지의 데이터 URL.
@@ -1745,7 +1788,7 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
                         <label><input type="checkbox" id="image-high-res-checkbox" checked>고해상도</label>
                         <label>폰트:<input type="number" id="image-font-size-input" value="26" min="12" max="40" style="width: 45px; margin-left: 4px; background: #1a1b26; color: #c0caf5; border: 1px solid #414868; border-radius: 4px; text-align: center;"></label>
                         <label>너비:<input type="number" id="image-width-input" value="700" min="600" max="1200" step="50" style="width: 60px; margin-left: 4px; background: #1a1b26; color: #c0caf5; border: 1px solid #414868; border-radius: 4px; text-align: center;"></label>
-                        <button class="log-exporter-modal-btn image-save" id="log-exporter-save-image">이미지로 저장</button>
+                        <button class="log-exporter-modal-btn image-save" id="log-exporter-save-image">이미지로 저장</button>    
                     </div>
                     
                     <button class="log-exporter-modal-btn" id="log-exporter-download-zip" style="background-color: #e0af68; color: #1a1b26;">이미지 ZIP 다운로드</button>
@@ -1761,7 +1804,7 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
                 </div>
             </div>`;
             document.body.appendChild(modal);
-
+          
             // [추가] 아바타 토글 컨트롤 변수 정의 (ReferenceError 방지)
             const avatarToggleControls = modal.querySelector('#avatar-toggle-controls');
             const avatarToggleCheckbox = modal.querySelector('#avatar-toggle-checkbox');
