@@ -160,6 +160,42 @@ const THEMES = {
         soundText: '#b0b0b0',
         shadow: '0 2px 4px rgba(0,0,0,0.5)',
         avatarBorder: '#808080'
+    },
+    highcontrast: {
+        name: '하이 콘트라스트',
+        background: '#000000',
+        cardBg: '#111111',
+        cardBgUser: '#1e1e1e',
+        text: '#ffffff',
+        textSecondary: '#d0d0d0',
+        nameColor: '#ffffff',
+        border: '#3d3d3d',
+        quoteBg: 'rgba(255,255,255,0.08)',
+        quoteText: '#ffffff',
+        thoughtBg: 'rgba(255,255,255,0.08)',
+        thoughtText: '#ffffff',
+        soundBg: 'rgba(255,255,255,0.08)',
+        soundText: '#ffffff',
+        shadow: '0 0 0 1px rgba(255,255,255,0.04), 0 4px 8px rgba(0,0,0,0.8)',
+        avatarBorder: '#ffffff'
+    },
+    darkcontrast: {
+        name: '다크 하이 콘트라스트',
+        background: '#0b0f19',
+        cardBg: '#1b2330',
+        cardBgUser: '#263246',
+        text: '#ffffff',
+        textSecondary: '#c7d6ff',
+        nameColor: '#8fbaff',
+        border: '#3d5b99',
+        quoteBg: 'rgba(143,186,255,0.15)',
+        quoteText: '#ffffff',
+        thoughtBg: 'rgba(120,160,255,0.18)',
+        thoughtText: '#ffffff',
+        soundBg: 'rgba(255,200,120,0.18)',
+        soundText: '#ffd9a0',
+        shadow: '0 0 0 1px rgba(255,255,255,0.05), 0 6px 14px rgba(0,0,0,0.65)',
+        avatarBorder: '#6ba8ff'
     }
 };
 
@@ -355,19 +391,25 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
         return jszipPromise;
     }
 
-    async function downloadImagesAsZip(nodes, charName, chatName, sequentialNaming = false) {
+    async function downloadImagesAsZip(nodes, charName, chatName, sequentialNaming = false, showAvatar = true) {
         try {
             await ensureJSZip();
             const zip = new window.JSZip();
             const imagePromises = [];
             let imageCounter = 0;
+            const addedUrls = new Set(); // 중복 추가 방지
 
-            // [수정] 이미지 URL을 받아 안정적인 파일명으로 ZIP에 추가하는 로직으로 복원
             const addImageToZip = (src) => {
-                if (!src || src.startsWith('data:')) return; // 데이터 URL은 zipping에서 제외
+                if (!src || src.startsWith('data:')) return;
+
+                // 일반 모드(sequentialNaming=false)에서만 중복을 체크하고 건너뛴다.
+                // 아카라이브 모드에서는 모든 이미지 요소를 파일로 만들어야 순서가 맞는다.
+                if (!sequentialNaming) {
+                    if (addedUrls.has(src)) return;
+                    addedUrls.add(src);
+                }
 
                 imageCounter++;
-                // [수정] sequentialNaming 플래그에 따라 두 가지 방식의 안정적인 파일명 생성
                 const filename = sequentialNaming
                     ? `image_${imageCounter}.png`
                     : `image_${String(imageCounter).padStart(3, '0')}.png`;
@@ -383,21 +425,40 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
                 );
             };
 
-            for (const node of nodes) {
-                // <img> 태그 찾기
-                node.querySelectorAll('img').forEach(img => {
-                    if (img.src) {
-                        addImageToZip(img.src);
+            // 아카라이브 모드에서는 순서가 중요하므로, HTML 생성 후 순서대로 수집
+            if (sequentialNaming) {
+                const baseHtml = await generateBasicFormatLog(nodes, 'dark', false, showAvatar, true); // embedImagesAsBase64=false
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = baseHtml;
+
+                // 단일 쿼리로 모든 이미지 요소를 문서 순서대로 수집하여 순서 불일치 문제 해결
+                tempDiv.querySelectorAll('img, [style*="url("]').forEach(el => {
+                    if (el.tagName === 'IMG') {
+                        if (el.src) addImageToZip(el.src);
+                    } else { // 배경 이미지
+                        const style = el.getAttribute('style');
+                        const urlMatch = style.match(/url\(["']?([^"')]+)["']?\)/);
+                        if (urlMatch && urlMatch[1]) {
+                            addImageToZip(urlMatch[1]);
+                        }
                     }
                 });
+            } else {
+                // 일반 모드에서는 모든 참가자 아바타를 먼저 추가
+                if (showAvatar) {
+                    const avatarMap = await collectCharacterAvatars(nodes, false);
+                    for (const avatarUrl of avatarMap.values()) {
+                        addImageToZip(avatarUrl);
+                    }
+                }
 
-                // background-image 찾기
-                const elementsWithBg = node.querySelectorAll('[style*="background-image"]');
-                for (const el of elementsWithBg) {
-                    const style = el.style.backgroundImage;
-                    const urlMatch = style.match(/url\(["']?([^"')]+)["']?\)/);
-                    if (urlMatch && urlMatch[1]) {
-                        addImageToZip(urlMatch[1]);
+                for (const node of nodes) {
+                    node.querySelectorAll('img').forEach(img => { if (img.src) addImageToZip(img.src); });
+                    const elementsWithBg = node.querySelectorAll('[style*="background-image"]');
+                    for (const el of elementsWithBg) {
+                        const style = el.style.backgroundImage;
+                        const urlMatch = style.match(/url\(["']?([^"')]+)["']?\)/);
+                        if (urlMatch && urlMatch[1]) addImageToZip(urlMatch[1]);
                     }
                 }
             }
@@ -755,6 +816,18 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
         'x-risu-succubus-button'
     ];
 
+    // [추가] 아바타와 일반 이미지를 구분하기 위한 데이터 속성
+    const AVATAR_ATTR = 'data-tolog-avatar';
+
+    // [추가] 아바타와 일반 이미지에 적용될 최종 스타일 정의
+    const ARCA_IMG_STYLES = {
+        avatar: (theme, isUser) => {
+            const margin = isUser ? 'margin-left:12px;' : 'margin-right:12px;';
+            return `width:48px; height:48px; min-width:48px; flex-shrink:0; border-radius:50%; object-fit:cover; border:2px solid ${theme.avatarBorder}; box-shadow:${theme.shadow}; ${margin}`;
+        },
+        content: `max-width: 100%; height: auto; border-radius: 8px; display: block; margin: 12px 0;`
+    };
+
 
     function extractAvatarFromNode(node) {
         const avatarEl = node.querySelector('.shadow-lg.rounded-md[style*="background"]');
@@ -790,7 +863,17 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
         return avatarMap;
     }
 
-        async function generateBasicFormatLog(nodes, selectedTheme = 'dark', embedImagesAsBase64 = true) {
+        /**
+         * Generates a formatted HTML chat log from an array of chat message nodes.
+         *
+         * @async
+         * @function generateBasicFormatLog
+         * @param {HTMLElement[]} nodes - Array of DOM nodes representing chat messages.
+         * @param {string} [selectedTheme='dark'] - The theme to use for formatting ('dark' or other keys in THEMES).
+         * @param {boolean} [embedImagesAsBase64=true] - Whether to embed images as base64 data URIs.
+         * @returns {Promise<string>} A promise that resolves to an HTML string representing the formatted chat log.
+         */
+        async function generateBasicFormatLog(nodes, selectedTheme = 'dark', embedImagesAsBase64 = true, showAvatar = true, useBubbleDesign = true) {
         const theme = THEMES[selectedTheme] || THEMES.dark;
         let log = '';
         
@@ -869,32 +952,50 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
             const avatarSrc = avatarMap.get(name);
             let avatarHtml = '';
             
-            const createAvatarDiv = (src, isUser) => {
-                const margin = isUser ? 'margin-left:12px;' : 'margin-right:12px;';
-                const baseStyle = `width:48px;height:48px;min-width:48px;border-radius:50%;box-shadow:${theme.shadow};border:2px solid ${theme.avatarBorder};${margin}`;
-                if (src) {
-                    return `<div style="${baseStyle}background:url('${src}');background-size:cover;background-position:center;"></div>`;
-                } else {
-                    const bgColor = isUser ? theme.textSecondary : theme.avatarBorder;
-                    const letter = isUser ? 'U' : name.charAt(0).toUpperCase();
-                    return `<div style="${baseStyle}background-color:${bgColor};display:flex;align-items:center;justify-content:center;"><span style="color:${theme.background};font-weight:bold;font-size:1.2em;">${letter}</span></div>`;
-                }
-            };
-            avatarHtml = createAvatarDiv(avatarSrc, isUser);
+            if (showAvatar) {
+                const createAvatarDiv = (src, isUser) => {
+                    const margin = isUser ? 'margin-left:12px;' : 'margin-right:12px;';
+                    const baseStyle = `width:48px;height:48px;min-width:48px;border-radius:50%;box-shadow:${theme.shadow};border:2px solid ${theme.avatarBorder};${margin}`;
+                    if (src) { // [수정] 아바타 식별을 위한 data-tolog-avatar 속성 추가
+                        return `<div ${AVATAR_ATTR} style="${baseStyle}background:url('${src}');background-size:cover;background-position:center;"></div>`;
+                    } else {
+                        const bgColor = isUser ? theme.textSecondary : theme.avatarBorder;
+                        const letter = isUser ? 'U' : name.charAt(0).toUpperCase();
+                        return `<div ${AVATAR_ATTR} style="${baseStyle}background-color:${bgColor};display:flex;align-items:center;justify-content:center;"><span style="color:${theme.background};font-weight:bold;font-size:1.2em;">${letter}</span></div>`;
+                    }
+                };
+                avatarHtml = createAvatarDiv(avatarSrc, isUser);
+            }
 
             let logEntry = '';
             logEntry += '<div style="display:flex;align-items:flex-start;margin-bottom:28px;' + (isUser ? 'flex-direction:row-reverse;' : '') + '">';
             logEntry += avatarHtml;
-            logEntry += '<div style="flex:1;max-width:' + (isUser ? '75%;' : '80%;') + '">';
-            logEntry += '<strong style="color:' + theme.nameColor + ';font-weight:600;font-size:0.95em;display:block;margin-bottom:8px;padding-left:' + (isUser ? '0;' : '4px;') + 'padding-right:' + (isUser ? '4px;' : '0;') + 'text-align:' + (isUser ? 'right;' : 'left;') + '">' + name + '</strong>';
-            logEntry += '<div style="background-color:' + cardBgColor + ';color:' + theme.text + ';border-radius:16px;padding:14px 18px;line-height:1.8;word-wrap:break-word;box-shadow:' + theme.shadow + ';border:1px solid ' + theme.border + ';position:relative;' + (isUser ? 'margin-left:auto;' : '') + '">' + messageHtml + '</div>';
+            logEntry += '<div style="flex:1;">';
+            const namePadding = showAvatar ? '4px;' : '0;';
+            logEntry += '<strong style="color:' + theme.nameColor + ';font-weight:600;font-size:0.95em;display:block;margin-bottom:8px;padding-left:' + (isUser ? '0;' : namePadding) + 'padding-right:' + (isUser ? namePadding : '0;') + 'text-align:' + (isUser ? 'right;' : 'left;') + '">' + name + '</strong>';
+            const bubbleStyle = useBubbleDesign 
+    ? 'background-color:' + cardBgColor + ';border-radius:16px;padding:14px 18px;box-shadow:' + theme.shadow + ';border:1px solid ' + theme.border + ';'
+    : 'padding:4px 0;';
+
+logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:break-word;position:relative;' + bubbleStyle + (isUser ? 'margin-left:auto;' : '') + '">' + messageHtml + '</div>';;
             logEntry += '</div></div>';
             
             log += logEntry;
         }
 
         // [수정] 이제 이 함수는 순수한 로그 HTML 덩어리만 반환합니다.
-        return log;
+        // 전체 로그를 배경과 둥근 모서리가 있는 컨테이너로 감싸기
+        const containerStyle = `
+            background-color: ${theme.background};
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: ${theme.shadow};
+            border: 1px solid ${theme.border};
+            margin: 16px auto;
+            max-width: 900px;
+        `;
+        
+        return `<div style="${containerStyle}">${log}</div>`;
     }
 
     async function generateFormattedLog(nodes, format) {
@@ -1259,47 +1360,28 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
      * 아카라이브용 HTML 템플릿을 생성합니다.
      * <img> 태그를 고유한 자리표시자 주석으로 교체합니다.
      */
-    async function generateArcaLiveTemplate(nodes, themeKey = 'dark') {
+    async function generateArcaLiveTemplate(nodes, themeKey = 'dark', showAvatar = true, useBubbleDesign = true) {
         let imageCounter = 0;
 
-        // '기본' 형식의 HTML을 먼저 생성합니다. (embedImagesAsBase64=false 로 원본 URL 유지)
-        const baseHtml = await generateBasicFormatLog(nodes, themeKey, false);
-
+        const baseHtml = await generateBasicFormatLog(nodes, themeKey, false, showAvatar, useBubbleDesign);
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = baseHtml;
 
-        // 모든 이미지 태그를 찾아서 자리표시자로 교체
-        tempDiv.querySelectorAll('img').forEach(img => {
-            imageCounter++;
-            const placeholder = document.createComment(` ARCA_IMG_PLACEHOLDER_${imageCounter} `);
-            img.replaceWith(placeholder);
-        });
-
-        // 배경 이미지도 자리표시자로 교체 (아바타 포함)
-        tempDiv.querySelectorAll('[style*="background-image"]').forEach(el => {
-            const style = el.getAttribute('style');
-            if (style && style.includes('url(')) {
-                imageCounter++;
-                const placeholder = document.createComment(` ARCA_IMG_PLACEHOLDER_${imageCounter} `);
-
-                // 배경 이미지를 가진 요소 자체를 placeholder로 교체하고, 스타일을 제거하여 텍스트만 남깁니다.
-                // 아바타의 경우, 내부 텍스트(예: 'U' 또는 캐릭터 첫글자)가 보이도록 합니다.
-                const newEl = document.createElement('div');
-                newEl.innerHTML = el.innerHTML; // 내부 컨텐츠 유지
-                Object.assign(newEl.style, el.style);
-                newEl.style.backgroundImage = 'none';
-                newEl.style.background = THEMES[themeKey].avatarBorder; // 배경색으로 대체
-
-                const wrapper = document.createElement('div');
-                wrapper.appendChild(placeholder);
-                wrapper.appendChild(newEl);
-
-                el.replaceWith(wrapper);
+        // 모든 이미지 요소(<img> 및 배경 이미지)를 문서 순서대로 찾아 자리표시자로 교체합니다.
+        // 이렇게 하면 이미지와 자리표시자의 순서가 정확히 일치하게 됩니다.
+        tempDiv.querySelectorAll('img, [style*="url("]').forEach(el => {
+            // el.parentNode 체크는 중첩된 구조에서 안전성을 더해주지만, 현재 구조에서는 필수는 아닙니다.
+            if (el.parentNode) {
+                 imageCounter++;
+                // [수정] 아바타 여부를 확인하고, 그에 맞는 자리표시자 생성
+                const isAvatar = el.hasAttribute(AVATAR_ATTR);
+                const isUser = isAvatar && el.parentElement.style.flexDirection === 'row-reverse';
+                const placeholderType = isAvatar ? `ARCA_AVATAR_PLACEHOLDER_${isUser}` : 'ARCA_IMG_PLACEHOLDER';
+                const placeholder = document.createComment(` ${placeholderType}_${imageCounter} `);
+                 el.replaceWith(placeholder);
             }
         });
 
-        // 서식 유지를 위해 innerHTML 대신 outerHTML을 사용합니다.
-        // 이때, 최상위 래퍼 div는 제거합니다.
         return tempDiv.innerHTML;
     }
 
@@ -1406,6 +1488,9 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
                             <label style="font-size:0.9em;">
                                 <input type="checkbox" id="avatar-toggle-checkbox" checked> 아바타 표시
                             </label>
+                            <label style="font-size:0.9em; margin-left: 10px;">
+        <input type="checkbox" id="bubble-toggle-checkbox" checked> 말풍선 디자인 사용
+    </label>
                         </div>
                     </div>
                     ${customFilterHtml}
@@ -1421,10 +1506,10 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
                     <div class="arca-helper-section" id="arca-helper-section">
                         <h4>아카라이브 HTML 변환기</h4>
                         <ol style="font-size: 0.9em; padding-left: 20px; margin: 0 0 10px 0; line-height: 1.6;">
-                            <li>아래 <b>'템플릿 HTML'</b>을 복사하세요. <b>'이미지 ZIP 다운로드'</b>를 눌러 이미지 파일을 받으세요.</li>
-                            <li>아카라이브 글쓰기 에디터를 <b>'HTML 모드'</b>로 변경하고, 다운로드한 이미지들을 모두 업로드하세요.</li>
-                            <li>이미지 업로드 후, 아카라이브 에디터의 <b>HTML 소스 전체</b>를 복사하여 아래 <b>'아카라이브 소스'</b> 칸에 붙여넣으세요.</li>
-                            <li><b>'변환'</b> 버튼을 누르면 아래 <b>'최종 결과물'</b>이 생성됩니다. 이것을 복사하여 아카라이브 에디터에 붙여넣으면 완료됩니다.</li>
+                            <li><b>이미지 준비:</b> <b>'이미지 ZIP 다운로드'</b> 버튼을 눌러 로그에 포함된 이미지들을 모두 다운로드하세요.</li>
+                            <li><b>이미지 업로드:</b> 아카라이브 글쓰기 에디터를 <b>'HTML 모드'</b>로 변경하고, 다운로드한 이미지들을 모두 업로드하세요.</li>
+                            <li><b>소스 붙여넣기:</b> 이미지 업로드 후, 에디터의 <b>HTML 소스 전체</b>를 복사하여 아래 <b>'2. 아카라이브 소스'</b> 칸에 붙여넣으세요.</li>
+                            <li><b>변환 및 완료:</b> <b>'변환'</b> 버튼을 누르세요. 생성된 <b>'3. 최종 결과물'</b>을 복사하여 아카라이브 에디터에 붙여넣으면 완료됩니다.</li>
                         </ol>
                         <label><b>1. 템플릿 HTML (자동 생성됨)</b></label>
                         <textarea id="arca-template-html" readonly></textarea>
@@ -1530,6 +1615,7 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
 
             async function updatePreview() {
                 arcaHelperSection.style.display = 'none';
+                const bubbleToggleCheckbox = modal.querySelector('#bubble-toggle-checkbox');
                 const selectedFormat = modal.querySelector('input[name="log-format"]:checked').value;
                 const selectedTheme = themeSelector.value;
                 updateAvatarOptionVisibility();
@@ -1576,8 +1662,7 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
                     themeSelectorContainer.style.display = 'flex';
                     htmlStyleControls.style.display = 'none';
                     saveFileBtn.style.display = 'none';
-                    const content = await generateBasicFormatLog(filteredNodes, selectedTheme, true, avatarToggleCheckbox.checked);
-                    lastGeneratedHtml = content;
+const content = await generateBasicFormatLog(filteredNodes, selectedTheme, true, avatarToggleCheckbox.checked, bubbleToggleCheckbox.checked);                    lastGeneratedHtml = content;
 
                     if (isRawMode) {
                         previewEl.innerHTML = `<pre style="white-space: pre-wrap; word-wrap: break-word; font-family: monospace; font-size: 0.85em;">${content.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre>`;
@@ -1631,9 +1716,9 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
                 avatarToggleControls.style.display = (selectedFormat === 'basic') ? 'flex' : 'none';
             }
 
-            modal.querySelectorAll('input[name="log-format"], #style-toggle-checkbox, #filter-toggle-checkbox, .participant-filter-checkbox, #avatar-toggle-checkbox').forEach(el => {
-                el.addEventListener('change', updatePreview);
-            });
+            modal.querySelectorAll('input[name="log-format"], #style-toggle-checkbox, #filter-toggle-checkbox, .participant-filter-checkbox, #avatar-toggle-checkbox, #bubble-toggle-checkbox').forEach(el => {
+    el.addEventListener('change', updatePreview);
+});
             themeSelector.addEventListener('change', updatePreview);
 
             updatePreview();
@@ -1706,7 +1791,8 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
                 btn.textContent = '처리 중...';
                 btn.disabled = true;
                 const isArcaModeActive = arcaHelperSection.style.display === 'flex';
-                await downloadImagesAsZip(filteredNodes, charName, chatName, isArcaModeActive);
+                const showAvatar = avatarToggleCheckbox.checked;
+                await downloadImagesAsZip(filteredNodes, charName, chatName, isArcaModeActive, showAvatar);
                 btn.textContent = originalText;
                 btn.disabled = false;
             });
@@ -1730,7 +1816,9 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
                     }
 
                     const selectedTheme = themeSelector.value;
-                    const template = await generateArcaLiveTemplate(nodesForTemplate, selectedTheme);
+                    const showAvatar = avatarToggleCheckbox.checked;
+                    const useBubbleDesign = modal.querySelector('#bubble-toggle-checkbox').checked;
+                    const template = await generateArcaLiveTemplate(nodesForTemplate, selectedTheme, showAvatar, useBubbleDesign);
                     arcaTemplateHtml.value = template;
 
                     alert("아카라이브용 템플릿이 생성되었습니다.\n이제 '이미지 ZIP 다운로드' 버튼을 눌러주세요.", 'info');
@@ -1756,11 +1844,19 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
                 let finalHtml = template;
                 let usedUrlCount = 0;
 
-                finalHtml = finalHtml.replace(/<!--\s*ARCA_IMG_PLACEHOLDER_(\d+)\s*-->/g, (match, p1) => {
-                    const index = parseInt(p1, 10) - 1;
+                // [수정] 아바타와 일반 이미지를 구분하여 처리하는 정규식으로 변경
+                finalHtml = finalHtml.replace(/<!--\s*(ARCA_IMG_PLACEHOLDER|ARCA_AVATAR_PLACEHOLDER_(true|false))_(\d+)\s*-->/g, (match, type, isUserStr, p3) => {
+                    const index = parseInt(p3, 10) - 1;
                     if (index < imageUrls.length) {
                         usedUrlCount++;
-                        return `<img src="${imageUrls[index]}" style="max-width: 100%; height: auto; border-radius: 8px; display: block; margin: 12px 0;">`;
+                        const imageUrl = imageUrls[index];
+                        if (type.startsWith('ARCA_AVATAR_PLACEHOLDER')) {
+                            const isUser = isUserStr === 'true';
+                            const theme = THEMES[themeSelector.value] || THEMES.dark;
+                            return `<img src="${imageUrl}" style="${ARCA_IMG_STYLES.avatar(theme, isUser)}">`;
+                        } else {
+                            return `<img src="${imageUrl}" style="${ARCA_IMG_STYLES.content}">`;
+                        }
                     }
                     return match;
                 });
