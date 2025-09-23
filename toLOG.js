@@ -2127,7 +2127,32 @@ const content = await generateBasicFormatLog(filteredNodes, selectedTheme, true,
                     return match;
                 });
 
-                arcaFinalHtml.value = finalHtml;
+					// 후처리: td border=0, 이미지 max-width 슬라이더 값 반영, title 태그 제거
+					try {
+						const scale = (typeof imageScaleSlider !== 'undefined' && imageScaleSlider && imageScaleSlider.value) ? imageScaleSlider.value : '100';
+						const tempContainer = document.createElement('div');
+						tempContainer.innerHTML = finalHtml;
+
+						// title 태그 제거
+						tempContainer.querySelectorAll('title').forEach(el => el.remove());
+
+						// 모든 td 태그에 border="0" 부여 (기존 border 속성 제거 후 설정)
+						tempContainer.querySelectorAll('td').forEach(td => {
+							td.style.border = '0px';
+						});
+
+						// 이미지 max-width를 슬라이더 값으로 통일, 높이는 auto 유지
+						tempContainer.querySelectorAll('img').forEach(img => {
+							img.style.maxWidth = `${scale}%`;
+							img.style.height = 'auto';
+						});
+
+						finalHtml = tempContainer.innerHTML;
+					} catch (e) {
+						console.warn('[Arca Convert] post-process failed:', e);
+					}
+
+					arcaFinalHtml.value = finalHtml;
                 alert(`변환 완료! ${usedUrlCount}개의 이미지 위치가 교체되었습니다. 최종 결과물을 복사하여 사용하세요.`, 'success');
             });
 
