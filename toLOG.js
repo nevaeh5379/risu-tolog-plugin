@@ -496,18 +496,25 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
         style.id = 'log-exporter-styles';
         style.innerHTML = `
             .log-exporter-modal-backdrop { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); z-index: 10001; display: flex; align-items: center; justify-content: center; }
-            .log-exporter-modal { background-color: #24283b; color: #c0caf5; border-radius: 10px; width: 90%; max-width: 900px; max-height: 90vh; display: flex; flex-direction: column; box-shadow: 0 5px 15px rgba(0,0,0,0.3); overflow: hidden; }
-            .log-exporter-modal-header { padding: 15px 20px; font-size: 1.2em; font-weight: bold; border-bottom: 1px solid #414868; }
-            .log-exporter-modal-content { padding: 20px; display: flex; flex-direction: column; gap: 15px; overflow-y: auto; flex-grow: 1; }
-            .log-exporter-modal-options { display: flex; gap: 10px; align-items: center; background: #1f2335; padding: 10px; border-radius: 5px; flex-wrap: wrap; }
+            .log-exporter-modal { background-color: #24283b; color: #c0caf5; border-radius: 10px; width: 90%; max-width: 1200px; max-height: 90vh; display: flex; flex-direction: column; box-shadow: 0 5px 15px rgba(0,0,0,0.3); overflow: hidden; }
+            .log-exporter-modal-header { padding: 12px 18px; font-size: 1.15em; font-weight: bold; border-bottom: 1px solid #414868; }
+            .log-exporter-modal-content { padding: 15px; display: flex; flex-direction: row; gap: 15px; overflow-y: hidden; flex-grow: 1; }
+            .log-exporter-left-panel { flex: 1; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; max-height: 100%; }
+            .log-exporter-right-panel { flex: 1; display: flex; flex-direction: column; gap: 12px; overflow-y: hidden; max-height: 100%; }
+            .log-exporter-modal-options { display: flex; gap: 8px; align-items: center; background: #1f2335; padding: 8px 10px; border-radius: 5px; flex-wrap: wrap; }
             .log-exporter-modal-options label { cursor: pointer; user-select: none; display: inline-flex; align-items: center; }
-            .log-exporter-modal-preview { flex-grow: 1; background-color: #1a1b26; border: 1px solid #414868; border-radius: 5px; padding: 15px; overflow-y: auto; min-height: 200px; max-height: 40vh; }
+            .log-exporter-modal-preview { flex-grow: 1; background-color: #1a1b26; border: 1px solid #414868; border-radius: 5px; padding: 12px; overflow-y: auto; min-height: 150px; max-height: none; }
             .log-exporter-modal-preview pre { white-space: pre-wrap; word-wrap: break-word; font-family: 'Courier New', monospace; font-size: 0.9em; margin: 0; color: #c0caf5; }
-            .log-exporter-modal-footer { padding: 15px 20px; border-top: 1px solid #414868; display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
-            .log-exporter-modal-btn { background-color: #414868; color: #c0caf5; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; transition: background-color 0.2s; white-space: nowrap; }
+            .log-exporter-modal-footer { padding: 12px 18px; border-top: 1px solid #414868; display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+            .log-exporter-modal-btn { background-color: #414868; color: #c0caf5; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; transition: background-color 0.2s; white-space: nowrap; }
             .log-exporter-modal-btn:hover { background-color: #565f89; }
             .log-exporter-modal-btn.primary { background-color: #7aa2f7; color: #1a1b26; }
             .log-exporter-modal-btn.primary:hover { background-color: #9eceff; }
+            @media (max-width: 992px) { /* Tablet breakpoint: revert to column layout */
+                .log-exporter-modal-content { flex-direction: column; overflow-y: auto; }
+                .log-exporter-left-panel, .log-exporter-right-panel { max-height: none; overflow-y: visible; flex: none; width: 100%; }
+                .log-exporter-modal-preview { max-height: 40vh; } /* Restore max-height for column layout */
+            }
             .log-exporter-modal-btn.image-save { background-color: #9ece6a; color: #1a1b26; }
             .log-exporter-modal-btn.image-save:hover { background-color: #b8e090; }
             .log-exporter-modal-btn:disabled { background-color: #565f89; cursor: not-allowed; }
@@ -516,15 +523,24 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
             #filter-controls { display: none; margin-left: auto; align-items: center; gap: 15px; }
             #theme-selector { padding: 4px 8px; background: #1a1b26; color: #c0caf5; border: 1px solid #414868; border-radius: 4px; cursor: pointer; font-size: 0.9em; }
             #theme-selector:hover { border-color: #565f89; }
-            .arca-helper-section { display: none; flex-direction: column; gap: 10px; background-color: #1a1b26; padding: 15px; border-radius: 8px; border: 1px solid #7aa2f7; margin-top: 10px; }
-            .arca-helper-section h4 { margin: 0 0 10px 0; color: #7aa2f7; }
+            .arca-helper-section { display: none; flex-direction: column; gap: 8px; background-color: #1a1b26; padding: 12px; border-radius: 8px; border: 1px solid #7aa2f7; margin-top: 8px; }
+            .arca-helper-section h4 { margin: 0 0 8px 0; color: #7aa2f7; }
             .arca-helper-section textarea { width: 100%; height: 100px; background-color: #1f2335; color: #c0caf5; border: 1px solid #414868; border-radius: 5px; padding: 8px; font-family: monospace; font-size: 0.9em; resize: vertical; }
             .arca-helper-section button { align-self: center; }
-            @media (max-width: 640px) { 
+            @media (max-width: 768px) {
+                #image-export-controls { flex-direction: column; align-items: stretch !important; gap: 10px !important; margin-left: 0 !important; width: 100%; }
+                #image-export-controls > label { justify-content: space-between; }
+                #image-export-controls > button { width: 100%; }
+            }
+            @media (max-width: 640px) {
                 .log-exporter-modal { width: 95%; max-width: none; } 
+                .log-exporter-modal-header { padding: 12px 15px; font-size: 1.1em; }
+                .log-exporter-modal-content { padding: 15px; flex-direction: column; }
+                .log-exporter-left-panel, .log-exporter-right-panel { max-height: none; overflow-y: visible; flex: none; width: 100%; }
+                .log-exporter-modal-btn { padding: 8px 12px; font-size: 0.9em; }
                 .log-exporter-modal-options { flex-direction: column; align-items: stretch; } 
                 .log-exporter-modal-footer { justify-content: center; } 
-                #filter-controls { margin-left: 0; flex-direction: column, gap: 10px; align-items: stretch; } 
+                #filter-controls { margin-left: 0; flex-direction: column; gap: 10px; align-items: stretch; } 
             }
         `;
         document.head.appendChild(style);
@@ -1454,72 +1470,75 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
             <div class="log-exporter-modal">
                 <div class="log-exporter-modal-header">로그 내보내기 옵션</div>
                 <div class="log-exporter-modal-content">
-                    <div class="log-exporter-modal-options">
-                        <strong>형식:</strong>
-                        <label><input type="radio" name="log-format" value="html"> HTML</label>
-                        <label><input type="radio" name="log-format" value="basic" checked> 기본</label>
-                        <label><input type="radio" name="log-format" value="markdown"> 마크다운</label>
-                        <label><input type="radio" name="log-format" value="text"> 일반 텍스트</label>
-                        <div id="theme-selector-container" style="display: none; margin-left: auto; align-items: center; gap: 10px;">
-                            <label for="theme-selector" style="font-size: 0.9em;">테마:</label>
-                            <select id="theme-selector">
-                                ${Object.entries(THEMES).map(([key, theme]) =>
-                `<option value="${key}" ${key === 'dark' ? 'selected' : ''}>${theme.name}</option>`
-            ).join('')}
-                            </select>
+                    <div class="log-exporter-left-panel">
+                        <div class="log-exporter-modal-options">
+                            <strong>형식:</strong>
+                            <label><input type="radio" name="log-format" value="html"> HTML</label>
+                            <label><input type="radio" name="log-format" value="basic" checked> 기본</label>
+                            <label><input type="radio" name="log-format" value="markdown"> 마크다운</label>
+                            <label><input type="radio" name="log-format" value="text"> 일반 텍스트</label>
+                            <div id="theme-selector-container" style="display: none; margin-left: auto; align-items: center; gap: 10px;">
+                                <label for="theme-selector" style="font-size: 0.9em;">테마:</label>
+                                <select id="theme-selector">
+                                    ${Object.entries(THEMES).map(([key, theme]) =>
+                    `<option value="${key}" ${key === 'dark' ? 'selected' : ''}>${theme.name}</option>`
+                ).join('')}
+                                </select>
+                            </div>
+                            <div id="image-scale-controls" style="display: flex; align-items: center; gap: 8px; margin-left: auto;">
+                                <label for="image-scale-slider" title="미리보기의 모든 이미지 크기를 조절합니다." style="font-size:0.9em;">이미지 크기:</label>
+                                <input type="range" id="image-scale-slider" min="10" max="100" value="100" step="5" style="width: 80px;">
+                                <span id="image-scale-value" style="font-size: 0.9em; width: 35px; text-align: right;">100%</span>
+                            </div>
+                            <div id="html-style-controls" style="display:inline-flex; align-items:center;">
+                                <label><input type="checkbox" id="style-toggle-checkbox"> 스타일 인라인 적용</label>
+                            </div>
+                            <div id="filter-controls">
+                                <label><input type="checkbox" id="filter-toggle-checkbox" checked> UI 필터링 적용</label>
+                                ${uiClasses.length > 0 ? `
+                                    <button id="custom-filter-toggle" class="log-exporter-modal-btn" style="margin-left: 10px; padding: 3px 8px; font-size: 0.85em;">
+                                        커스텀 필터 설정 ▼
+                                    </button>
+                                ` : ''}
+                            </div>
+                            <div id="avatar-toggle-controls" style="display: none; align-items: center; gap: 8px; margin-left: 10px;">
+                                <label style="font-size:0.9em;">
+                                    <input type="checkbox" id="avatar-toggle-checkbox"> 아바타 표시
+                                </label>
+                                <label style="font-size:0.9em; margin-left: 10px;">
+            <input type="checkbox" id="bubble-toggle-checkbox" checked> 말풍선 디자인 사용
+        </label>
+                            </div>
                         </div>
-                        <div id="image-scale-controls" style="display: flex; align-items: center; gap: 8px; margin-left: auto;">
-                            <label for="image-scale-slider" title="미리보기의 모든 이미지 크기를 조절합니다." style="font-size:0.9em;">이미지 크기:</label>
-                            <input type="range" id="image-scale-slider" min="10" max="100" value="100" step="5" style="width: 80px;">
-                            <span id="image-scale-value" style="font-size: 0.9em; width: 35px; text-align: right;">100%</span>
+                        ${customFilterHtml}
+                        <div style="background: #1f2335; padding: 10px; border-radius: 5px;">
+                            <strong>참가자 필터:</strong>
+                            <div id="participant-filter-container" style="display: flex; flex-wrap: wrap; margin-top: 8px;">
+                                ${participantCheckboxesHtml}
+                            </div>
                         </div>
-                        <div id="html-style-controls" style="display:inline-flex; align-items:center;">
-                            <label><input type="checkbox" id="style-toggle-checkbox"> 스타일 인라인 적용</label>
-                        </div>
-                        <div id="filter-controls">
-                            <label><input type="checkbox" id="filter-toggle-checkbox" checked> UI 필터링 적용</label>
-                            ${uiClasses.length > 0 ? `
-                                <button id="custom-filter-toggle" class="log-exporter-modal-btn" style="margin-left: 10px; padding: 3px 8px; font-size: 0.85em;">
-                                    커스텀 필터 설정 ▼
-                                </button>
-                            ` : ''}
-                        </div>
-                        <div id="avatar-toggle-controls" style="display: none; align-items: center; gap: 8px; margin-left: 10px;">
-                            <label style="font-size:0.9em;">
-                                <input type="checkbox" id="avatar-toggle-checkbox" checked> 아바타 표시
-                            </label>
-                            <label style="font-size:0.9em; margin-left: 10px;">
-        <input type="checkbox" id="bubble-toggle-checkbox" checked> 말풍선 디자인 사용
-    </label>
+                        <div class="arca-helper-section" id="arca-helper-section">
+                            <h4>아카라이브 HTML 변환기</h4>
+                            <ol style="font-size: 0.9em; padding-left: 20px; margin: 0 0 8px 0; line-height: 1.6;">
+                                <li><b>이미지 준비:</b> 아래 <b>'1. 이미지 ZIP 다운로드'</b> 버튼을 눌러 로그에 포함된 이미지들을 모두 다운로드하세요. (이미지 이름이 순서대로 저장됩니다)</li>
+                                <li><b>이미지 업로드:</b> 아카라이브 글쓰기 에디터를 <b>'HTML 모드'</b>로 변경하고, 다운로드한 이미지들을 모두 업로드하세요.</li>
+                                <li><b>소스 붙여넣기:</b> 이미지 업로드 후, 에디터의 <b>HTML 소스 전체</b>를 복사하여 아래 <b>'3. 아카라이브 소스'</b> 칸에 붙여넣으세요.</li>
+                                <li><b>변환 및 완료:</b> <b>'변환'</b> 버튼을 누르세요. 생성된 <b>'4. 최종 결과물'</b>을 복사하여 아카라이브 에디터에 붙여넣으면 완료됩니다.</li>
+                            </ol>
+                            <button class="log-exporter-modal-btn image-save" id="arca-download-zip-btn" style="align-self: flex-start;">1. 이미지 ZIP 다운로드</button>
+                            <label><b>2. 템플릿 HTML (자동 생성됨)</b></label>
+                            <textarea id="arca-template-html" readonly></textarea>
+                            <label><b>3. 아카라이브 소스 (이미지 업로드 후 에디터에서 복사)</b></label>
+                            <textarea id="arca-source-html" placeholder="아카라이브 HTML 에디터의 전체 내용을 여기에 붙여넣으세요."></textarea>
+                            <button class="log-exporter-modal-btn primary" id="arca-convert-btn">변환</button>
+                            <label><b>4. 최종 결과물 (복사하여 사용)</b></label>
+                            <textarea id="arca-final-html" readonly></textarea>
                         </div>
                     </div>
-                    ${customFilterHtml}
-                    <div style="background: #1f2335; padding: 10px; border-radius: 5px;">
-                        <strong>참가자 필터:</strong>
-                        <div id="participant-filter-container" style="display: flex; flex-wrap: wrap; margin-top: 8px;">
-                            ${participantCheckboxesHtml}
-                        </div>
+                    <div class="log-exporter-right-panel">
+                        <strong>미리보기:</strong>
+                        <div class="log-exporter-modal-preview"><div style="text-align:center;color:#8a98c9;">로그 데이터 생성 중...</div></div>
                     </div>
-                    <strong>미리보기:</strong>
-                    <div class="log-exporter-modal-preview"><div style="text-align:center;color:#8a98c9;">로그 데이터 생성 중...</div></div>
-                    
-                    <div class="arca-helper-section" id="arca-helper-section">
-                        <h4>아카라이브 HTML 변환기</h4>
-                        <ol style="font-size: 0.9em; padding-left: 20px; margin: 0 0 10px 0; line-height: 1.6;">
-                            <li><b>이미지 준비:</b> <b>'이미지 ZIP 다운로드'</b> 버튼을 눌러 로그에 포함된 이미지들을 모두 다운로드하세요.</li>
-                            <li><b>이미지 업로드:</b> 아카라이브 글쓰기 에디터를 <b>'HTML 모드'</b>로 변경하고, 다운로드한 이미지들을 모두 업로드하세요.</li>
-                            <li><b>소스 붙여넣기:</b> 이미지 업로드 후, 에디터의 <b>HTML 소스 전체</b>를 복사하여 아래 <b>'2. 아카라이브 소스'</b> 칸에 붙여넣으세요.</li>
-                            <li><b>변환 및 완료:</b> <b>'변환'</b> 버튼을 누르세요. 생성된 <b>'3. 최종 결과물'</b>을 복사하여 아카라이브 에디터에 붙여넣으면 완료됩니다.</li>
-                        </ol>
-                        <label><b>1. 템플릿 HTML (자동 생성됨)</b></label>
-                        <textarea id="arca-template-html" readonly></textarea>
-                        <label><b>2. 아카라이브 소스 (이미지 업로드 후 에디터에서 복사)</b></label>
-                        <textarea id="arca-source-html" placeholder="아카라이브 HTML 에디터의 전체 내용을 여기에 붙여넣으세요."></textarea>
-                        <button class="log-exporter-modal-btn primary" id="arca-convert-btn">변환</button>
-                        <label><b>3. 최종 결과물 (복사하여 사용)</b></label>
-                        <textarea id="arca-final-html" readonly></textarea>
-                    </div>
-
                 </div>
                 <div class="log-exporter-modal-footer" id="log-exporter-footer">
                     <button class="log-exporter-modal-btn" id="log-exporter-close">닫기</button>
@@ -1530,8 +1549,8 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
                     <!-- [복원] 이미지 저장 옵션 UI -->
                     <div id="image-export-controls" style="display: flex; align-items: center; gap: 8px; margin-left: auto; flex-wrap: wrap; font-size: 0.9em;">
                         <label><input type="checkbox" id="image-high-res-checkbox" checked>고해상도</label>
-                        <label>폰트:<input type="number" id="image-font-size-input" value="16" min="12" max="24" style="width: 45px; margin-left: 4px; background: #1a1b26; color: #c0caf5; border: 1px solid #414868; border-radius: 4px; text-align: center;"></label>
-                        <label>너비:<input type="number" id="image-width-input" value="900" min="600" max="1200" step="50" style="width: 60px; margin-left: 4px; background: #1a1b26; color: #c0caf5; border: 1px solid #414868; border-radius: 4px; text-align: center;"></label>
+                        <label>폰트:<input type="number" id="image-font-size-input" value="26" min="12" max="40" style="width: 45px; margin-left: 4px; background: #1a1b26; color: #c0caf5; border: 1px solid #414868; border-radius: 4px; text-align: center;"></label>
+                        <label>너비:<input type="number" id="image-width-input" value="700" min="600" max="1200" step="50" style="width: 60px; margin-left: 4px; background: #1a1b26; color: #c0caf5; border: 1px solid #414868; border-radius: 4px; text-align: center;"></label>
                         <button class="log-exporter-modal-btn image-save" id="log-exporter-save-image">이미지로 저장</button>
                     </div>
                     
@@ -1568,6 +1587,7 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
 
             const arcaHelperSection = modal.querySelector('#arca-helper-section');
             const arcaHelperToggleBtn = modal.querySelector('#arca-helper-toggle-btn');
+            const arcaDownloadZipBtn = modal.querySelector('#arca-download-zip-btn');
             const arcaTemplateHtml = modal.querySelector('#arca-template-html');
             const arcaSourceHtml = modal.querySelector('#arca-source-html');
             const arcaConvertBtn = modal.querySelector('#arca-convert-btn');
@@ -1790,19 +1810,54 @@ const content = await generateBasicFormatLog(filteredNodes, selectedTheme, true,
                 const originalText = btn.textContent;
                 btn.textContent = '처리 중...';
                 btn.disabled = true;
-                const isArcaModeActive = arcaHelperSection.style.display === 'flex';
                 const showAvatar = avatarToggleCheckbox.checked;
-                await downloadImagesAsZip(filteredNodes, charName, chatName, isArcaModeActive, showAvatar);
+                // [수정] 아카라이브 모드 감지 로직을 제거하고 항상 일반 다운로드(sequentialNaming=false)를 수행합니다.
+                await downloadImagesAsZip(filteredNodes, charName, chatName, false, showAvatar);
+                btn.textContent = originalText;
+                btn.disabled = false;
+            });
+
+            // [추가] 아카라이브용 ZIP 다운로드 버튼 이벤트 리스너
+            arcaDownloadZipBtn.addEventListener('click', async () => {
+                const filteredNodes = getFilteredNodes();
+                const btn = arcaDownloadZipBtn;
+                const originalText = btn.textContent;
+                btn.textContent = '처리 중...';
+                btn.disabled = true;
+                const showAvatar = avatarToggleCheckbox.checked;
+                // 아카라이브용으로 순차 이름(sequentialNaming=true)을 지정하여 ZIP 다운로드
+                await downloadImagesAsZip(filteredNodes, charName, chatName, true, showAvatar);
                 btn.textContent = originalText;
                 btn.disabled = false;
             });
 
             arcaHelperToggleBtn.addEventListener('click', async () => {
                 const isVisible = arcaHelperSection.style.display === 'flex';
+                const footerControlsToToggle = [
+                    modal.querySelector('#log-exporter-raw-toggle'),
+                    modal.querySelector('#log-exporter-save-file'),
+                    modal.querySelector('#log-exporter-copy'),
+                    modal.querySelector('#log-exporter-download-zip'),
+                    ...modal.querySelectorAll('#image-export-controls button, #image-export-controls input')
+                ];
+                // 좌측 패널의 컨트롤 (아카라이브 변환기 제외)
+                const leftPanel = modal.querySelector('.log-exporter-left-panel');
+                const controlsInLeftPanel = leftPanel.querySelectorAll('input, select, button');
+                const leftPanelControlsToToggle = Array.from(controlsInLeftPanel).filter(el => !arcaHelperSection.contains(el));
+
+                const allControlsToToggle = [...footerControlsToToggle, ...leftPanelControlsToToggle];
+
                 if (isVisible) {
                     arcaHelperSection.style.display = 'none';
+                    arcaHelperToggleBtn.textContent = '아카라이브 변환기';
+                    arcaHelperToggleBtn.style.backgroundColor = '#bb9af7';
+                    allControlsToToggle.forEach(el => el.disabled = false);
                 } else {
                     arcaHelperSection.style.display = 'flex';
+                    arcaHelperToggleBtn.textContent = '변환기 닫기';
+                    arcaHelperToggleBtn.style.backgroundColor = '#f7768e';
+                    allControlsToToggle.forEach(el => el.disabled = true);
+
                     const filteredNodes = getFilteredNodes();
 
                     const customFilterSection = modal.querySelector('#custom-filter-section');
@@ -1810,9 +1865,7 @@ const content = await generateBasicFormatLog(filteredNodes, selectedTheme, true,
                     if (filterToggleCheckbox.checked && customFilterSection) {
                         const selectedClasses = Array.from(modal.querySelectorAll('.custom-filter-class:checked'))
                             .map(cb => cb.dataset.class);
-                        if (selectedClasses.length > 0) {
-                            nodesForTemplate = filteredNodes.map(node => filterWithCustomClasses(node, selectedClasses));
-                        }
+                        if (selectedClasses.length > 0) nodesForTemplate = filteredNodes.map(node => filterWithCustomClasses(node, selectedClasses));
                     }
 
                     const selectedTheme = themeSelector.value;
@@ -1820,8 +1873,6 @@ const content = await generateBasicFormatLog(filteredNodes, selectedTheme, true,
                     const useBubbleDesign = modal.querySelector('#bubble-toggle-checkbox').checked;
                     const template = await generateArcaLiveTemplate(nodesForTemplate, selectedTheme, showAvatar, useBubbleDesign);
                     arcaTemplateHtml.value = template;
-
-                    alert("아카라이브용 템플릿이 생성되었습니다.\n이제 '이미지 ZIP 다운로드' 버튼을 눌러주세요.", 'info');
                 }
             });
 
