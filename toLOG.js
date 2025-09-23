@@ -1,7 +1,7 @@
 //@name Chat Log Exporter
 //@display-name 채팅 로그 HTML 변환기
-//@version 12.2 Final with Arca.live Helper
-//@description [아카라이브 연동 버전] 모든 로그 내보내기 기능을 하나의 미리보기 모달로 통합합니다. 아카라이브용 HTML 변환기를 추가하여 이미지 업로드 과정을 간소화합니다.
+//@version 0.0.1
+//@description 채팅 로그를 HTML, 이미지(PNG), 마크다운, 텍스트 등 다양한 형식으로 내보냅니다. 통합 미리보기 모달에서 테마 변경, 참가자/UI 필터링 등 상세 옵션을 설정할 수 있습니다. 특히 아카라이브용 HTML 변환 기능을 제공하여, 이미지 업로드와 게시물 작성을 획기적으로 간소화합니다.
 
 // --- 플러그인 충돌 방지 패치 ---
 if (globalThis.__pluginApis__ && globalThis.__pluginApis__.setArg) {
@@ -15,7 +15,7 @@ if (globalThis.__pluginApis__ && globalThis.__pluginApis__.setArg) {
      */
     globalThis.__pluginApis__.setArg = function (arg, value) {
         if (typeof arg !== 'string') {
-            console.warn('Auto Title Patcher: A plugin called setArg with an invalid argument. Crash prevented. Arg:', arg);
+            console.warn('Chat Log Exporter: A plugin called setArg with an invalid argument. Crash prevented. Arg:', arg);
             return;
         }
         return originalSetArg.call(this, arg, value);
