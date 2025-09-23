@@ -6,6 +6,13 @@
 // --- 플러그인 충돌 방지 패치 ---
 if (globalThis.__pluginApis__ && globalThis.__pluginApis__.setArg) {
     const originalSetArg = globalThis.__pluginApis__.setArg;
+    /**
+     * 다른 플러그인과의 충돌을 방지하기 위해 `setArg` 함수를 래핑합니다.
+     * `setArg`의 첫 번째 인자가 문자열이 아닌 경우 경고를 출력하고 실행을 중단합니다.
+     * @param {string} arg - 인수 이름.
+     * @param {*} value - 인수에 설정할 값.
+     * @returns {*} 원본 `setArg` 함수의 반환 값.
+     */
     globalThis.__pluginApis__.setArg = function (arg, value) {
         if (typeof arg !== 'string') {
             console.warn('Auto Title Patcher: A plugin called setArg with an invalid argument. Crash prevented. Arg:', arg);
@@ -203,7 +210,13 @@ const CHAT_ITEM_SELECTOR = 'button[data-risu-chat-idx]';
 const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
 
 (async () => {
+    /**
+     * 페이지에서 모든 채팅 메시지 노드를 수집하고 문서 순서대로 정렬합니다.
+     * '.chat-message-container'와 사이드바나 모달 외부에 있는 독립적인 '.risu-chat' 요소를 모두 포함합니다.
+     * @returns {HTMLElement[]} 정렬된 메시지 노드의 배열.
+     */
     function getAllMessageNodes() {
+        console.log('[Log Exporter] getAllMessageNodes: 모든 메시지 노드 수집 시작');
         const containers = Array.from(document.querySelectorAll('.chat-message-container'));
         const allRisuChats = Array.from(document.querySelectorAll('.risu-chat'));
         const standaloneMessageChats = allRisuChats.filter(chat =>
@@ -222,10 +235,17 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
             return 0;
         });
 
+        console.log(`[Log Exporter] getAllMessageNodes: 총 ${messageNodes.length}개의 메시지 노드 발견`);
         return messageNodes;
     }
 
+    /**
+     * 원본 요소에서 계산된 스타일을 복제된 요소와 그 자식 요소들에게 인라인 스타일로 적용합니다.
+     * @param {HTMLElement} originalElem - 스타일의 원본이 되는 요소.
+     * @param {HTMLElement} clonedElem - 스타일을 적용받을 복제된 요소.
+     */
     function applyInlineStyles(originalElem, clonedElem) {
+        console.log('[Log Exporter] applyInlineStyles: 스타일 인라인 적용 시작', { originalElem, clonedElem });
         const allOriginalElements = [originalElem, ...originalElem.querySelectorAll('*')];
         const allClonedElements = [clonedElem, ...clonedElem.querySelectorAll('*')];
 
@@ -278,8 +298,15 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
     let originalDefine = null;
     let originalRequire = null;
 
+    /**
+     * html-to-image 라이브러리가 로드되었는지 확인하고, 로드되지 않았다면 CDN에서 동적으로 로드합니다.
+     * AMD 로더와의 충돌을 피하기 위해 `define`과 `require`를 일시적으로 비활성화합니다.
+     * @returns {Promise<void>} 라이브러리 로드가 완료되면 resolve되는 Promise.
+     */
     function ensureHtmlToImage() {
+        console.log('[Log Exporter] ensureHtmlToImage: html-to-image 라이브러리 확인/로드 시작');
         if (typeof window.__htmlToImageLib !== 'undefined' && window.__htmlToImageLib) {
+            console.log('[Log Exporter] ensureHtmlToImage: 이미 로드됨 (캐시된 라이브러리 사용)');
             return Promise.resolve();
         }
         if (typeof window.htmlToImage !== 'undefined' && !window.__htmlToImageLib) {
@@ -338,8 +365,15 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
         return htmlToImagePromise;
     }
     let jszipPromise = null;
+    /**
+     * JSZip 라이브러리가 로드되었는지 확인하고, 로드되지 않았다면 CDN에서 동적으로 로드합니다.
+     * AMD 로더와의 충돌을 피하기 위해 `define`과 `require`를 일시적으로 비활성화합니다.
+     * @returns {Promise<void>} 라이브러리 로드가 완료되면 resolve되는 Promise.
+     */
     function ensureJSZip() {
+        console.log('[Log Exporter] ensureJSZip: JSZip 라이브러리 확인/로드 시작');
         if (typeof window.JSZip !== 'undefined') {
+            console.log('[Log Exporter] ensureJSZip: 이미 로드됨');
             return Promise.resolve();
         }
         if (jszipPromise) {
@@ -391,7 +425,17 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
         return jszipPromise;
     }
 
+    /**
+     * 제공된 노드들에서 이미지를 수집하여 ZIP 파일로 다운로드합니다.
+     * @async
+     * @param {HTMLElement[]} nodes - 이미지를 스캔할 DOM 노드 배열.
+     * @param {string} charName - 캐릭터 이름 (파일 이름에 사용).
+     * @param {string} chatName - 채팅 이름 (파일 이름에 사용).
+     * @param {boolean} [sequentialNaming=false] - 이미지 파일 이름을 순차적으로 지정할지 여부 (아카라이브용).
+     * @param {boolean} [showAvatar=true] - 아바타 이미지를 포함할지 여부.
+     */
     async function downloadImagesAsZip(nodes, charName, chatName, sequentialNaming = false, showAvatar = true) {
+        console.log(`[Log Exporter] downloadImagesAsZip: 이미지 ZIP 다운로드 시작. 순차 이름 지정: ${sequentialNaming}`);
         try {
             await ensureJSZip();
             const zip = new window.JSZip();
@@ -490,8 +534,14 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
         }
     }
 
+    /**
+     * 로그 내보내기 모달에 필요한 CSS 스타일을 문서의 <head>에 주입합니다.
+     * 이미 스타일이 주입된 경우 중복 실행을 방지합니다.
+     */
     function injectModalStyles() {
+        console.log('[Log Exporter] injectModalStyles: 모달 스타일 주입 시도');
         if (document.getElementById('log-exporter-styles')) return;
+        console.log('[Log Exporter] injectModalStyles: 새로운 스타일 주입');
         const style = document.createElement('style');
         style.id = 'log-exporter-styles';
         style.innerHTML = `
@@ -546,7 +596,15 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
         document.head.appendChild(style);
     }
 
+    /**
+     * 이미지 URL을 받아 Base64 데이터 URI로 변환합니다.
+     * CORS 문제를 피하기 위해 fetch를 사용하며, 실패 시 투명한 1x1 GIF를 반환합니다.
+     * @async
+     * @param {string} url - 변환할 이미지의 URL.
+     * @returns {Promise<string>} Base64로 인코딩된 데이터 URI.
+     */
     async function imageUrlToBase64(url) {
+        console.log(`[Log Exporter] imageUrlToBase64: URL을 Base64로 변환 중: ${url}`);
         try {
             if (!url || url === 'undefined' || url === 'null') return 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
             if (url.startsWith('data:image')) return url;
@@ -566,7 +624,16 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
         }
     }
 
+    /**
+     * 지정된 채팅 인덱스에 대한 채팅 로그를 처리합니다.
+     * 채팅을 활성화하고, 캐릭터 정보와 모든 메시지 노드를 수집하여 반환합니다.
+     * @async
+     * @param {number} chatIndex - 처리할 채팅의 인덱스.
+     * @returns {Promise<{charName: string, chatName: string, charAvatarUrl: string, messageNodes: HTMLElement[]}>} 캐릭터 및 채팅 정보와 메시지 노드 배열을 포함하는 객체.
+     * @throws {Error} 채팅 버튼, 캐릭터 정보, 또는 메시지를 찾을 수 없는 경우.
+     */
     async function processChatLog(chatIndex) {
+        console.log(`[Log Exporter] processChatLog: 채팅 로그 처리 시작, 인덱스: ${chatIndex}`);
         const chatButton = document.querySelector(`button[data-risu-chat-idx="${chatIndex}"]`);
         if (!chatButton) throw new Error("채팅 버튼을 찾을 수 없습니다.");
 
@@ -606,7 +673,14 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
         return { charName: character.name, chatName: targetChat.name, charAvatarUrl, messageNodes };
     }
 
+    /**
+     * 제공된 DOM 노드들과 관련된 모든 CSS 규칙을 문서의 스타일시트에서 추출합니다.
+     * @async
+     * @param {HTMLElement[]} nodes - CSS를 추출할 DOM 노드 배열.
+     * @returns {Promise<string>} 추출된 모든 CSS 규칙을 포함하는 문자열.
+     */
     async function extractCssForNodes(nodes) {
+        console.log(`[Log Exporter] extractCssForNodes: ${nodes.length}개 노드에 대한 CSS 추출 시작`);
         const classSet = new Set();
         nodes.forEach(node => {
             node.querySelectorAll('*').forEach(el => {
@@ -629,10 +703,22 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
                 console.warn(`[Log Exporter] Could not read styles from stylesheet: ${sheet.href}`, e);
             }
         }
+        console.log(`[Log Exporter] extractCssForNodes: ${cssRules.size}개의 CSS 규칙 발견`);
         return Array.from(cssRules).join('\n');
     }
 
+    /**
+     * 생성된 HTML 콘텐츠를 기반으로 완전한 HTML 파일을 만들어 사용자에게 다운로드합니다.
+     * @async
+     * @param {string} charName - 캐릭터 이름.
+     * @param {string} chatName - 채팅 이름.
+     * @param {string} charAvatarUrl - 캐릭터 아바타 URL.
+     * @param {string} messagesHtml - 채팅 메시지의 HTML 콘텐츠.
+     * @param {boolean} applyStyles - 스타일 적용 여부.
+     * @param {string} [extractedCss=''] - 추출된 CSS (스타일 미적용 시 사용).
+     */
     async function generateAndDownloadHtmlFile(charName, chatName, charAvatarUrl, messagesHtml, applyStyles, extractedCss = '') {
+        console.log(`[Log Exporter] generateAndDownloadHtmlFile: HTML 파일 생성 및 다운로드 시작. 스타일 적용: ${applyStyles}`);
         const charAvatarBase64 = await imageUrlToBase64(charAvatarUrl);
         const layoutCss = `
             .chat-message-container { display: flex; align-items: flex-start; margin: 16px 0; gap: 10px; }
@@ -680,8 +766,17 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
         URL.revokeObjectURL(url);
     }
 
+    /**
+     * 메시지 노드 배열로부터 HTML 문자열을 생성합니다.
+     * 스타일 인라인 적용 및 이미지 Base64 인코딩 옵션을 제공합니다.
+     * @async
+     * @param {HTMLElement[]} nodes - HTML로 변환할 메시지 노드 배열.
+     * @param {boolean} [applyStyles=true] - 계산된 스타일을 인라인으로 적용할지 여부.
+     * @param {boolean} [embedImagesAsBase64=true] - 이미지를 Base64로 인코딩하여 포함할지 여부.
+     * @returns {Promise<string>} 생성된 HTML 문자열.
+     */
     async function generateHtmlFromNodes(nodes, applyStyles = true, embedImagesAsBase64 = true) {
-        console.log(`[Log Exporter] generateHtmlFromNodes called with ${nodes.length} nodes. Embed Base64: ${embedImagesAsBase64}`);
+        console.log(`[Log Exporter] generateHtmlFromNodes: ${nodes.length}개 노드로부터 HTML 생성 시작. 스타일 적용: ${applyStyles}, Base64 임베드: ${embedImagesAsBase64}`);
 
         let finalHtml = '';
         for (const node of nodes) {
@@ -810,7 +905,7 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
 
             finalHtml += clonedNode.outerHTML;
         }
-        console.log('[Log Exporter] Generated HTML for', finalHtml ? 'messages' : '0 messages');
+        console.log('[Log Exporter] generateHtmlFromNodes: HTML 생성 완료');
 
         return finalHtml;
     }
@@ -845,6 +940,11 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
     };
 
 
+    /**
+     * 메시지 노드에서 아바타 이미지 URL을 추출합니다.
+     * @param {HTMLElement} node - 검사할 메시지 노드.
+     * @returns {string|null} 아바타 URL 또는 찾지 못한 경우 null.
+     */
     function extractAvatarFromNode(node) {
         const avatarEl = node.querySelector('.shadow-lg.rounded-md[style*="background"]');
         if (avatarEl) {
@@ -859,7 +959,15 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
         return null;
     }
 
+    /**
+     * 메시지 노드들로부터 모든 참가자의 이름과 아바타 URL 맵을 생성합니다.
+     * @async
+     * @param {HTMLElement[]} nodes - 스캔할 메시지 노드 배열.
+     * @param {boolean} [useBase64=true] - 아바타 URL을 Base64로 인코딩할지 여부.
+     * @returns {Promise<Map<string, string>>} 참가자 이름을 키로, 아바타 소스(URL 또는 Base64)를 값으로 갖는 맵.
+     */
     async function collectCharacterAvatars(nodes, useBase64 = true) {
+        console.log(`[Log Exporter] collectCharacterAvatars: 캐릭터 아바타 수집 시작. Base64 사용: ${useBase64}`);
         const avatarMap = new Map();
 
         for (const node of nodes) {
@@ -876,20 +984,23 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
             }
         }
 
+        console.log(`[Log Exporter] collectCharacterAvatars: ${avatarMap.size}개의 고유 아바타 수집 완료`);
         return avatarMap;
     }
 
         /**
-         * Generates a formatted HTML chat log from an array of chat message nodes.
-         *
+         * 채팅 메시지 노드 배열로부터 '기본' 형식의 HTML 채팅 로그를 생성합니다.
+         * 테마, 이미지 임베딩, 아바타 표시 여부 등을 설정할 수 있습니다.
          * @async
-         * @function generateBasicFormatLog
-         * @param {HTMLElement[]} nodes - Array of DOM nodes representing chat messages.
-         * @param {string} [selectedTheme='dark'] - The theme to use for formatting ('dark' or other keys in THEMES).
-         * @param {boolean} [embedImagesAsBase64=true] - Whether to embed images as base64 data URIs.
-         * @returns {Promise<string>} A promise that resolves to an HTML string representing the formatted chat log.
+         * @param {HTMLElement[]} nodes - DOM 노드의 배열.
+         * @param {string} [selectedTheme='dark'] - 사용할 테마 ('dark' 또는 THEMES의 다른 키).
+         * @param {boolean} [embedImagesAsBase64=true] - 이미지를 base64 데이터 URI로 임베드할지 여부.
+         * @param {boolean} [showAvatar=true] - 아바타를 표시할지 여부.
+         * @param {boolean} [useBubbleDesign=true] - 말풍선 디자인을 사용할지 여부.
+         * @returns {Promise<string>} 포맷된 채팅 로그를 나타내는 HTML 문자열을 resolve하는 Promise.
          */
         async function generateBasicFormatLog(nodes, selectedTheme = 'dark', embedImagesAsBase64 = true, showAvatar = true, useBubbleDesign = true) {
+        console.log(`[Log Exporter] generateBasicFormatLog: '기본' 형식 로그 생성 시작. 테마: ${selectedTheme}, 아바타 표시: ${showAvatar}`);
         const theme = THEMES[selectedTheme] || THEMES.dark;
         let log = '';
         
@@ -1011,10 +1122,19 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
             max-width: 900px;
         `;
         
+        console.log(`[Log Exporter] generateBasicFormatLog: '기본' 형식 로그 생성 완료.`);
         return `<div style="${containerStyle}">${log}</div>`;
     }
 
+    /**
+     * 메시지 노드 배열로부터 마크다운 또는 일반 텍스트 형식의 로그를 생성합니다.
+     * @async
+     * @param {HTMLElement[]} nodes - 변환할 메시지 노드 배열.
+     * @param {string} format - 출력 형식 ('markdown' 또는 'text').
+     * @returns {Promise<string>} 생성된 로그 문자열.
+     */
     async function generateFormattedLog(nodes, format) {
+        console.log(`[Log Exporter] generateFormattedLog: 형식화된 로그 생성 시작. 형식: ${format}`);
         let log = '';
 
         for (const node of nodes) {
@@ -1053,7 +1173,16 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
         return log.trim();
     }
 
+    /**
+     * 제공된 콘텐츠를 클립보드에 복사합니다.
+     * Clipboard API를 우선적으로 사용하고, 실패 시 execCommand로 폴백합니다.
+     * @async
+     * @param {string} content - 복사할 콘텐츠.
+     * @param {string} [format='text'] - 콘텐츠의 형식 ('text' 또는 'html').
+     * @returns {Promise<boolean>} 복사 성공 여부.
+     */
     async function copyToClipboard(content, format = 'text') {
+        console.log(`[Log Exporter] copyToClipboard: 클립보드에 복사 시도. 형식: ${format}`);
         if (navigator.clipboard && window.isSecureContext) {
             try {
                 if (format === 'html') {
@@ -1078,7 +1207,14 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
         return copyUsingExecCommand(content, format);
     }
 
+    /**
+     * execCommand를 사용하여 클립보드에 복사하는 폴백 함수입니다.
+     * @param {string} content - 복사할 콘텐츠.
+     * @param {string} format - 콘텐츠의 형식 ('text' 또는 'html').
+     * @returns {boolean} 복사 성공 여부.
+     */
     function copyUsingExecCommand(content, format) {
+        console.log('[Log Exporter] copyUsingExecCommand: execCommand를 사용한 폴백 복사 시도');
         const textArea = document.createElement("textarea");
         textArea.value = format === 'html' ? content : content;
         textArea.style.cssText = 'position: fixed; top: -9999px; left: -9999px;';
@@ -1096,7 +1232,22 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
         return success;
     }
 
+    /**
+     * 미리보기 컨테이너를 이미지 파일로 저장합니다.
+     * 매우 긴 로그의 경우 이미지를 여러 청크로 분할하여 처리합니다.
+     * @async
+     * @param {HTMLElement} previewContainer - 캡처할 미리보기 컨테이너 요소.
+     * @param {Function} onProgress - 진행 상황을 보고하는 콜백 함수.
+     * @param {{cancelled: boolean}} cancellationToken - 작업 취소를 위한 토큰 객체.
+     * @param {string} charName - 캐릭터 이름 (파일 이름에 사용).
+     * @param {string} chatName - 채팅 이름 (파일 이름에 사용).
+     * @param {boolean} [useHighRes=false] - 고해상도로 캡처할지 여부.
+     * @param {number} [baseFontSize=16] - 캡처 시 사용할 기본 폰트 크기.
+     * @param {number} [imageWidth=900] - 캡처할 이미지의 너비.
+     * @returns {Promise<boolean>} 저장 성공 여부.
+     */
     async function savePreviewAsImage(previewContainer, onProgress, cancellationToken, charName, chatName, useHighRes = false, baseFontSize = 16, imageWidth = 900) {
+        console.log(`[Log Exporter] savePreviewAsImage: 미리보기를 이미지로 저장 시작. 고해상도: ${useHighRes}, 너비: ${imageWidth}`);
         const MAX_SAFE_CANVAS_HEIGHT = 65535;
 
         const captureTarget = previewContainer.firstElementChild;
@@ -1200,7 +1351,17 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
         }
     }
 
+    /**
+     * 데이터 URL을 받아 이미지 파일로 다운로드합니다.
+     * @param {string} dataUrl - 다운로드할 이미지의 데이터 URL.
+     * @param {string} charName - 캐릭터 이름 (파일 이름에 사용).
+     * @param {string} chatName - 채팅 이름 (파일 이름에 사용).
+     * @param {object} [options={}] - 추가 옵션.
+     * @param {number|null} [options.partNumber=null] - 분할된 파일의 파트 번호.
+     * @param {boolean} [options.showCompletionAlert=true] - 완료 알림 표시 여부.
+     */
     function downloadImage(dataUrl, charName, chatName, options = {}) {
+        console.log(`[Log Exporter] downloadImage: 이미지 다운로드. 파트: ${options.partNumber || 'N/A'}`);
         const { partNumber = null, showCompletionAlert = true } = options;
 
         const safeCharName = charName.replace(/[\/\\?%*:|"<>]/g, '-');
@@ -1220,7 +1381,14 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
         }
     }
 
+    /**
+     * 문서에 로드된 웹 폰트의 @font-face 규칙을 수집하고, 폰트 파일을 Base64로 인코딩하여 CSS 문자열로 반환합니다.
+     * 이는 외부 폰트가 이미지 캡처에 포함되도록 보장합니다.
+     * @async
+     * @returns {Promise<string>} 임베드된 폰트 규칙을 포함하는 CSS 문자열.
+     */
     async function getFontEmbedCss() {
+        console.log('[Log Exporter] getFontEmbedCss: 폰트 임베딩 CSS 생성 시작');
         const fontFaces = [];
         const fontURLs = new Set();
 
@@ -1264,10 +1432,18 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
                 console.warn(`[Log Exporter] Could not read font rules from stylesheet: ${sheet.href}`, e);
             }
         }
+        console.log(`[Log Exporter] getFontEmbedCss: ${fontFaces.length}개의 폰트 규칙 처리 완료`);
         return fontFaces.join('\n');
     }
 
+    /**
+     * 메시지 노드에서 RisuAI 관련 UI 클래스들을 수집하고 계층 구조로 정리합니다.
+     * 이는 사용자가 필터링할 UI 요소를 선택하는 데 사용됩니다.
+     * @param {HTMLElement[]} nodes - 클래스를 수집할 메시지 노드 배열.
+     * @returns {{name: string, displayName: string, hasImage: boolean}[]} UI 클래스 정보 객체의 배열.
+     */
     function collectUIClasses(nodes) {
+        console.log('[Log Exporter] collectUIClasses: RisuAI UI 클래스 수집 시작');
         const CONTENT_CLASSES_TO_PRESERVE = [
             'x-risu-regex-quote-block',
             'x-risu-regex-thought-block',
@@ -1354,9 +1530,16 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
 
         buildDisplayList(topLevelClasses, 0);
 
+        console.log(`[Log Exporter] collectUIClasses: ${result.length}개의 UI 클래스 발견`);
         return result;
     }
 
+    /**
+     * 노드를 복제하고 선택된 CSS 클래스를 가진 요소들을 제거하여 필터링합니다.
+     * @param {HTMLElement} node - 필터링할 원본 노드.
+     * @param {string[]} selectedClasses - 제거할 요소의 CSS 클래스 이름 배열.
+     * @returns {HTMLElement} 필터링된 복제 노드.
+     */
     function filterWithCustomClasses(node, selectedClasses) {
         const tempEl = node.cloneNode(true);
 
@@ -1377,6 +1560,7 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
      * <img> 태그를 고유한 자리표시자 주석으로 교체합니다.
      */
     async function generateArcaLiveTemplate(nodes, themeKey = 'dark', showAvatar = true, useBubbleDesign = true) {
+        console.log('[Log Exporter] generateArcaLiveTemplate: 아카라이브용 템플릿 생성 시작');
         let imageCounter = 0;
 
         const baseHtml = await generateBasicFormatLog(nodes, themeKey, false, showAvatar, useBubbleDesign);
@@ -1398,10 +1582,20 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
             }
         });
 
+        console.log(`[Log Exporter] generateArcaLiveTemplate: 템플릿 생성 완료. 이미지 개수: ${imageCounter}`);
         return tempDiv.innerHTML;
     }
 
+    /**
+     * 로그 내보내기 옵션을 설정하고 미리보기를 제공하는 메인 모달을 표시합니다.
+     * @async
+     * @param {number} chatIndex - 내보낼 채팅의 인덱스.
+     * @param {object} [options={}] - 추가 옵션.
+     * @param {number} [options.startIndex] - 로그를 시작할 메시지의 인덱스.
+     * @param {boolean} [options.singleMessage] - 단일 메시지만 내보낼지 여부.
+     */
     async function showCopyPreviewModal(chatIndex, options = {}) {
+        console.log(`[Log Exporter] showCopyPreviewModal: 미리보기 모달 표시 시작. 채팅 인덱스: ${chatIndex}, 옵션:`, options);
         try {
             let { charName, chatName, charAvatarUrl, messageNodes } = await processChatLog(chatIndex);
 
@@ -1593,6 +1787,9 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
             const arcaConvertBtn = modal.querySelector('#arca-convert-btn');
             const arcaFinalHtml = modal.querySelector('#arca-final-html');
 
+            /**
+             * 미리보기 내의 이미지 크기를 슬라이더 값에 따라 조절합니다.
+             */
             const applyImageScaling = () => {
                 const scale = imageScaleSlider.value;
                 imageScaleValue.textContent = `${scale}%`;
@@ -1603,6 +1800,10 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
             };
             imageScaleSlider.addEventListener('input', applyImageScaling);
 
+            /**
+             * 참가자 필터 체크박스 상태에 따라 표시할 메시지 노드 배열을 반환합니다.
+             * @returns {HTMLElement[]} 필터링된 메시지 노드 배열.
+             */
             const getFilteredNodes = () => {
                 const hiddenNames = Array.from(modal.querySelectorAll('.participant-filter-checkbox:not(:checked)'))
                     .map(cb => cb.dataset.name);
@@ -1618,6 +1819,12 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
                 extractCssForNodes(messageNodes)
             ]);
 
+            /**
+             * 주어진 콘텐츠를 감싸는 전체 HTML 구조를 생성합니다. (헤더 포함)
+             * @param {string} content - 삽입할 메인 HTML 콘텐츠.
+             * @param {string} [theme='dark'] - 사용할 테마.
+             * @returns {string} 완전한 HTML 래퍼 문자열.
+             */
             const buildFullHtml = (content, theme = 'dark') => {
                 const selectedTheme = THEMES[theme] || THEMES.dark;
                 return `<div style="padding:15px;background-color:${selectedTheme.background};max-width:900px;width:100%;margin:auto;font-family:sans-serif;line-height:1.6;color:${selectedTheme.text};box-sizing:border-box;">
@@ -1633,7 +1840,12 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
             let isRawMode = false;
             let lastGeneratedHtml = '';
 
+            /**
+             * 사용자의 선택(포맷, 테마, 필터 등)이 변경될 때마다 미리보기 영역을 업데이트합니다.
+             * @async
+             */
             async function updatePreview() {
+                console.log('[Log Exporter] updatePreview: 미리보기 업데이트 시작');
                 arcaHelperSection.style.display = 'none';
                 const bubbleToggleCheckbox = modal.querySelector('#bubble-toggle-checkbox');
                 const selectedFormat = modal.querySelector('input[name="log-format"]:checked').value;
@@ -1702,6 +1914,7 @@ const content = await generateBasicFormatLog(filteredNodes, selectedTheme, true,
                 if (!isRawMode) {
                     applyImageScaling();
                 }
+                console.log('[Log Exporter] updatePreview: 미리보기 업데이트 완료');
             }
 
             const rawToggleBtn = modal.querySelector('#log-exporter-raw-toggle');
@@ -1730,7 +1943,9 @@ const content = await generateBasicFormatLog(filteredNodes, selectedTheme, true,
                 });
             }
 
-            // [아바타 옵션 UI 표시/숨김 제어]
+            /**
+             * 선택된 로그 형식에 따라 아바타 표시 옵션 UI의 가시성을 제어합니다.
+             */
             function updateAvatarOptionVisibility() {
                 const selectedFormat = modal.querySelector('input[name="log-format"]:checked').value;
                 avatarToggleControls.style.display = (selectedFormat === 'basic') ? 'flex' : 'none';
@@ -1929,6 +2144,14 @@ const content = await generateBasicFormatLog(filteredNodes, selectedTheme, true,
                 }
 
                 const showAvatar = avatarToggleCheckbox.checked;
+                /**
+                 * 클립보드 복사를 위해 서식이 포함된 HTML을 생성합니다.
+                 * 이미지 태그는 제거하고, 외부 링크는 유지합니다.
+                 * @param {HTMLElement[]} nodes - HTML로 변환할 노드.
+                 * @param {string} format - 'html' 또는 'basic'.
+                 * @param {string} theme - 'basic' 형식일 때 사용할 테마.
+                 * @returns {Promise<string>} 생성된 HTML 문자열.
+                 */
                 const generateHtmlForCopy = async (nodes, format, theme) => {
                     let htmlContent;
                     if (format === 'html') {
@@ -1999,7 +2222,12 @@ const content = await generateBasicFormatLog(filteredNodes, selectedTheme, true,
         }
     }
 
+    /**
+     * 채팅 목록과 각 메시지에 '내보내기' 관련 버튼들을 주입합니다.
+     * 이미 버튼이 있는 경우 중복 주입을 방지합니다.
+     */
     function injectButtons() {
+        console.log('[Log Exporter] injectButtons: UI에 내보내기 버튼 주입 시도');
         document.querySelectorAll(CHAT_ITEM_SELECTOR).forEach(item => {
             if (item.closest('.log-exporter-modal')) return;
 
@@ -2064,8 +2292,13 @@ const content = await generateBasicFormatLog(filteredNodes, selectedTheme, true,
         });
     }
 
+    /**
+     * DOM 변경을 감지하여 'injectButtons' 함수를 호출하는 MutationObserver를 시작합니다.
+     * 이를 통해 동적으로 추가되는 채팅 메시지에도 버튼이 주입됩니다.
+     */
     function startObserver() {
         if (observer) observer.disconnect();
+        console.log('[Log Exporter] startObserver: DOM 변경 감지를 위한 MutationObserver 시작');
         observer = new MutationObserver(() => setTimeout(injectButtons, 300));
         observer.observe(document.body, { childList: true, subtree: true });
         setTimeout(injectButtons, 500);
