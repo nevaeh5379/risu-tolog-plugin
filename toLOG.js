@@ -264,7 +264,11 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
                 'background-color', 'background-image', 'background-size', 'background-position', 'background-repeat',
                 'border', 'border-top', 'border-right', 'border-bottom', 'border-left', 'border-radius',
                 'padding', 'padding-top', 'padding-right', 'padding-bottom', 'padding-left',
-                'box-shadow', 'opacity', 'vertical-align', 'object-fit'
+                'margin', 'margin-top', 'margin-right', 'margin-bottom', 'margin-left',
+                'box-shadow', 'opacity', 'vertical-align', 'object-fit', 'display', 'position',
+                'width', 'height', 'min-width', 'min-height', 'max-width', 'max-height',
+                'flex', 'flex-direction', 'justify-content', 'align-items', 'flex-wrap',
+                'overflow', 'overflow-x', 'overflow-y', 'text-overflow', 'cursor'
             ];
             styleToCopy.forEach(prop => {
                 clonedEl.style[prop] = computedStyle[prop];
@@ -682,21 +686,39 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
     async function extractCssForNodes(nodes) {
         console.log(`[Log Exporter] extractCssForNodes: ${nodes.length}개 노드에 대한 CSS 추출 시작`);
         const classSet = new Set();
+        const tagSet = new Set();
+        const idSet = new Set();
+        
         nodes.forEach(node => {
             node.querySelectorAll('*').forEach(el => {
+                // 클래스 수집
                 el.classList.forEach(c => classSet.add(c));
+                // 태그명 수집
+                tagSet.add(el.tagName.toLowerCase());
+                // ID 수집
+                if (el.id) idSet.add(el.id);
             });
         });
 
         const classSelectors = Array.from(classSet);
+        const tagSelectors = Array.from(tagSet);
+        const idSelectors = Array.from(idSet);
         const cssRules = new Set();
 
         for (const sheet of document.styleSheets) {
             try {
                 if (!sheet.cssRules) continue;
                 for (const rule of sheet.cssRules) {
-                    if (rule.selectorText && classSelectors.some(c => rule.selectorText.includes(`.${c}`))) {
-                        cssRules.add(rule.cssText);
+                    if (rule.selectorText) {
+                        const selector = rule.selectorText;
+                        // 클래스, 태그, ID 중 하나라도 매치되면 포함
+                        const hasClassMatch = classSelectors.some(c => selector.includes(`.${c}`));
+                        const hasTagMatch = tagSelectors.some(t => selector.includes(t));
+                        const hasIdMatch = idSelectors.some(id => selector.includes(`#${id}`));
+                        
+                        if (hasClassMatch || hasTagMatch || hasIdMatch) {
+                            cssRules.add(rule.cssText);
+                        }
                     }
                 }
             } catch (e) {
@@ -744,12 +766,34 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
               `
             : layoutCss + extractedCss;
 
+        // 참가자 이름 색상을 강제로 적용하기 위해 messagesHtml을 수정
+        let modifiedMessagesHtml = messagesHtml;
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = messagesHtml;
+        
+        // 모든 참가자 이름 요소에 색상 스타일 강제 적용
+        tempDiv.querySelectorAll('.unmargin.text-xl').forEach(nameEl => {
+            const parentNode = nameEl.closest('.chat-message-container');
+            const isUser = parentNode && parentNode.classList.contains('justify-end');
+            const theme = THEMES.dark;
+            const nameColor = theme.nameColor;
+            
+            nameEl.style.color = nameColor + ' !important';
+            nameEl.style.fontWeight = '600';
+            nameEl.style.fontSize = '0.95em';
+            nameEl.style.display = 'block';
+            nameEl.style.marginBottom = '8px';
+            nameEl.style.textAlign = isUser ? 'right' : 'left';
+        });
+        
+        modifiedMessagesHtml = tempDiv.innerHTML;
+
         const finalHtml = `<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-w-width, initial-scale=1.0"><title>채팅 로그: ${charName} - ${chatName}</title><style>
             * { box-sizing: border-box; }
             body { background-color: #1a1b26; color: #cad3f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 10px; margin: 0; }
             .chat-log-wrapper { max-width: 900px; margin: 0 auto; }
             ${styleBlock}
-        </style></head><body><div class="chat-log-wrapper"><header style="text-align:center; padding-bottom:15px; margin-bottom:20px; border-bottom:2px solid #414868;"><img src="${charAvatarBase64}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;margin:0 auto 10px;display:block;"><h1>${charName}</h1><p>${chatName}</p></header><div>${messagesHtml}</div></div></body></html>`;
+        </style></head><body><div class="chat-log-wrapper"><header style="text-align:center; padding-bottom:15px; margin-bottom:20px; border-bottom:2px solid #414868;"><img src="${charAvatarBase64}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;margin:0 auto 10px;display:block;"><h1>${charName}</h1><p>${chatName}</p></header><div>${modifiedMessagesHtml}</div></div></body></html>`;
 
         const safeCharName = charName.replace(/[\/\\?%*:|"<>]/g, '-');
         const safeChatName = chatName.replace(/[\/\\?%*:|"<>]/g, '-');
@@ -878,6 +922,22 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
                 if (originalProseEl && clonedProseEl) {
                     applyInlineStyles(originalProseEl, clonedProseEl);
                 }
+                
+                // 참가자 이름 색상 스타일 강제 적용
+                const nameEl = clonedNode.querySelector('.unmargin.text-xl');
+                if (nameEl) {
+                    const computedStyle = window.getComputedStyle(nameEl);
+                    const isUser = node.classList.contains('justify-end');
+                    const theme = THEMES.dark; // 기본 다크 테마 사용
+                    const nameColor = isUser ? theme.nameColor : theme.nameColor;
+                    
+                    nameEl.style.color = nameColor;
+                    nameEl.style.fontWeight = '600';
+                    nameEl.style.fontSize = '0.95em';
+                    nameEl.style.display = 'block';
+                    nameEl.style.marginBottom = '8px';
+                    nameEl.style.textAlign = isUser ? 'right' : 'left';
+                }
             } else {
                 clonedNode.querySelectorAll('[style]').forEach(el => {
                     if (el === clonedAvatarEl) return;
@@ -886,6 +946,16 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
                         el.removeAttribute('style');
                     }
                 });
+                
+                // 스타일 미적용 시에도 참가자 이름 색상은 기본값으로 설정
+                const nameEl = clonedNode.querySelector('.unmargin.text-xl');
+                if (nameEl) {
+                    const isUser = node.classList.contains('justify-end');
+                    const theme = THEMES.dark;
+                    nameEl.style.color = theme.nameColor;
+                    nameEl.style.fontWeight = '600';
+                    nameEl.style.fontSize = '0.95em';
+                }
             }
 
             for (const img of clonedNode.querySelectorAll('img')) {
@@ -1901,16 +1971,64 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
              * @param {string} [theme='dark'] - 사용할 테마.
              * @returns {string} 완전한 HTML 래퍼 문자열.
              */
-            const buildFullHtml = (content, theme = 'dark') => {
+            const buildFullHtml = (content, theme = 'dark', applyStyles = true) => {
                 const selectedTheme = THEMES[theme] || THEMES.dark;
-                return `<div style="padding:15px;background-color:${selectedTheme.background};max-width:900px;width:100%;margin:auto;font-family:sans-serif;line-height:1.6;color:${selectedTheme.text};box-sizing:border-box;">
-                <div style="text-align:center;padding-bottom:15px;margin-bottom:20px; border-bottom:2px solid ${selectedTheme.border};">
-                    <img src="${charAvatarBase64}" alt="${charName}" style="width:60px;height:60px;border-radius:50%;object-fit:cover;margin:0 auto 10px;border:2px solid ${selectedTheme.avatarBorder};display:block;">
-                    <h2 style="margin:0 0 5px 0;font-size:1.5em;color:${selectedTheme.nameColor};font-weight:bold;">${charName}</h2>
-                    <p style="margin:0;color:${selectedTheme.textSecondary};font-size:0.95em;">${chatName}</p>
-                </div>
-                <div>${content}</div>
-            </div>`;
+                
+                // 참가자 이름 색상을 강제로 적용하기 위해 content를 수정
+                let modifiedContent = content;
+                
+                // 참가자 이름 요소들을 찾아서 색상을 강제 적용
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = content;
+                
+                // 모든 참가자 이름 요소에 색상 스타일 강제 적용
+                tempDiv.querySelectorAll('.unmargin.text-xl').forEach(nameEl => {
+                    const parentNode = nameEl.closest('.chat-message-container');
+                    const isUser = parentNode && parentNode.classList.contains('justify-end');
+                    const nameColor = selectedTheme.nameColor;
+                    
+                    nameEl.style.color = nameColor + ' !important';
+                    nameEl.style.fontWeight = '600';
+                    nameEl.style.fontSize = '0.95em';
+                    nameEl.style.display = 'block';
+                    nameEl.style.marginBottom = '8px';
+                    nameEl.style.textAlign = isUser ? 'right' : 'left';
+                });
+                
+                modifiedContent = tempDiv.innerHTML;
+                
+                // CSS 스타일 블록 생성
+                const layoutCss = `
+                    .chat-message-container { display: flex; align-items: flex-start; margin: 16px 0; gap: 10px; }
+                    .chat-message-container.justify-end { flex-direction: row-reverse; }
+                    .chat-message-container > div:first-child:not(.flex-grow) { flex-shrink: 0; }
+                    img[alt="user avatar"] { width: 40px; height: 40px; border-radius: 9999px; object-fit: cover; }
+                    .chat-message-container > .flex-grow { display: flex; flex-direction: column; max-width: calc(100% - 50px); }
+                    .justify-end > .flex-grow { align-items: flex-end; }
+                    .chat-user-name { font-weight: bold; margin-bottom: 4px; color: #a9b1d6; font-size: 0.9em; }
+                    .prose { padding: 10px 15px; border-radius: 12px; background-color: #24283b; word-break: break-word; max-width: 100%;}
+                    .justify-end .prose { background-color: #414868; }
+                    .prose p { margin: 0.5em 0 !important;}
+                    .prose p { margin: 0.5em 0; }
+                `;
+                
+                const styleBlock = applyStyles
+                    ? layoutCss + `
+                       img { max-width: 100%; height: auto; }
+                       .prose a { color: #bb9af7; }
+                       .x-risu-post-toggle { display: none; }
+                       .x-risu-post-toggle:checked + .x-risu-post-row + .x-risu-post-content-wrapper { display: block; }
+                       .x-risu-post-title-label { cursor: pointer; }
+                       .x-risu-post-content-wrapper { display: none; }
+                      `
+                    : layoutCss + extractedCss;
+                
+                return `<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>채팅 로그: ${charName} - ${chatName}</title><style>
+                    * { box-sizing: border-box; }
+                    body { background-color: ${selectedTheme.background}; color: ${selectedTheme.text}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 10px; margin: 0; }
+                    .chat-log-wrapper { max-width: 900px; margin: 0 auto; }
+                    ${styleBlock}
+                </style></head><body><div class="chat-log-wrapper"><header style="text-align:center; padding-bottom:15px; margin-bottom:20px; border-bottom:2px solid ${selectedTheme.border};"><img src="${charAvatarBase64}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;margin:0 auto 10px;display:block;"><h1 style="color:${selectedTheme.nameColor};">${charName}</h1><p style="color:${selectedTheme.textSecondary};">${chatName}</p></header><div>${modifiedContent}</div></div></body></html>`;
             };
 
             let isRawMode = false;
@@ -1958,7 +2076,7 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
                     saveFileBtn.style.display = 'inline-block';
                     const useStyled = styleToggleCheckbox.checked;
                     const content = await generateHtmlFromNodes(filteredNodes, useStyled, true);
-                    lastGeneratedHtml = buildFullHtml(content, 'dark');
+                    lastGeneratedHtml = buildFullHtml(content, 'dark', useStyled);
 
                     if (isRawMode) {
                         previewEl.innerHTML = `<pre style="white-space: pre-wrap; word-wrap: break-word; font-family: monospace; font-size: 0.85em;">${lastGeneratedHtml.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre>`;
@@ -2275,6 +2393,21 @@ const content = await generateBasicFormatLog(filteredNodes, selectedTheme, true,
                             p.style.setProperty('margin-bottom', '0.5em', 'important');
                         }
                     });
+                    
+                    // 참가자 이름 색상 강제 적용
+                    const selectedThemeObj = THEMES[theme] || THEMES.dark;
+                    tempDiv.querySelectorAll('.unmargin.text-xl').forEach(nameEl => {
+                        const parentNode = nameEl.closest('.chat-message-container');
+                        const isUser = parentNode && parentNode.classList.contains('justify-end');
+                        const nameColor = selectedThemeObj.nameColor;
+                        
+                        nameEl.style.color = nameColor + ' !important';
+                        nameEl.style.fontWeight = '600';
+                        nameEl.style.fontSize = '0.95em';
+                        nameEl.style.display = 'block';
+                        nameEl.style.marginBottom = '8px';
+                        nameEl.style.textAlign = isUser ? 'right' : 'left';
+                    });
                     // --- 수정 끝 ---
 
                     if (format === 'basic') {
@@ -2284,7 +2417,7 @@ const content = await generateBasicFormatLog(filteredNodes, selectedTheme, true,
                         });
                     }
 
-                    return (format === 'html') ? buildFullHtml(tempDiv.innerHTML, 'dark') : tempDiv.innerHTML;
+                    return (format === 'html') ? buildFullHtml(tempDiv.innerHTML, 'dark', styleToggleCheckbox.checked) : tempDiv.innerHTML;
                 };
 
                 let toCopy, copyFormat;
