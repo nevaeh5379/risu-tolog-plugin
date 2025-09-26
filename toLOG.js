@@ -318,6 +318,7 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
     let htmlToImagePromise = null;
     let originalDefine = null;
     let originalRequire = null;
+    let rangeSelectionState = { active: false, startIndex: -1, chatIndex: -1 };
 
     /**
      * html-to-image 라이브러리가 로드되었는지 확인하고, 로드되지 않았다면 CDN에서 동적으로 로드합니다.
@@ -582,36 +583,39 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
             .log-exporter-modal-btn.primary { background-color: #7aa2f7; color: #1a1b26; }
             .log-exporter-modal-btn.primary:hover { background-color: #9eceff; }
             @media (max-width: 992px) { /* Tablet breakpoint: revert to column layout */
-                .log-exporter-modal-content { flex-direction: column; overflow-y: auto; }
-                .log-exporter-left-panel, .log-exporter-right-panel { max-height: none; overflow-y: visible; flex: none; width: 100%; }
-                .log-exporter-modal-preview { max-height: 40vh; } /* Restore max-height for column layout */
+                .log-exporter-modal-content { flex-direction: column; overflow-y: auto; } /* 컨텐츠 영역 스크롤 */
+                .log-exporter-left-panel, .log-exporter-right-panel { max-height: none; overflow-y: visible; flex: none; width: 100%; } /* 패널 높이 제한 해제 */
+                .log-exporter-modal-preview { max-height: 40vh; } /* 세로 모드에서 미리보기 높이 제한 */
             }
             .log-exporter-modal-btn.image-save { background-color: #9ece6a; color: #1a1b26; }
             .log-exporter-modal-btn.image-save:hover { background-color: #b8e090; }
             .log-exporter-modal-btn:disabled { background-color: #565f89; cursor: not-allowed; }
             .log-exporter-msg-btn { margin-left: 8px; cursor: pointer; color: #a0a0a0; transition: color 0.2s; font-size: 20px; line-height: 1; background: none; border: none; padding: 0;}
+            .log-exporter-msg-btn.range-active { color: #ff9e64; }
+            .log-exporter-msg-btn.range-endpoint { color: #9ece6a; }
+            .chat-message-container.log-exporter-range-start {
+                background-color: rgba(122, 162, 247, 0.1); box-shadow: 0 0 0 2px rgba(122, 162, 247, 0.4) inset; border-radius: 8px;
+            }
             .log-exporter-msg-btn:hover { color: #7aa2f7; }
-            #filter-controls { display: none; margin-left: auto; align-items: center; gap: 15px; }
+            #filter-controls { display: none; margin-left: auto; align-items: center; gap: 12px; }
             #theme-selector { padding: 4px 8px; background: #1a1b26; color: #c0caf5; border: 1px solid #414868; border-radius: 4px; cursor: pointer; font-size: 0.9em; }
             #theme-selector:hover { border-color: #565f89; }
             .arca-helper-section { display: none; flex-direction: column; gap: 8px; background-color: #1a1b26; padding: 12px; border-radius: 8px; border: 1px solid #7aa2f7; margin-top: 8px; }
             .arca-helper-section h4 { margin: 0 0 8px 0; color: #7aa2f7; }
             .arca-helper-section textarea { width: 100%; height: 100px; background-color: #1f2335; color: #c0caf5; border: 1px solid #414868; border-radius: 5px; padding: 8px; font-family: monospace; font-size: 0.9em; resize: vertical; }
             .arca-helper-section button { align-self: center; }
-            @media (max-width: 768px) {
+            /* --- 모바일 반응형 스타일 --- */
+            @media (max-width: 768px) { /* 일반 모바일 기기 */
+                .log-exporter-modal { width: 100%; height: 100%; max-height: 100vh; border-radius: 0; }
+                .log-exporter-modal-content { flex-direction: column; padding: 12px; gap: 12px; }
+                .log-exporter-left-panel { overflow-y: auto; padding-right: 5px; } /* 좌측 패널 스크롤 */
+                .log-exporter-right-panel { overflow-y: hidden; } /* 우측 패널은 미리보기가 스크롤되므로 hidden */
+                .log-exporter-modal-btn { padding: 10px 14px; font-size: 0.95em; }
+                .log-exporter-modal-options, #filter-controls { flex-direction: column; align-items: stretch; gap: 10px; margin-left: 0; }
+                .log-exporter-modal-footer { justify-content: center; flex-wrap: wrap; }
                 #image-export-controls { flex-direction: column; align-items: stretch !important; gap: 10px !important; margin-left: 0 !important; width: 100%; }
                 #image-export-controls > label { justify-content: space-between; }
                 #image-export-controls > button { width: 100%; }
-            }
-            @media (max-width: 640px) {
-                .log-exporter-modal { width: 95%; max-width: none; } 
-                .log-exporter-modal-header { padding: 12px 15px; font-size: 1.1em; }
-                .log-exporter-modal-content { padding: 15px; flex-direction: column; }
-                .log-exporter-left-panel, .log-exporter-right-panel { max-height: none; overflow-y: visible; flex: none; width: 100%; }
-                .log-exporter-modal-btn { padding: 8px 12px; font-size: 0.9em; }
-                .log-exporter-modal-options { flex-direction: column; align-items: stretch; } 
-                .log-exporter-modal-footer { justify-content: center; } 
-                #filter-controls { margin-left: 0; flex-direction: column; gap: 10px; align-items: stretch; } 
             }
         `;
         document.head.appendChild(style);
@@ -651,12 +655,18 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
      * @async
      * @param {number} chatIndex - 처리할 채팅의 인덱스.
      * @returns {Promise<{charName: string, chatName: string, charAvatarUrl: string, messageNodes: HTMLElement[]}>} 캐릭터 및 채팅 정보와 메시지 노드 배열을 포함하는 객체.
+     * @param {object} [options={}] - 추가 옵션.
+     * @param {number} [options.startIndex] - 로그를 시작할 메시지의 인덱스.
+     * @param {number} [options.endIndex] - 로그를 끝낼 메시지의 인덱스.
+     * @param {boolean} [options.singleMessage] - 단일 메시지만 내보낼지 여부.
      * @throws {Error} 채팅 버튼, 캐릭터 정보, 또는 메시지를 찾을 수 없는 경우.
      */
-    async function processChatLog(chatIndex) {
+    async function processChatLog(chatIndex, options = {}) {
         console.log(`[Log Exporter] processChatLog: 채팅 로그 처리 시작, 인덱스: ${chatIndex}`);
         const chatButton = document.querySelector(`button[data-risu-chat-idx="${chatIndex}"]`);
         if (!chatButton) throw new Error("채팅 버튼을 찾을 수 없습니다.");
+
+        const { startIndex, endIndex, singleMessage } = options;
 
         if (!chatButton.classList.contains('bg-selected')) {
             chatButton.click();
@@ -691,7 +701,20 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
             throw new Error("채팅 메시지를 찾을 수 없습니다.");
         }
 
-        return { charName: character.name, chatName: targetChat.name, charAvatarUrl, messageNodes };
+        let finalNodes = messageNodes;
+        let finalChatName = targetChat.name;
+
+        if (typeof startIndex === 'number') {
+            if (singleMessage) {
+                finalNodes = [messageNodes[startIndex]];
+                finalChatName += ` (메시지 #${startIndex + 1})`;
+            } else {
+                finalNodes = messageNodes.slice(startIndex, typeof endIndex === 'number' ? endIndex + 1 : undefined);
+                finalChatName += ` (메시지 #${startIndex + 1}부터${typeof endIndex === 'number' ? ` #${endIndex + 1}까지` : ''})`;
+            }
+        }
+
+        return { charName: character.name, chatName: finalChatName, charAvatarUrl, messageNodes: finalNodes };
     }
 
     /**
@@ -1738,24 +1761,12 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
      * @async
      * @param {number} chatIndex - 내보낼 채팅의 인덱스.
      * @param {object} [options={}] - 추가 옵션.
-     * @param {number} [options.startIndex] - 로그를 시작할 메시지의 인덱스.
-     * @param {boolean} [options.singleMessage] - 단일 메시지만 내보낼지 여부.
      */
     async function showCopyPreviewModal(chatIndex, options = {}) {
         console.log(`[Log Exporter] showCopyPreviewModal: 미리보기 모달 표시 시작. 채팅 인덱스: ${chatIndex}, 옵션:`, options);
         try {
-            let { charName, chatName, charAvatarUrl, messageNodes } = await processChatLog(chatIndex);
-
-            const { startIndex, singleMessage } = options;
-            if (typeof startIndex === 'number') {
-                if (singleMessage) {
-                    messageNodes = [messageNodes[startIndex]];
-                    chatName += ` (메시지 #${startIndex + 1})`;
-                } else {
-                    messageNodes = messageNodes.slice(startIndex);
-                    chatName += ` (메시지 #${startIndex + 1}부터)`;
-                }
-            }
+            // processChatLog에 옵션을 바로 전달하여 필터링된 노드와 채팅 이름을 가져옴
+            let { charName, chatName, charAvatarUrl, messageNodes } = await processChatLog(chatIndex, options);
 
             const participants = new Set();
             const getNameFromNode = (node) => {
@@ -2489,6 +2500,67 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
     }
 
     /**
+     * 범위 선택 버튼 클릭을 처리합니다.
+     * @param {number} chatIndex - 현재 채팅의 인덱스.
+     * @param {number} messageIndex - 클릭된 메시지의 UI 상 인덱스.
+     */
+    function handleRangeSelection(chatIndex, messageIndex) {
+        const allMessageNodes = getAllMessageNodes().reverse();
+        const clickedNode = allMessageNodes[messageIndex];
+
+        if (!rangeSelectionState.active) {
+            // 범위 선택 시작
+            rangeSelectionState = { active: true, startIndex: messageIndex, chatIndex: chatIndex };
+            clickedNode.classList.add('log-exporter-range-start');
+
+            // 모든 메시지 버튼의 UI 업데이트
+            document.querySelectorAll('.log-exporter-msg-btn-group').forEach(group => {
+                const rangeBtn = group.querySelector('.range-select-btn');
+                const otherBtns = group.querySelectorAll('button:not(.range-select-btn)');
+                if (rangeBtn) {
+                    if (group.closest('.log-exporter-range-start')) {
+                        rangeBtn.innerHTML = '🏁';
+                        rangeBtn.title = '범위 선택 취소';
+                        rangeBtn.classList.add('range-active');
+                    } else {
+                        rangeBtn.innerHTML = '🔚';
+                        rangeBtn.title = '여기를 끝으로 지정';
+                        rangeBtn.classList.add('range-endpoint');
+                    }
+                }
+                otherBtns.forEach(btn => btn.disabled = true);
+            });
+        } else {
+            // 범위 선택 종료
+            if (rangeSelectionState.chatIndex !== chatIndex) {
+                alert('같은 채팅 내에서만 범위를 지정할 수 있습니다.', 'error');
+                resetRangeSelection();
+                return;
+            }
+
+            const startIndex = Math.min(rangeSelectionState.startIndex, messageIndex);
+            const endIndex = Math.max(rangeSelectionState.startIndex, messageIndex);
+
+            resetRangeSelection();
+            showCopyPreviewModal(chatIndex, { startIndex, endIndex });
+        }
+    }
+
+    function resetRangeSelection() {
+        rangeSelectionState = { active: false, startIndex: -1, chatIndex: -1 };
+        document.querySelectorAll('.log-exporter-range-start').forEach(el => el.classList.remove('log-exporter-range-start'));
+        document.querySelectorAll('.log-exporter-msg-btn-group').forEach(group => {
+            const rangeBtn = group.querySelector('.range-select-btn');
+            if (rangeBtn) {
+                rangeBtn.innerHTML = '✂️';
+                rangeBtn.title = '범위 지정 시작';
+                rangeBtn.classList.remove('range-active', 'range-endpoint');
+            }
+            group.querySelectorAll('button').forEach(btn => btn.disabled = false);
+        });
+    }
+
+    /**
      * 채팅 목록과 각 메시지에 '내보내기' 관련 버튼들을 주입합니다.
      * 이미 버튼이 있는 경우 중복 주입을 방지합니다.
      */
@@ -2541,16 +2613,26 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
 
             const createMsgButton = (emoji, title, onClick) => {
                 const btn = document.createElement('button');
-                btn.innerHTML = emoji; btn.title = title; btn.className = 'log-exporter-msg-btn';
+                btn.innerHTML = emoji;
+                btn.title = title;
+                btn.className = 'log-exporter-msg-btn';
                 btn.addEventListener('click', e => {
                     e.stopPropagation(); e.preventDefault();
                     onClick(currentChatIndex, messageIndexInUI);
                 });
                 return btn;
             };
+            
+            const rangeSelectBtn = createMsgButton('✂️', '범위 지정 시작', handleRangeSelection);
+            rangeSelectBtn.classList.add('range-select-btn');
 
             buttonGroup.appendChild(createMsgButton('📄', '이 메시지만 내보내기', (chatIdx, msgIdx) => showCopyPreviewModal(chatIdx, { startIndex: msgIdx, singleMessage: true })));
             buttonGroup.appendChild(createMsgButton('📑', '이 메시지부터 내보내기', (chatIdx, msgIdx) => showCopyPreviewModal(chatIdx, { startIndex: msgIdx, singleMessage: false })));
+            buttonGroup.appendChild(rangeSelectBtn);
+
+            if (rangeSelectionState.active) {
+                setTimeout(resetRangeSelection, 0);
+            }
 
             const copyButton = controls.querySelector('.button-icon-copy');
             if (copyButton) copyButton.before(buttonGroup);
@@ -2565,7 +2647,12 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
     function startObserver() {
         if (observer) observer.disconnect();
         console.log('[Log Exporter] startObserver: DOM 변경 감지를 위한 MutationObserver 시작');
-        observer = new MutationObserver(() => setTimeout(injectButtons, 300));
+        observer = new MutationObserver((mutations) => {
+            if (rangeSelectionState.active && mutations.some(m => m.target.closest('.risu-sidebar'))) {
+                resetRangeSelection();
+            }
+            setTimeout(injectButtons, 300);
+        });
         observer.observe(document.body, { childList: true, subtree: true });
         setTimeout(injectButtons, 500);
     }
@@ -2581,6 +2668,7 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
         document.querySelectorAll('.log-exporter-btn-group, .log-exporter-msg-btn-group').forEach(btn => btn.remove());
         document.querySelector('.log-exporter-modal-backdrop')?.remove();
         document.getElementById('log-exporter-styles')?.remove();
+        resetRangeSelection();
         console.log('Chat Log Exporter 플러그인이 언로드되었습니다.');
     });
 
