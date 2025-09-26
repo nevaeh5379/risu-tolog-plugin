@@ -780,21 +780,106 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
         return Array.from(cssRules).join('\n');
     }
 
+// ▼▼▼ [교체] 기존의 generateForceHoverCss 함수를 아래의 새 코드로 완전히 덮어쓰세요. ▼▼▼
+
+    /**
+     * 페이지의 모든 스타일시트를 스캔하여 :hover 규칙을 강제로 활성화하는 CSS를 생성합니다.
+     * @media 규칙을 보존하고, 모든 속성에 !important를 추가하여 명시도 문제를 해결합니다.
+     * @async
+     * @returns {Promise<string>} :hover를 강제 활성화하는 CSS 규칙 문자열.
+     */
+    async function generateForceHoverCss() {
+        console.log('[Log Exporter] generateForceHoverCss: :hover 강제 활성화 CSS 생성 시작 (v2, !important 적용)');
+        const newRules = new Set();
+        const hoverRegex = /:hover/g;
+
+        /**
+         * 단일 CSS 규칙을 받아 :hover를 강제하는 새 규칙 문자열을 생성합니다.
+         * @param {CSSStyleRule} rule - 처리할 CSS 규칙.
+         * @returns {string|null} 생성된 규칙 문자열 또는 null.
+         */
+        const createImportantRule = (rule) => {
+            // selectorText가 없거나 :hover가 없으면 처리하지 않음
+            if (!rule.selectorText || !hoverRegex.test(rule.selectorText)) return null;
+
+            // :hover를 제거하고 앞에 강제 활성화 클래스를 붙여 새 선택자 생성
+            const newSelector = rule.selectorText
+                .split(',')
+                // ▼▼▼ [수정] :not 선택자를 사용하여 data-no-force-hover 속성을 가진 요소를 제외 ▼▼▼
+                .map(part => `.expand-hover-globally ${part.trim().replace(hoverRegex, '')}:not([data-no-force-hover])`)
+                .join(', ');
+
+            // 규칙 내의 모든 스타일 속성을 !important와 함께 재구성
+            let newDeclarations = '';
+            for (let i = 0; i < rule.style.length; i++) {
+                const propName = rule.style[i];
+                const propValue = rule.style.getPropertyValue(propName);
+                newDeclarations += `${propName}: ${propValue} !important; `;
+            }
+
+            // 생성된 선택자와 스타일 속성이 모두 있을 경우에만 최종 규칙 반환
+            if (newSelector && newDeclarations) {
+                return `${newSelector} { ${newDeclarations} }`;
+            }
+            return null;
+        };
+
+        for (const sheet of document.styleSheets) {
+            try {
+                if (!sheet.cssRules) continue;
+
+                for (const rule of sheet.cssRules) {
+                    // @media 규칙인 경우, 내부의 규칙들을 재귀적으로 처리
+                    if (rule.type === CSSRule.MEDIA_RULE) {
+                        let mediaRules = '';
+                        for (const nestedRule of rule.cssRules) {
+                            const importantRule = createImportantRule(nestedRule);
+                            if (importantRule) {
+                                mediaRules += importantRule;
+                            }
+                        }
+                        // @media 블록 내에 유효한 :hover 규칙이 있었을 경우에만 최종 규칙에 추가
+                        if (mediaRules) {
+                            newRules.add(`@media ${rule.conditionText} { ${mediaRules} }`);
+                        }
+                    } else {
+                        // 일반 규칙인 경우 바로 처리
+                        const importantRule = createImportantRule(rule);
+                        if (importantRule) {
+                            newRules.add(importantRule);
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn(`[Log Exporter] 스타일시트를 읽을 수 없습니다 (CORS): ${sheet.href}`, e);
+            }
+        }
+        console.log(`[Log Exporter] generateForceHoverCss: ${newRules.size}개의 :hover 대체 규칙 블록 생성 완료.`);
+        return Array.from(newRules).join('\n');
+    }
+// ▲▲▲ [교체] 여기까지 덮어쓰시면 됩니다. ▲▲▲
     /**
   * 생성된 HTML 콘텐츠를 기반으로 완전한 HTML 파일을 만들어 사용자에게 다운로드합니다.
   * @async
   * @param {string} charName - 캐릭터 이름.
   * @param {string} chatName - 채팅 이름.
   * @param {string} messagesHtml - 채팅 메시지의 HTML 콘텐츠.
+  * @param {string} charAvatarUrl - 캐릭터 아바타 URL.
+  * @param {boolean} [expandHoverElements=false] - 호버 요소를 항상 펼칠지 여부.
   */
-    async function generateAndDownloadHtmlFile(charName, chatName, messagesHtml, charAvatarUrl) {
+// ▼▼▼ [교체] 기존 generateAndDownloadHtmlFile 함수를 아래 내용으로 덮어쓰세요 ▼▼▼
+    async function generateAndDownloadHtmlFile(charName, chatName, messagesHtml, charAvatarUrl, expandHoverElements = false) {
         console.log(`[Log Exporter] generateAndDownloadHtmlFile: HTML 파일 생성 및 다운로드 시작 (전체 스타일 복제 모드)`);
 
-        // 1. 페이지의 모든 CSS를 가져옵니다.
-        const fullCss = await getComprehensivePageCSS(); // <--- 여기를 수정!
-        // 2. 현재 적용된 테마 변수(빨간색 테마 등)를 <html> 태그에서 가져옵니다.
-        const htmlTagStyle = document.documentElement.getAttribute('style') || ''
+        const fullCss = await getComprehensivePageCSS();
+        const htmlTagStyle = document.documentElement.getAttribute('style') || '';
         const headerHtml = await getHeaderHtml(charAvatarUrl, charName, chatName);
+
+        let extraCss = '';
+        if (expandHoverElements) {
+            extraCss = await generateForceHoverCss();
+        }
+
         const finalHtml = `<!DOCTYPE html>
 <html lang="ko" style="${htmlTagStyle}">
 <head>
@@ -804,6 +889,7 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
     <style>
         /* RisuAI 페이지의 모든 스타일을 그대로 주입 */
         ${fullCss}
+        ${extraCss}
 
          /* 내보내기용 추가 스타일 (스크롤 문제 해결) */
     html, body {
@@ -812,7 +898,7 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
     }
         body { 
             padding: 20px; 
-            background-color: var(--risu-theme-bgcolor, #1a1b26); /* 현재 RisuAI 테마의 배경색 적용 */
+            background-color: var(--risu-theme-bgcolor, #1a1b26);
         }
         .chat-log-wrapper { 
             max-width: 900px; 
@@ -824,7 +910,7 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
         }
     </style>
 </head>
-<body>
+<body ${expandHoverElements ? 'class="expand-hover-globally"' : ''}>
     <div class="chat-log-wrapper">
      ${headerHtml}
         ${messagesHtml}
@@ -846,6 +932,7 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
     }
+// ▲▲▲ [교체] 여기까지 ▲▲▲
 
     /**
      * 메시지 노드 배열로부터 HTML 문자열을 생성합니다. (안전 최종 버전)
@@ -1009,6 +1096,9 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
             clonedNode.querySelectorAll('button').forEach(btn => {
                 btn.disabled = true;
                 btn.style.pointerEvents = 'none';
+                // ▼▼▼ [추가] 강제 호버 효과에서 제외하기 위한 속성 추가 ▼▼▼
+                btn.setAttribute('data-no-force-hover', 'true');
+                // ▲▲▲ [추가] 완료 ▲▲▲
             });
 
             finalHtml += clonedNode.outerHTML;
@@ -1856,6 +1946,9 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                             <div id="html-style-controls" style="display:inline-flex; align-items:center;">
                                 <label><input type="checkbox" id="style-toggle-checkbox"> 스타일 인라인 적용</label>
                             </div>
+                            <div id="html-hover-controls" style="display:none; align-items:center; margin-left: 10px;">
+                <label><input type="checkbox" id="expand-hover-elements-checkbox"> 호버 요소 항상 펼치기</label>
+            </div>
                             <div id="filter-controls">
                                 <label><input type="checkbox" id="filter-toggle-checkbox" checked> UI 필터링 적용</label>
                                 ${uiClasses.length > 0 ? `
@@ -1942,10 +2035,12 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
             const saveFileBtn = modal.querySelector('#log-exporter-save-file');
             const saveImageControls = modal.querySelector('#image-export-controls');
             const htmlStyleControls = modal.querySelector('#html-style-controls');
+            const htmlHoverControls = modal.querySelector('#html-hover-controls');
             const styleToggleCheckbox = modal.querySelector('#style-toggle-checkbox');
             const filterControls = modal.querySelector('#filter-controls');
             const filterToggleCheckbox = modal.querySelector('#filter-toggle-checkbox');
             const themeSelector = modal.querySelector('#theme-selector');
+            const expandHoverCheckbox = modal.querySelector('#expand-hover-elements-checkbox');
             const themeSelectorContainer = modal.querySelector('#theme-selector-container');
 
             const arcaHelperSection = modal.querySelector('#arca-helper-section');
@@ -2066,6 +2161,7 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
              * 사용자의 선택(포맷, 테마, 필터 등)이 변경될 때마다 미리보기 영역을 업데이트합니다.
              * @async
              */
+// ▼▼▼ [교체] 기존 updatePreview 함수를 아래 내용으로 덮어쓰세요 ▼▼▼
             async function updatePreview() {
                 console.log('[Log Exporter] updatePreview: 미리보기 업데이트 시작 (Shadow DOM 방식)');
                 arcaHelperSection.style.display = 'none';
@@ -2080,6 +2176,7 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                 imageScaleControls.style.display = isImageFormat ? 'flex' : 'none';
                 saveImageControls.style.display = isImageFormat ? 'flex' : 'none';
                 htmlStyleControls.style.display = selectedFormat === 'html' ? 'none' : 'inline-flex';
+                htmlHoverControls.style.display = selectedFormat === 'html' ? 'inline-flex' : 'none';
 
                 previewEl.innerHTML = `<div style="text-align:center;color:#8a98c9;">미리보기 생성 중...</div>`;
                 let filteredNodes = getFilteredNodes();
@@ -2103,17 +2200,20 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                     if (customFilterSection) customFilterSection.style.display = 'none';
                     saveFileBtn.style.display = 'inline-block';
 
-
-                    // 스타일이 적용될 시간을 보장하기 위해 다음 프레임까지 대기
                     await new Promise(resolve => requestAnimationFrame(resolve));
 
-                    const fullCss = await getComprehensivePageCSS(); // <--- 여기를 수정!
-                    // 이름 폰트 하드코딩을 없애기 위해, generateHtmlFromNodes의 두 번째 인자를 'false'로 전달
+                    const fullCss = await getComprehensivePageCSS();
                     const messagesHtml = await generateHtmlFromNodes(filteredNodes, false, true);
                     const themeBgColor = getComputedStyle(document.documentElement).getPropertyValue('--risu-theme-bgcolor').trim() || '#1a1b26';
                     const headerHtml = await getHeaderHtml(charAvatarUrl, charName, chatName);
                     const htmlTagStyle = document.documentElement.getAttribute('style') || '';
-                    lastGeneratedHtml = `<!DOCTYPE html><html lang="ko" style="${htmlTagStyle}"><head><meta charset="UTF-8"><title>Chat Log</title><style>${fullCss} body { padding: 20px; } .chat-log-wrapper { max-width: 900px; margin: 0 auto; } .log-exporter-msg-btn-group { display:none!important; }</style></head><body><div class="chat-log-wrapper">${headerHtml}${messagesHtml}</div></body></html>`;
+
+                    let extraCss = '';
+                    if (expandHoverCheckbox.checked) {
+                        extraCss = await generateForceHoverCss();
+                    }
+
+                    lastGeneratedHtml = `<!DOCTYPE html><html lang="ko" style="${htmlTagStyle}"><head><meta charset="UTF-8"><title>Chat Log</title><style>${fullCss} ${extraCss}</style></head><body ${expandHoverCheckbox.checked ? 'class="expand-hover-globally"' : ''}><div class="chat-log-wrapper">${headerHtml}${messagesHtml}</div></body></html>`;
 
                     if (isRawMode) {
                         previewEl.innerHTML = `<pre style="white-space: pre-wrap; word-wrap: break-word; font-family: monospace; font-size: 0.85em;">${lastGeneratedHtml.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre>`;
@@ -2126,26 +2226,25 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                         shadowRoot.innerHTML = `
                             <style>
                                 ${fullCss}
+                                ${extraCss}
                                 .preview-wrapper {
                                     background-color: ${themeBgColor};
                                     padding: 20px;
                                 }
                                 .chat-log-wrapper { max-width: 900px; margin: 0 auto; }
-                                /* 미리보기 내에서 불필요한 UI 숨기기 */
                                 .log-exporter-msg-btn-group { display: none !important; }
                             </style>
-                            <div class="preview-wrapper">
+                            <div class="preview-wrapper ${expandHoverCheckbox.checked ? 'expand-hover-globally' : ''}">
                                 <div class="chat-log-wrapper">${headerHtml}${messagesHtml}</div>
                             </div>
                         `;
                         previewEl.appendChild(shadowHost);
                     }
-
-                    // [수정] 주입했던 임시 스타일을 즉시 제거하여 정상적인 호버가 가능하도록 복원
                     const addedStyle = document.getElementById('tolog-temp-hover-disable');
                     if (addedStyle) addedStyle.remove();
 
                 } else if (selectedFormat === 'basic') {
+                    // ... (이 부분은 수정 없음)
                     filterControls.style.display = 'flex';
                     themeSelectorContainer.style.display = 'flex';
                     saveFileBtn.style.display = 'none';
@@ -2160,6 +2259,7 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                         previewEl.innerHTML = content;
                     }
                 } else { // Text / Markdown
+                    // ... (이 부분은 수정 없음)
                     filterControls.style.display = 'flex';
                     themeSelectorContainer.style.display = 'none';
                     saveImageControls.style.display = 'none';
@@ -2173,6 +2273,7 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                 }
                 console.log('[Log Exporter] updatePreview: 미리보기 업데이트 완료');
             }
+// ▲▲▲ [교체] 여기까지 ▲▲▲
 
             const rawToggleBtn = modal.querySelector('#log-exporter-raw-toggle');
             rawToggleBtn.addEventListener('click', () => {
@@ -2208,7 +2309,7 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                 avatarToggleControls.style.display = (selectedFormat === 'basic') ? 'flex' : 'none';
             }
 
-            modal.querySelectorAll('input[name="log-format"], #style-toggle-checkbox, #filter-toggle-checkbox, .participant-filter-checkbox, #avatar-toggle-checkbox, #bubble-toggle-checkbox').forEach(el => {
+            modal.querySelectorAll('input[name="log-format"], #style-toggle-checkbox, #filter-toggle-checkbox, .participant-filter-checkbox, #avatar-toggle-checkbox, #bubble-toggle-checkbox, #expand-hover-elements-checkbox').forEach(el => {
                 el.addEventListener('change', updatePreview);
             });
             themeSelector.addEventListener('change', updatePreview);
@@ -2225,7 +2326,7 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                     const useStyled = styleToggleCheckbox.checked;
                     const showAvatar = avatarToggleCheckbox.checked;
                     const messagesHtml = await generateHtmlFromNodes(filteredNodes, useStyled, true);
-                    await generateAndDownloadHtmlFile(charName, chatName, messagesHtml, charAvatarUrl);
+                    await generateAndDownloadHtmlFile(charName, chatName, messagesHtml, charAvatarUrl, expandHoverCheckbox.checked);
                     closeModal();
                 } catch (e) { console.error('[Log Exporter] File save error from modal:', e); }
             });
