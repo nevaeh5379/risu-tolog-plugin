@@ -210,22 +210,33 @@ const CHAT_ITEM_SELECTOR = 'button[data-risu-chat-idx]';
 const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
 
 (async () => {
-    async function getFullPageCSS() {
-        console.log('[Log Exporter] getFullPageCSS: 페이지의 모든 CSS 추출 시작');
-        let css = [];
+    async function getComprehensivePageCSS() {
+        console.log('[Log Exporter] getComprehensivePageCSS: 페이지의 모든 CSS 포괄적 추출 시작');
+        const cssTexts = new Set(); // 중복 규칙 방지를 위해 Set 사용
+
+        // 1. document.styleSheets 순회 (링크된 CSS 파일 및 기본 스타일)
         for (const sheet of document.styleSheets) {
             try {
                 // sheet.cssRules 접근 시 보안 오류가 발생할 수 있어 try-catch로 감쌉니다.
                 const rules = sheet.cssRules;
                 for (const rule of rules) {
-                    css.push(rule.cssText);
+                    cssTexts.add(rule.cssText);
                 }
             } catch (e) {
                 console.warn(`[Log Exporter] 스타일시트를 읽을 수 없습니다 (CORS): ${sheet.href}`, e);
             }
         }
-        console.log(`[Log Exporter] getFullPageCSS: CSS 추출 완료.`);
-        return css.join('\n');
+
+        // 2. 문서 내의 모든 <style> 태그 내용 직접 추출 (동적 주입된 CSS 대응)
+        document.querySelectorAll('style').forEach(styleElement => {
+            // 플러그인 자체 스타일은 제외하여 중복 방지
+            if (styleElement.id !== 'log-exporter-styles' && styleElement.textContent) {
+                cssTexts.add(styleElement.textContent);
+            }
+        });
+
+        console.log(`[Log Exporter] getComprehensivePageCSS: CSS 추출 완료. 총 ${cssTexts.size}개의 고유 규칙/블록 발견.`);
+        return Array.from(cssTexts).join('\n');
     }
     /**
      * 페이지에서 모든 채팅 메시지 노드를 수집하고 문서 순서대로 정렬합니다.
@@ -780,7 +791,7 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
         console.log(`[Log Exporter] generateAndDownloadHtmlFile: HTML 파일 생성 및 다운로드 시작 (전체 스타일 복제 모드)`);
 
         // 1. 페이지의 모든 CSS를 가져옵니다.
-        const fullCss = await getFullPageCSS();
+        const fullCss = await getComprehensivePageCSS(); // <--- 여기를 수정!
         // 2. 현재 적용된 테마 변수(빨간색 테마 등)를 <html> 태그에서 가져옵니다.
         const htmlTagStyle = document.documentElement.getAttribute('style') || ''
         const headerHtml = await getHeaderHtml(charAvatarUrl, charName, chatName);
@@ -990,8 +1001,8 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
                     img.src = await imageUrlToBase64(img.src);
                 }
                 if (!applyStyles) {
-                    img.style.maxWidth = '100%';
-                    img.style.height = 'auto';
+                    // img.style.maxWidth = '100%';
+                    // img.style.height = 'auto';
                 }
             }
 
@@ -2092,7 +2103,11 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                     if (customFilterSection) customFilterSection.style.display = 'none';
                     saveFileBtn.style.display = 'inline-block';
 
-                    const fullCss = await getFullPageCSS();
+
+                    // 스타일이 적용될 시간을 보장하기 위해 다음 프레임까지 대기
+                    await new Promise(resolve => requestAnimationFrame(resolve));
+
+                    const fullCss = await getComprehensivePageCSS(); // <--- 여기를 수정!
                     // 이름 폰트 하드코딩을 없애기 위해, generateHtmlFromNodes의 두 번째 인자를 'false'로 전달
                     const messagesHtml = await generateHtmlFromNodes(filteredNodes, false, true);
                     const themeBgColor = getComputedStyle(document.documentElement).getPropertyValue('--risu-theme-bgcolor').trim() || '#1a1b26';
@@ -2125,6 +2140,11 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                         `;
                         previewEl.appendChild(shadowHost);
                     }
+
+                    // [수정] 주입했던 임시 스타일을 즉시 제거하여 정상적인 호버가 가능하도록 복원
+                    const addedStyle = document.getElementById('tolog-temp-hover-disable');
+                    if (addedStyle) addedStyle.remove();
+
                 } else if (selectedFormat === 'basic') {
                     filterControls.style.display = 'flex';
                     themeSelectorContainer.style.display = 'flex';
