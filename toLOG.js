@@ -760,14 +760,7 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
         const fullCss = await getFullPageCSS();
         // 2. 현재 적용된 테마 변수(빨간색 테마 등)를 <html> 태그에서 가져옵니다.
         const htmlTagStyle = document.documentElement.getAttribute('style') || ''
-        const charAvatarBase64 = await imageUrlToBase64(charAvatarUrl);
-const headerHtml = `
-            <header style="text-align:center; padding-bottom:15px; margin-bottom:20px; border-bottom: 2px solid var(--risu-theme-borderc, #414868);">
-                <img src="${charAvatarBase64}" style="width:80px; height:80px; border-radius:50%; object-fit:cover; margin:0 auto 10px; display:block; border: 2px solid var(--risu-theme-darkbutton, #565f89);">
-                <h1 class="unmargin text-2xl font-bold" style="color: var(--risu-theme-textcolor, #c0caf5); margin-bottom: 4px;">${charName}</h1>
-                <p class="text-sm" style="color: var(--risu-theme-textcolor2, #8a98c9);">${chatName}</p>
-            </header>
-        `;
+        const headerHtml = await getHeaderHtml(charAvatarUrl, charName, chatName);
         const finalHtml = `<!DOCTYPE html>
 <html lang="ko" style="${htmlTagStyle}">
 <head>
@@ -2095,9 +2088,9 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
                     // 이름 폰트 하드코딩을 없애기 위해, generateHtmlFromNodes의 두 번째 인자를 'false'로 전달
                     const messagesHtml = await generateHtmlFromNodes(filteredNodes, false, true); 
                     const themeBgColor = getComputedStyle(document.documentElement).getPropertyValue('--risu-theme-bgcolor').trim() || '#1a1b26';
-
+                    const headerHtml = await getHeaderHtml(charAvatarUrl, charName, chatName);
                     const htmlTagStyle = document.documentElement.getAttribute('style') || '';
-                    lastGeneratedHtml = `<!DOCTYPE html><html lang="ko" style="${htmlTagStyle}"><head><meta charset="UTF-8"><title>Chat Log</title><style>${fullCss} body { padding: 20px; } .chat-log-wrapper { max-width: 900px; margin: 0 auto; } .log-exporter-msg-btn-group { display:none!important; }</style></head><body><div class="chat-log-wrapper">${messagesHtml}</div></body></html>`;
+                    lastGeneratedHtml = `<!DOCTYPE html><html lang="ko" style="${htmlTagStyle}"><head><meta charset="UTF-8"><title>Chat Log</title><style>${fullCss} body { padding: 20px; } .chat-log-wrapper { max-width: 900px; margin: 0 auto; } .log-exporter-msg-btn-group { display:none!important; }</style></head><body><div class="chat-log-wrapper">${headerHtml}${messagesHtml}</div></body></html>`;
 
                     if (isRawMode) {
                         previewEl.innerHTML = `<pre style="white-space: pre-wrap; word-wrap: break-word; font-family: monospace; font-size: 0.85em;">${lastGeneratedHtml.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre>`;
@@ -2119,7 +2112,7 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
                                 .log-exporter-msg-btn-group { display: none !important; }
                             </style>
                             <div class="preview-wrapper">
-                                <div class="chat-log-wrapper">${messagesHtml}</div>
+                                <div class="chat-log-wrapper">${headerHtml}${messagesHtml}</div>
                             </div>
                         `;
                         previewEl.appendChild(shadowHost);
@@ -2598,4 +2591,17 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
     ensureHtmlToImage().catch(e => console.error(e));
     ensureJSZip().catch(e => console.error(e));
     startObserver();
+    
+async function getHeaderHtml(charAvatarUrl, charName, chatName) {
+    const charAvatarBase64 = await imageUrlToBase64(charAvatarUrl)
+    const headerHtml = `
+            <header style="text-align:center; padding-bottom:15px; margin-bottom:20px; border-bottom: 2px solid var(--risu-theme-borderc, #414868);">
+                <img src="${charAvatarBase64}" style="width:80px; height:80px; border-radius:50%; object-fit:cover; margin:0 auto 10px; display:block; border: 2px solid var(--risu-theme-darkbutton, #565f89);">
+                <h1 class="unmargin text-2xl font-bold" style="color: var(--risu-theme-textcolor, #c0caf5); margin-bottom: 4px;">${charName}</h1>
+                <p class="text-sm" style="color: var(--risu-theme-textcolor2, #8a98c9);">${chatName}</p>
+            </header>
+        `;
+    return headerHtml;
+}
 })();
+
