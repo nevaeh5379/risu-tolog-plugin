@@ -1248,7 +1248,7 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
      * @returns {Promise<boolean>} 저장 성공 여부.
      */
     async function savePreviewAsImage(previewContainer, onProgress, cancellationToken, charName, chatName, useHighRes = false, baseFontSize = 16, imageWidth = 900) {
-        console.log(`[Log Exporter] savePreviewAsImage: 미리보기를 이미지로 저장 시작. (컨테이너 교체 방식)`);
+        console.log(`[Log Exporter] savePreviewAsImage: 미리보기를 이미지로 저장 시작. 고해상도: ${useHighRes}, 폰트: ${baseFontSize}px, 너비: ${imageWidth}px`);
         const MAX_SAFE_CANVAS_HEIGHT = 65000;
 
         let captureTarget = previewContainer.firstElementChild; // let으로 변경
@@ -1313,11 +1313,18 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
 
             // --- 캡처 준비 (동일) ---
             onProgress('렌더링 준비 중...', 10, 100);
+            // [수정] 폰트 로딩이 완료될 때까지 기다립니다.
+            await document.fonts.ready;
+
             const pixelRatio = useHighRes ? (window.devicePixelRatio || 2) : 1;
             rootHtml.style.fontSize = `${baseFontSize}px`;
             captureTarget.style.width = `${imageWidth}px`;
             Object.assign(previewContainer.style, { height: 'auto', maxHeight: 'none', overflowY: 'visible', border: 'none', padding: '0', width: `${imageWidth}px` });
+            
+            // [수정] 브라우저가 레이아웃을 안정적으로 계산하도록 여러 프레임과 약간의 지연을 줍니다.
             await new Promise(resolve => requestAnimationFrame(resolve));
+            await new Promise(resolve => setTimeout(resolve, 100)); // 추가 지연
+
             const totalHeight = captureTarget.scrollHeight;
             const totalWidth = captureTarget.scrollWidth;
             const MAX_CHUNK_HEIGHT = Math.floor(MAX_SAFE_CANVAS_HEIGHT / pixelRatio) - 100;
@@ -1327,7 +1334,9 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
                 // --- 단일 이미지 저장 (동일) ---
                 onProgress('이미지 생성 중...', 50, 100);
                 if (cancellationToken.cancelled) throw new Error("Cancelled");
-                previewContainer.style.height = `${totalHeight}px`;
+                // [수정] 높이를 명시적으로 설정하여 라이브러리가 올바르게 인식하도록 합니다.
+                previewContainer.style.height = `${totalHeight}px`; 
+                captureTarget.style.height = `${totalHeight}px`;
                 await new Promise(resolve => requestAnimationFrame(resolve));
                 const canvas = await htmlToImage.toCanvas(previewContainer, { ...commonOptions, width: totalWidth, height: totalHeight });
                 downloadImage(canvas.toDataURL('image/png', 1.0), charName, chatName);
@@ -1372,13 +1381,16 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
                     captureTarget = groupContainer; // 현재 캡처 대상을 새 무대로 업데이트
 
                     // 4. 브라우저가 새 무대를 렌더링하도록 강제 동기화
+                    await new Promise(resolve => setTimeout(resolve, 50)); // 렌더링을 위한 짧은 지연
                     await new Promise(resolve => requestAnimationFrame(resolve));
                     const _ = captureTarget.scrollHeight; // reflow 강제
                     await new Promise(resolve => requestAnimationFrame(resolve));
 
                     // 5. 캡처 및 저장
                     const visibleHeight = captureTarget.scrollHeight;
-                    const groupOptions = { ...commonOptions, width: totalWidth, height: visibleHeight };
+                    // [수정] 분할 캡처 시에도 컨테이너와 타겟의 높이를 명시적으로 설정합니다.
+                    previewContainer.style.height = `${visibleHeight}px`;
+                    const groupOptions = { ...commonOptions, width: totalWidth, height: visibleHeight }; 
                     const canvas = await htmlToImage.toCanvas(previewContainer, groupOptions);
                     onProgress(`그룹 ${groupIdx + 1}/${groups.length} 저장 중...`, groupIdx + 1, groups.length);
                     downloadImage(canvas.toDataURL('image/png', 1.0), charName, chatName, { partNumber: groupIdx + 1, showCompletionAlert: false });
@@ -1411,6 +1423,7 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
             // 원본 스타일 복원
             Object.assign(previewContainer.style, originalStyles.preview);
             Object.assign(originalCaptureTarget.style, originalStyles.target); // 원본 컨테이너에 스타일 복원
+            originalCaptureTarget.style.height = ''; // 추가된 높이 스타일 초기화
             rootHtml.style.fontSize = originalStyles.rootHtml.fontSize;
         }
     } 
