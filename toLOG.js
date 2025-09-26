@@ -1337,7 +1337,7 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
  */
 
 async function savePreviewAsImage(previewContainer, onProgress, cancellationToken, charName, chatName, useHighRes = false, baseFontSize = 16, imageWidth = 900) {
-    console.log(`[Log Exporter] savePreviewAsImage: 이미지 저장 시작`);
+    console.log(`[Log Exporter] savePreviewAsImage: 이미지 저장을 시작합니다.`, { useHighRes, baseFontSize, imageWidth, charName });
     const MAX_SAFE_CANVAS_HEIGHT = 65000;
 
     let captureTarget = previewContainer.firstElementChild;
@@ -1368,6 +1368,7 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
         const videoElements = Array.from(captureTarget.querySelectorAll('video'));
         
         if (videoElements.length > 0) {
+            console.log(`[Log Exporter] ${videoElements.length}개의 비디오 요소를 발견하여 프레임 캡처를 시도합니다.`);
             await Promise.all(videoElements.map(videoEl => new Promise(async (resolve) => {
                 let timeoutId = setTimeout(() => resolve(), 10000);
                 try {
@@ -1417,6 +1418,7 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
         const totalHeight = captureTarget.scrollHeight;
         const MAX_CHUNK_HEIGHT = Math.floor(MAX_SAFE_CANVAS_HEIGHT / pixelRatio) - 100;
         
+        console.log(`[Log Exporter] 캡처 준비 완료. 전체 높이: ${totalHeight}px, 분할 기준 높이: ${MAX_CHUNK_HEIGHT}px, PixelRatio: ${pixelRatio}`);
         if (totalHeight <= MAX_CHUNK_HEIGHT) {
             onProgress('이미지 생성 중...', 50, 100);
             if (cancellationToken.cancelled) throw new Error("Cancelled");
@@ -1426,6 +1428,7 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
             // --- 라이브 DOM 조작을 통한 분할 저장 ---
             const messageContainers = Array.from(captureTarget.querySelectorAll('.chat-message-container'));
             if (messageContainers.length === 0) throw new Error("메시지 단위를 찾을 수 없어 분할 저장을 할 수 없습니다.");
+            console.log(`[Log Exporter] 로그가 너무 길어(${totalHeight}px) ${Math.ceil(totalHeight / MAX_CHUNK_HEIGHT)}개의 이미지로 분할 저장을 시작합니다.`);
             if (!confirm(`[알림] 로그가 너무 길어 단일 이미지로 만들 수 없습니다.\n\n여러 개의 이미지 파일로 나누어 저장합니다.\n\n계속하시겠습니까?`)) return false;
 
             const groups = [];
@@ -1444,7 +1447,7 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
             
             for (let i = 0; i < groups.length; i++) {
                 if (cancellationToken.cancelled) throw new Error("Cancelled");
-                onProgress(`그룹 ${i + 1}/${groups.length} 렌더링 중...`, i, groups.length);
+                onProgress(`이미지 ${i + 1}/${groups.length} 렌더링 중...`, i, groups.length);
 
                 // 1. 미리보기 창을 비움
                 while (captureTarget.firstChild) captureTarget.removeChild(captureTarget.firstChild);
@@ -1455,8 +1458,9 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                 await new Promise(r => requestAnimationFrame(r));
                 
                 // 3. 현재 보이는 부분만 캡처
-                const canvas = await htmlToImage.toCanvas(previewContainer, { ...commonOptions, width: imageWidth, height: captureTarget.scrollHeight });
-                onProgress(`그룹 ${i + 1}/${groups.length} 저장 중...`, i + 1, groups.length);
+                const currentChunkHeight = captureTarget.scrollHeight;
+                console.log(`[Log Exporter] 분할 이미지 ${i + 1} 캡처 중... (높이: ${currentChunkHeight}px)`);
+                const canvas = await htmlToImage.toCanvas(previewContainer, { ...commonOptions, width: imageWidth, height: currentChunkHeight });
                 downloadImage(canvas.toDataURL('image/png', 1.0), charName, chatName, { partNumber: i + 1, showCompletionAlert: false });
                 
                 await new Promise(r => setTimeout(r, 100));
@@ -1470,13 +1474,13 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
 
     } catch (e) {
         if (e.message !== "Cancelled") {
-            console.error('[Log Exporter] Image save error:', e);
+            console.error('[Log Exporter] 이미지 저장 중 심각한 오류가 발생했습니다. 아래 오류 내용을 개발자에게 전달해주세요.', e);
             alert('이미지 저장 중 오류가 발생했습니다. 개발자 콘솔(F12)을 확인해주세요.', 'error');
         }
         return false;
     } finally {
         // --- 최종 정리 및 완벽 복원 ---
-        console.log("[Log Exporter] 최종 정리 및 원본 상태 복원 실행.");
+        console.log("[Log Exporter] 이미지 저장 절차를 종료하고 원본 상태로 복원합니다.");
         
         // 1. 비디오 이미지 대체를 되돌림
         domReplacements.forEach(({ original, parent, replacement, objectURL }) => {
