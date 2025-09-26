@@ -753,14 +753,21 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
      * @param {string} chatName - 채팅 이름.
      * @param {string} messagesHtml - 채팅 메시지의 HTML 콘텐츠.
      */
-    async function generateAndDownloadHtmlFile(charName, chatName, messagesHtml) {
+    async function generateAndDownloadHtmlFile(charName, chatName, messagesHtml,charAvatarUrl) {
         console.log(`[Log Exporter] generateAndDownloadHtmlFile: HTML 파일 생성 및 다운로드 시작 (전체 스타일 복제 모드)`);
         
         // 1. 페이지의 모든 CSS를 가져옵니다.
         const fullCss = await getFullPageCSS();
         // 2. 현재 적용된 테마 변수(빨간색 테마 등)를 <html> 태그에서 가져옵니다.
-        const htmlTagStyle = document.documentElement.getAttribute('style') || '';
-
+        const htmlTagStyle = document.documentElement.getAttribute('style') || ''
+        const charAvatarBase64 = await imageUrlToBase64(charAvatarUrl);
+const headerHtml = `
+            <header style="text-align:center; padding-bottom:15px; margin-bottom:20px; border-bottom: 2px solid var(--risu-theme-borderc, #414868);">
+                <img src="${charAvatarBase64}" style="width:80px; height:80px; border-radius:50%; object-fit:cover; margin:0 auto 10px; display:block; border: 2px solid var(--risu-theme-darkbutton, #565f89);">
+                <h1 class="unmargin text-2xl font-bold" style="color: var(--risu-theme-textcolor, #c0caf5); margin-bottom: 4px;">${charName}</h1>
+                <p class="text-sm" style="color: var(--risu-theme-textcolor2, #8a98c9);">${chatName}</p>
+            </header>
+        `;
         const finalHtml = `<!DOCTYPE html>
 <html lang="ko" style="${htmlTagStyle}">
 <head>
@@ -792,6 +799,7 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
 </head>
 <body>
     <div class="chat-log-wrapper">
+     ${headerHtml}
         ${messagesHtml}
     </div>
 </body>
@@ -2196,7 +2204,7 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
                     const useStyled = styleToggleCheckbox.checked;
                     const showAvatar = avatarToggleCheckbox.checked;
                     const messagesHtml = await generateHtmlFromNodes(filteredNodes, useStyled, true);
-                    await generateAndDownloadHtmlFile(charName, chatName, messagesHtml);
+                    await generateAndDownloadHtmlFile(charName, chatName, messagesHtml,charAvatarUrl);
                     closeModal();
                 } catch (e) { console.error('[Log Exporter] File save error from modal:', e); }
             });
