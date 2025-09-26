@@ -705,7 +705,7 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
         const classSet = new Set();
         const tagSet = new Set();
         const idSet = new Set();
-        
+
         nodes.forEach(node => {
             node.querySelectorAll('*').forEach(el => {
                 // 클래스 수집
@@ -732,7 +732,7 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
                         const hasClassMatch = classSelectors.some(c => selector.includes(`.${c}`));
                         const hasTagMatch = tagSelectors.some(t => selector.includes(t));
                         const hasIdMatch = idSelectors.some(id => selector.includes(`#${id}`));
-                        
+
                         if (hasClassMatch || hasTagMatch || hasIdMatch) {
                             cssRules.add(rule.cssText);
                         }
@@ -746,16 +746,16 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
         return Array.from(cssRules).join('\n');
     }
 
-       /**
-     * 생성된 HTML 콘텐츠를 기반으로 완전한 HTML 파일을 만들어 사용자에게 다운로드합니다.
-     * @async
-     * @param {string} charName - 캐릭터 이름.
-     * @param {string} chatName - 채팅 이름.
-     * @param {string} messagesHtml - 채팅 메시지의 HTML 콘텐츠.
-     */
-    async function generateAndDownloadHtmlFile(charName, chatName, messagesHtml,charAvatarUrl) {
+    /**
+  * 생성된 HTML 콘텐츠를 기반으로 완전한 HTML 파일을 만들어 사용자에게 다운로드합니다.
+  * @async
+  * @param {string} charName - 캐릭터 이름.
+  * @param {string} chatName - 채팅 이름.
+  * @param {string} messagesHtml - 채팅 메시지의 HTML 콘텐츠.
+  */
+    async function generateAndDownloadHtmlFile(charName, chatName, messagesHtml, charAvatarUrl) {
         console.log(`[Log Exporter] generateAndDownloadHtmlFile: HTML 파일 생성 및 다운로드 시작 (전체 스타일 복제 모드)`);
-        
+
         // 1. 페이지의 모든 CSS를 가져옵니다.
         const fullCss = await getFullPageCSS();
         // 2. 현재 적용된 테마 변수(빨간색 테마 등)를 <html> 태그에서 가져옵니다.
@@ -926,7 +926,7 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
                 if (originalProseEl && clonedProseEl) {
                     applyInlineStyles(originalProseEl, clonedProseEl);
                 }
-                
+
                 // 참가자 이름 색상 스타일 강제 적용
                 const nameEl = clonedNode.querySelector('.unmargin.text-xl');
                 if (nameEl) {
@@ -934,7 +934,7 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
                     const isUser = node.classList.contains('justify-end');
                     const theme = THEMES.dark; // 기본 다크 테마 사용
                     const nameColor = isUser ? theme.nameColor : theme.nameColor;
-                    
+
                     nameEl.style.color = nameColor;
                     nameEl.style.fontWeight = '600';
                     nameEl.style.fontSize = '0.95em';
@@ -950,7 +950,7 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
                         el.removeAttribute('style');
                     }
                 });
-                
+
                 // 스타일 미적용 시에도 참가자 이름 색상은 기본값으로 설정
                 const nameEl = clonedNode.querySelector('.unmargin.text-xl');
                 if (nameEl) {
@@ -1062,143 +1062,159 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
         return avatarMap;
     }
 
+
         /**
-         * 채팅 메시지 노드 배열로부터 '기본' 형식의 HTML 채팅 로그를 생성합니다.
-         * 테마, 이미지 임베딩, 아바타 표시 여부 등을 설정할 수 있습니다.
-         * @async
-         * @param {HTMLElement[]} nodes - DOM 노드의 배열.
-         * @param {string} [selectedTheme='dark'] - 사용할 테마 ('dark' 또는 THEMES의 다른 키).
-         * @param {boolean} [embedImagesAsBase64=true] - 이미지를 base64 데이터 URI로 임베드할지 여부.
-         * @param {boolean} [showAvatar=true] - 아바타를 표시할지 여부.
-         * @param {boolean} [useBubbleDesign=true] - 말풍선 디자인을 사용할지 여부.
-         * @returns {Promise<string>} 포맷된 채팅 로그를 나타내는 HTML 문자열을 resolve하는 Promise.
-         */
+     * 채팅 메시지 노드 배열로부터 '기본' 형식의 HTML 채팅 로그를 생성합니다.
+     * 테마, 이미지 임베딩, 아바타 표시 여부 등을 설정할 수 있습니다.
+     * @async
+     * @param {HTMLElement[]} nodes - DOM 노드의 배열.
+     * @param {string} [selectedTheme='dark'] - 사용할 테마 ('dark' 또는 THEMES의 다른 키).
+     * @param {boolean} [embedImagesAsBase64=true] - 이미지를 base64 데이터 URI로 임베드할지 여부.
+     * @param {boolean} [showAvatar=true] - 아바타를 표시할지 여부.
+     * @param {boolean} [useBubbleDesign=true] - 말풍선 디자인을 사용할지 여부.
+     * @returns {Promise<string>} 포맷된 채팅 로그를 나타내는 HTML 문자열을 resolve하는 Promise.
+     */
         async function generateBasicFormatLog(nodes, selectedTheme = 'dark', embedImagesAsBase64 = true, showAvatar = true, useBubbleDesign = true) {
-        console.log(`[Log Exporter] generateBasicFormatLog: '기본' 형식 로그 생성 시작. 테마: ${selectedTheme}, 아바타 표시: ${showAvatar}`);
-        const theme = THEMES[selectedTheme] || THEMES.dark;
-        let log = '';
-        
-        const avatarMap = await collectCharacterAvatars(nodes, embedImagesAsBase64);
-
-        for (const node of nodes) {
-            if (node.querySelector('textarea')) continue;
-
-            let name = '';
-            const nameEl = node.querySelector('.unmargin.text-xl');
-            if (nameEl) {
-                name = nameEl.textContent.trim();
-            } else {
-                name = node.classList.contains('justify-end') ? 'User' : 'Assistant';
-            }
-
-            const messageEl = node.querySelector('.prose, .chattext');
-            if (!messageEl) continue;
-
-            let contentSourceEl = messageEl.cloneNode(true);
-
-            const styleBlock = (el, bg, color, border = null) => {
-                const p = document.createElement('p');
-                p.innerHTML = el.innerHTML;
-                Object.assign(p.style, {
-                    backgroundColor: bg,
-                    padding: '8px 12px',
-                    borderRadius: '4px',
-                    fontStyle: 'italic',
-                    color: color,
-                    margin: '0.5em 0'
-                });
-                if (border) p.style.borderLeft = `3px solid ${border}`;
-                el.replaceWith(p);
-            };
-            contentSourceEl.querySelectorAll('.x-risu-regex-quote-block').forEach(el => styleBlock(el, theme.quoteBg, theme.quoteText, theme.quoteText));
-            contentSourceEl.querySelectorAll('.x-risu-regex-thought-block').forEach(el => styleBlock(el, theme.thoughtBg, theme.thoughtText));
-            contentSourceEl.querySelectorAll('.x-risu-regex-sound-block').forEach(el => styleBlock(el, theme.soundBg, theme.soundText));
-
-            for (const img of contentSourceEl.querySelectorAll('img')) {
-                if (img.src) {
-                    if (embedImagesAsBase64) {
-                        img.src = await imageUrlToBase64(img.src); 
-                    }
-                    Object.assign(img.style, {
-                        maxWidth: '100%',
-                        height: 'auto',
-                        borderRadius: '8px',
-                        display: 'block',
-                        margin: '12px auto',
-                        boxShadow: theme.shadow
+            console.log(`[Log Exporter] generateBasicFormatLog: '기본' 형식 로그 생성 시작. 테마: ${selectedTheme}, 아바타 표시: ${showAvatar}`);
+            const theme = THEMES[selectedTheme] || THEMES.dark;
+            let log = '';
+    
+            const avatarMap = await collectCharacterAvatars(nodes, embedImagesAsBase64);
+    
+            for (const node of nodes) {
+                if (node.querySelector('textarea')) continue;
+    
+                let name = '';
+                const nameEl = node.querySelector('.unmargin.text-xl');
+                if (nameEl) {
+                    name = nameEl.textContent.trim();
+                } else {
+                    name = node.classList.contains('justify-end') ? 'User' : 'Assistant';
+                }
+    
+                const messageEl = node.querySelector('.prose, .chattext');
+                if (!messageEl) continue;
+    
+                let contentSourceEl = messageEl.cloneNode(true);
+    
+                const styleBlock = (el, bg, color, border = null) => {
+                    const p = document.createElement('p');
+                    p.innerHTML = el.innerHTML;
+                    Object.assign(p.style, {
+                        backgroundColor: bg,
+                        padding: '8px 12px',
+                        borderRadius: '4px',
+                        fontStyle: 'italic',
+                        color: color,
+                        margin: '0.5em 0'
                     });
-                }
-            }
-
-            contentSourceEl.querySelectorAll('script, style, .log-exporter-msg-btn-group').forEach(el => el.remove());
-            contentSourceEl.querySelectorAll('button').forEach(btn => {
-                btn.disabled = true;
-                btn.style.pointerEvents = 'none';
-            });
-            
-            contentSourceEl.querySelectorAll('mark[risu-mark^="quote"]').forEach(markEl => {
-                markEl.style.fontStyle = 'italic';
-                markEl.style.color = theme.quoteText;
-                if (markEl.style.backgroundColor === '') {
-                    markEl.style.backgroundColor = theme.quoteBg;
-                }
-            });
-
-            let messageHtml = contentSourceEl.innerHTML.trim();
-            
-            if (messageHtml.length === 0) continue;
-
-            const isUser = node.classList.contains('justify-end');
-            const cardBgColor = isUser ? theme.cardBgUser : theme.cardBg;
-            const avatarSrc = avatarMap.get(name);
-            let avatarHtml = '';
-            
-            if (showAvatar) {
-                const createAvatarDiv = (src, isUser) => {
-                    const margin = isUser ? 'margin-left:12px;' : 'margin-right:12px;';
-                    const baseStyle = `width:48px;height:48px;min-width:48px;border-radius:50%;box-shadow:${theme.shadow};border:2px solid ${theme.avatarBorder};${margin}`;
-                    if (src) { // [수정] 아바타 식별을 위한 data-tolog-avatar 속성 추가
-                        return `<div ${AVATAR_ATTR} style="${baseStyle}background:url('${src}');background-size:cover;background-position:center;"></div>`;
-                    } else {
-                        const bgColor = isUser ? theme.textSecondary : theme.avatarBorder;
-                        const letter = isUser ? 'U' : name.charAt(0).toUpperCase();
-                        return `<div ${AVATAR_ATTR} style="${baseStyle}background-color:${bgColor};display:flex;align-items:center;justify-content:center;"><span style="color:${theme.background};font-weight:bold;font-size:1.2em;">${letter}</span></div>`;
-                    }
+                    if (border) p.style.borderLeft = `3px solid ${border}`;
+                    el.replaceWith(p);
                 };
-                avatarHtml = createAvatarDiv(avatarSrc, isUser);
+                contentSourceEl.querySelectorAll('.x-risu-regex-quote-block').forEach(el => styleBlock(el, theme.quoteBg, theme.quoteText, theme.quoteText));
+                contentSourceEl.querySelectorAll('.x-risu-regex-thought-block').forEach(el => styleBlock(el, theme.thoughtBg, theme.thoughtText));
+                contentSourceEl.querySelectorAll('.x-risu-regex-sound-block').forEach(el => styleBlock(el, theme.soundBg, theme.soundText));
+    
+                // --- [수정] 배경 이미지를 사용하는 div를 <img> 태그로 변환 ---
+                contentSourceEl.querySelectorAll('.x-risu-image-container[style*="background-image"]').forEach(el => {
+                    const style = el.getAttribute('style');
+                    if (style) {
+                        const urlMatch = style.match(/url\(["']?([^"')]+)["']?\)/);
+                        if (urlMatch && urlMatch[1]) {
+                            const imageUrl = urlMatch[1];
+                            const newImg = document.createElement('img');
+                            newImg.src = imageUrl;
+                            el.replaceWith(newImg);
+                        }
+                    }
+                });
+                // --- 수정 끝 ---
+    
+                for (const img of contentSourceEl.querySelectorAll('img')) {
+                    if (img.src) {
+                        if (embedImagesAsBase64) {
+                            img.src = await imageUrlToBase64(img.src);
+                        }
+                        Object.assign(img.style, {
+                            maxWidth: '100%',
+                            height: 'auto',
+                            borderRadius: '8px',
+                            display: 'block',
+                            margin: '12px auto',
+                            boxShadow: theme.shadow
+                        });
+                    }
+                }
+    
+                contentSourceEl.querySelectorAll('script, style, .log-exporter-msg-btn-group').forEach(el => el.remove());
+                contentSourceEl.querySelectorAll('button').forEach(btn => {
+                    btn.disabled = true;
+                    btn.style.pointerEvents = 'none';
+                });
+    
+                contentSourceEl.querySelectorAll('mark[risu-mark^="quote"]').forEach(markEl => {
+                    markEl.style.fontStyle = 'italic';
+                    markEl.style.color = theme.quoteText;
+                    if (markEl.style.backgroundColor === '') {
+                        markEl.style.backgroundColor = theme.quoteBg;
+                    }
+                });
+    
+                let messageHtml = contentSourceEl.innerHTML.trim();
+    
+                if (messageHtml.length === 0) continue;
+    
+                const isUser = node.classList.contains('justify-end');
+                const cardBgColor = isUser ? theme.cardBgUser : theme.cardBg;
+                const avatarSrc = avatarMap.get(name);
+                let avatarHtml = '';
+    
+                if (showAvatar) {
+                    const createAvatarDiv = (src, isUser) => {
+                        const margin = isUser ? 'margin-left:12px;' : 'margin-right:12px;';
+                        const baseStyle = `width:48px;height:48px;min-width:48px;border-radius:50%;box-shadow:${theme.shadow};border:2px solid ${theme.avatarBorder};${margin}`;
+                        if (src) { // [수정] 아바타 식별을 위한 data-tolog-avatar 속성 추가
+                            return `<div ${AVATAR_ATTR} style="${baseStyle}background:url('${src}');background-size:cover;background-position:center;"></div>`;
+                        } else {
+                            const bgColor = isUser ? theme.textSecondary : theme.avatarBorder;
+                            const letter = isUser ? 'U' : name.charAt(0).toUpperCase();
+                            return `<div ${AVATAR_ATTR} style="${baseStyle}background-color:${bgColor};display:flex;align-items:center;justify-content:center;"><span style="color:${theme.background};font-weight:bold;font-size:1.2em;">${letter}</span></div>`;
+                        }
+                    };
+                    avatarHtml = createAvatarDiv(avatarSrc, isUser);
+                }
+    
+                let logEntry = '';
+                logEntry += '<div class="chat-message-container" style="display:flex;align-items:flex-start;margin-bottom:28px;' + (isUser ? 'flex-direction:row-reverse;' : '') + '">';
+                logEntry += avatarHtml;
+                logEntry += '<div style="flex:1;">';
+                const namePadding = showAvatar ? '4px;' : '0;';
+                logEntry += '<strong style="color:' + theme.nameColor + ';font-weight:600;font-size:0.95em;display:block;margin-bottom:8px;padding-left:' + (isUser ? '0;' : namePadding) + 'padding-right:' + (isUser ? namePadding : '0;') + 'text-align:' + (isUser ? 'right;' : 'left;') + '">' + name + '</strong>';
+                const bubbleStyle = useBubbleDesign
+                    ? 'background-color:' + cardBgColor + ';border-radius:16px;padding:14px 18px;box-shadow:' + theme.shadow + ';border:1px solid ' + theme.border + ';'
+                    : 'padding:4px 0;';
+    
+                logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:break-word;position:relative;' + bubbleStyle + (isUser ? 'margin-left:auto;' : '') + '">' + messageHtml + '</div>';;
+                logEntry += '</div></div>';
+    
+                log += logEntry;
             }
-
-            let logEntry = '';
-            logEntry += '<div class="chat-message-container" style="display:flex;align-items:flex-start;margin-bottom:28px;' + (isUser ? 'flex-direction:row-reverse;' : '') + '">';
-            logEntry += avatarHtml;
-            logEntry += '<div style="flex:1;">';
-            const namePadding = showAvatar ? '4px;' : '0;';
-            logEntry += '<strong style="color:' + theme.nameColor + ';font-weight:600;font-size:0.95em;display:block;margin-bottom:8px;padding-left:' + (isUser ? '0;' : namePadding) + 'padding-right:' + (isUser ? namePadding : '0;') + 'text-align:' + (isUser ? 'right;' : 'left;') + '">' + name + '</strong>';
-            const bubbleStyle = useBubbleDesign 
-    ? 'background-color:' + cardBgColor + ';border-radius:16px;padding:14px 18px;box-shadow:' + theme.shadow + ';border:1px solid ' + theme.border + ';'
-    : 'padding:4px 0;';
-
-logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:break-word;position:relative;' + bubbleStyle + (isUser ? 'margin-left:auto;' : '') + '">' + messageHtml + '</div>';;
-            logEntry += '</div></div>';
-            
-            log += logEntry;
+    
+            // [수정] 이제 이 함수는 순수한 로그 HTML 덩어리만 반환합니다.
+            // 전체 로그를 배경과 둥근 모서리가 있는 컨테이너로 감싸기
+            const containerStyle = `
+                background-color: ${theme.background};
+                border-radius: 16px;
+                padding: 24px;
+                box-shadow: ${theme.shadow};
+                border: 1px solid ${theme.border};
+                margin: 16px auto;
+                max-width: 900px;
+            `;
+    
+            console.log(`[Log Exporter] generateBasicFormatLog: '기본' 형식 로그 생성 완료.`);
+            return `<div style="${containerStyle}">${log}</div>`;
         }
-
-        // [수정] 이제 이 함수는 순수한 로그 HTML 덩어리만 반환합니다.
-        // 전체 로그를 배경과 둥근 모서리가 있는 컨테이너로 감싸기
-        const containerStyle = `
-            background-color: ${theme.background};
-            border-radius: 16px;
-            padding: 24px;
-            box-shadow: ${theme.shadow};
-            border: 1px solid ${theme.border};
-            margin: 16px auto;
-            max-width: 900px;
-        `;
-        
-        console.log(`[Log Exporter] generateBasicFormatLog: '기본' 형식 로그 생성 완료.`);
-        return `<div style="${containerStyle}">${log}</div>`;
-    }
 
     /**
      * 메시지 노드 배열로부터 마크다운 또는 일반 텍스트 형식의 로그를 생성합니다.
@@ -1306,21 +1322,21 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
         return success;
     }
 
-        /**
-     * 미리보기 컨테이너를 이미지 파일로 저장합니다.
-     * 단일 파일 저장 시에도 분할 저장 시에 안정적으로 동작했던 toCanvas()를 먼저 호출하는 방식으로 통일하여
-     * 라이브러리의 내부적인 toDataURL() 오류를 근본적으로 회피합니다.
-     * @async
-     * @param {HTMLElement} previewContainer - 캡처할 미리보기 컨테이너 요소.
-     * @param {Function} onProgress - 진행 상황을 보고하는 콜백 함수.
-     * @param {{cancelled: boolean}} cancellationToken - 작업 취소를 위한 토큰 객체.
-     * @param {string} charName - 캐릭터 이름 (파일 이름에 사용).
-     * @param {string} chatName - 채팅 이름 (파일 이름에 사용).
-     * @param {boolean} [useHighRes=false] - 고해상도로 캡처할지 여부.
-     * @param {number} [baseFontSize=16] - 캡처 시 사용할 기본 폰트 크기.
-     * @param {number} [imageWidth=900] - 캡처할 이미지의 너비.
-     * @returns {Promise<boolean>} 저장 성공 여부.
-     */
+    /**
+ * 미리보기 컨테이너를 이미지 파일로 저장합니다.
+ * 단일 파일 저장 시에도 분할 저장 시에 안정적으로 동작했던 toCanvas()를 먼저 호출하는 방식으로 통일하여
+ * 라이브러리의 내부적인 toDataURL() 오류를 근본적으로 회피합니다.
+ * @async
+ * @param {HTMLElement} previewContainer - 캡처할 미리보기 컨테이너 요소.
+ * @param {Function} onProgress - 진행 상황을 보고하는 콜백 함수.
+ * @param {{cancelled: boolean}} cancellationToken - 작업 취소를 위한 토큰 객체.
+ * @param {string} charName - 캐릭터 이름 (파일 이름에 사용).
+ * @param {string} chatName - 채팅 이름 (파일 이름에 사용).
+ * @param {boolean} [useHighRes=false] - 고해상도로 캡처할지 여부.
+ * @param {number} [baseFontSize=16] - 캡처 시 사용할 기본 폰트 크기.
+ * @param {number} [imageWidth=900] - 캡처할 이미지의 너비.
+ * @returns {Promise<boolean>} 저장 성공 여부.
+ */
     async function savePreviewAsImage(previewContainer, onProgress, cancellationToken, charName, chatName, useHighRes = false, baseFontSize = 16, imageWidth = 900) {
         console.log(`[Log Exporter] savePreviewAsImage: 미리보기를 이미지로 저장 시작. 고해상도: ${useHighRes}, 폰트: ${baseFontSize}px, 너비: ${imageWidth}px`);
         const MAX_SAFE_CANVAS_HEIGHT = 65000;
@@ -1394,7 +1410,7 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
             rootHtml.style.fontSize = `${baseFontSize}px`;
             captureTarget.style.width = `${imageWidth}px`;
             Object.assign(previewContainer.style, { height: 'auto', maxHeight: 'none', overflowY: 'visible', border: 'none', padding: '0', width: `${imageWidth}px` });
-            
+
             // [수정] 브라우저가 레이아웃을 안정적으로 계산하도록 여러 프레임과 약간의 지연을 줍니다.
             await new Promise(resolve => requestAnimationFrame(resolve));
             await new Promise(resolve => setTimeout(resolve, 100)); // 추가 지연
@@ -1409,14 +1425,19 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
                 onProgress('이미지 생성 중...', 50, 100);
                 if (cancellationToken.cancelled) throw new Error("Cancelled");
                 // [수정] 높이를 명시적으로 설정하여 라이브러리가 올바르게 인식하도록 합니다.
-                previewContainer.style.height = `${totalHeight}px`; 
+                previewContainer.style.height = `${totalHeight}px`;
                 captureTarget.style.height = `${totalHeight}px`;
                 await new Promise(resolve => requestAnimationFrame(resolve));
                 const canvas = await htmlToImage.toCanvas(previewContainer, { ...commonOptions, width: totalWidth, height: totalHeight });
                 downloadImage(canvas.toDataURL('image/png', 1.0), charName, chatName);
             } else {
                 // --- [핵심] 분할 저장 로직 (컨테이너 교체 방식) ---
-                const messageContainers = Array.from(originalCaptureTarget.querySelectorAll('.chat-message-container'));
+                let queryRoot = originalCaptureTarget; // 기본적으로는 캡처 대상 자체에서 검색
+if (originalCaptureTarget.shadowRoot) {
+    // 만약 Shadow DOM이 있다면, 검색 범위를 그 내부로 변경
+    queryRoot = originalCaptureTarget.shadowRoot;
+}
+const messageContainers = Array.from(queryRoot.querySelectorAll('.chat-message-container'));
                 const confirmMsg = confirm(`[알림] 로그가 너무 길어 단일 이미지로 만들 수 없습니다.\n\n메시지 그룹별로 여러 개의 이미지 파일로 나누어 저장합니다.\n\n계속하시겠습니까?`);
                 if (!confirmMsg) return false;
 
@@ -1449,7 +1470,7 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
                     groupMessages.forEach(msg => {
                         groupContainer.appendChild(msg.cloneNode(true));
                     });
-                    
+
                     // 3. 기존 무대를 새로운 무대로 DOM에서 교체
                     previewContainer.replaceChild(groupContainer, captureTarget);
                     captureTarget = groupContainer; // 현재 캡처 대상을 새 무대로 업데이트
@@ -1464,7 +1485,7 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
                     const visibleHeight = captureTarget.scrollHeight;
                     // [수정] 분할 캡처 시에도 컨테이너와 타겟의 높이를 명시적으로 설정합니다.
                     previewContainer.style.height = `${visibleHeight}px`;
-                    const groupOptions = { ...commonOptions, width: totalWidth, height: visibleHeight }; 
+                    const groupOptions = { ...commonOptions, width: totalWidth, height: visibleHeight };
                     const canvas = await htmlToImage.toCanvas(previewContainer, groupOptions);
                     onProgress(`그룹 ${groupIdx + 1}/${groups.length} 저장 중...`, groupIdx + 1, groups.length);
                     downloadImage(canvas.toDataURL('image/png', 1.0), charName, chatName, { partNumber: groupIdx + 1, showCompletionAlert: false });
@@ -1487,7 +1508,7 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
             // --- 최종 정리 ---
             // 루프가 끝난 후, 현재의 captureTarget(마지막 그룹)을 원래의 전체 로그 컨테이너로 복원
             if (previewContainer.contains(captureTarget) && captureTarget !== originalCaptureTarget) {
-                 previewContainer.replaceChild(originalCaptureTarget, captureTarget);
+                previewContainer.replaceChild(originalCaptureTarget, captureTarget);
             }
             // 비디오 프레임 캡처용 이미지 DOM 정리
             domReplacements.forEach(({ original, parent, replacement, objectURL }) => {
@@ -1500,7 +1521,7 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
             originalCaptureTarget.style.height = ''; // 추가된 높이 스타일 초기화
             rootHtml.style.fontSize = originalStyles.rootHtml.fontSize;
         }
-    } 
+    }
     /**
      * 데이터 URL을 받아 이미지 파일로 다운로드합니다.
      * @param {string} dataUrl - 다운로드할 이미지의 데이터 URL.
@@ -1722,13 +1743,13 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
         tempDiv.querySelectorAll('img, [style*="url("]').forEach(el => {
             // el.parentNode 체크는 중첩된 구조에서 안전성을 더해주지만, 현재 구조에서는 필수는 아닙니다.
             if (el.parentNode) {
-                 imageCounter++;
+                imageCounter++;
                 // [수정] 아바타 여부를 확인하고, 그에 맞는 자리표시자 생성
                 const isAvatar = el.hasAttribute(AVATAR_ATTR);
                 const isUser = isAvatar && el.parentElement.style.flexDirection === 'row-reverse';
                 const placeholderType = isAvatar ? `ARCA_AVATAR_PLACEHOLDER_${isUser}` : 'ARCA_IMG_PLACEHOLDER';
                 const placeholder = document.createComment(` ${placeholderType}_${imageCounter} `);
-                 el.replaceWith(placeholder);
+                el.replaceWith(placeholder);
             }
         });
 
@@ -1825,8 +1846,8 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
                                 <label for="theme-selector" style="font-size: 0.9em;">테마:</label>
                                 <select id="theme-selector">
                                     ${Object.entries(THEMES).map(([key, theme]) =>
-                    `<option value="${key}" ${key === 'dark' ? 'selected' : ''}>${theme.name}</option>`
-                ).join('')}
+                `<option value="${key}" ${key === 'dark' ? 'selected' : ''}>${theme.name}</option>`
+            ).join('')}
                                 </select>
                             </div>
                             <div id="image-scale-controls" style="display: flex; align-items: center; gap: 8px; margin-left: auto;">
@@ -1911,7 +1932,7 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
                 </div>
             </div>`;
             document.body.appendChild(modal);
-          
+
             // [추가] 아바타 토글 컨트롤 변수 정의 (ReferenceError 방지)
             const avatarToggleControls = modal.querySelector('#avatar-toggle-controls');
             const avatarToggleCheckbox = modal.querySelector('#avatar-toggle-checkbox');
@@ -1977,20 +1998,20 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
              */
             const buildFullHtml = (content, theme = 'dark', applyStyles = true) => {
                 const selectedTheme = THEMES[theme] || THEMES.dark;
-                
+
                 // 참가자 이름 색상을 강제로 적용하기 위해 content를 수정
                 let modifiedContent = content;
-                
+
                 // 참가자 이름 요소들을 찾아서 색상을 강제 적용
                 const tempDiv = document.createElement('div');
                 tempDiv.innerHTML = content;
-                
+
                 // 모든 참가자 이름 요소에 색상 스타일 강제 적용
                 tempDiv.querySelectorAll('.unmargin.text-xl').forEach(nameEl => {
                     const parentNode = nameEl.closest('.chat-message-container');
                     const isUser = parentNode && parentNode.classList.contains('justify-end');
                     const nameColor = selectedTheme.nameColor;
-                    
+
                     nameEl.style.color = nameColor + ' !important';
                     nameEl.style.fontWeight = '600';
                     nameEl.style.fontSize = '0.95em';
@@ -1998,9 +2019,9 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
                     nameEl.style.marginBottom = '8px';
                     nameEl.style.textAlign = isUser ? 'right' : 'left';
                 });
-                
+
                 modifiedContent = tempDiv.innerHTML;
-                
+
                 // CSS 스타일 블록 생성
                 const layoutCss = `
                     .chat-message-container { display: flex; align-items: flex-start; margin: 16px 0; gap: 10px; }
@@ -2015,7 +2036,7 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
                     .prose p { margin: 0.5em 0 !important;}
                     .prose p { margin: 0.5em 0; }
                 `;
-                
+
                 const styleBlock = applyStyles
                     ? layoutCss + `
                        img { max-width: 100%; height: auto; }
@@ -2026,7 +2047,7 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
                        .x-risu-post-content-wrapper { display: none; }
                       `
                     : layoutCss + extractedCss;
-                
+
                 return `<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>채팅 로그: ${charName} - ${chatName}</title><style>
                     * { box-sizing: border-box; }
                     body { background-color: ${selectedTheme.background}; color: ${selectedTheme.text}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 10px; margin: 0; }
@@ -2037,12 +2058,12 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
 
             let isRawMode = false;
             let lastGeneratedHtml = '';
-/**
-     * 페이지에 로드된 모든 스타일시트의 CSS 규칙을 문자열로 추출합니다.
-     * @async
-     * @returns {Promise<string>} 모든 CSS 규칙을 포함하는 문자열.
-     */
-    
+            /**
+                 * 페이지에 로드된 모든 스타일시트의 CSS 규칙을 문자열로 추출합니다.
+                 * @async
+                 * @returns {Promise<string>} 모든 CSS 규칙을 포함하는 문자열.
+                 */
+
             /**
              * 사용자의 선택(포맷, 테마, 필터 등)이 변경될 때마다 미리보기 영역을 업데이트합니다.
              * @async
@@ -2086,7 +2107,7 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
 
                     const fullCss = await getFullPageCSS();
                     // 이름 폰트 하드코딩을 없애기 위해, generateHtmlFromNodes의 두 번째 인자를 'false'로 전달
-                    const messagesHtml = await generateHtmlFromNodes(filteredNodes, false, true); 
+                    const messagesHtml = await generateHtmlFromNodes(filteredNodes, false, true);
                     const themeBgColor = getComputedStyle(document.documentElement).getPropertyValue('--risu-theme-bgcolor').trim() || '#1a1b26';
                     const headerHtml = await getHeaderHtml(charAvatarUrl, charName, chatName);
                     const htmlTagStyle = document.documentElement.getAttribute('style') || '';
@@ -2095,8 +2116,8 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
                     if (isRawMode) {
                         previewEl.innerHTML = `<pre style="white-space: pre-wrap; word-wrap: break-word; font-family: monospace; font-size: 0.85em;">${lastGeneratedHtml.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre>`;
                     } else {
-                        previewEl.innerHTML = ''; 
-                        
+                        previewEl.innerHTML = '';
+
                         const shadowHost = document.createElement('div');
                         const shadowRoot = shadowHost.attachShadow({ mode: 'open' });
 
@@ -2181,8 +2202,8 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
             }
 
             modal.querySelectorAll('input[name="log-format"], #style-toggle-checkbox, #filter-toggle-checkbox, .participant-filter-checkbox, #avatar-toggle-checkbox, #bubble-toggle-checkbox').forEach(el => {
-    el.addEventListener('change', updatePreview);
-});
+                el.addEventListener('change', updatePreview);
+            });
             themeSelector.addEventListener('change', updatePreview);
 
             updatePreview();
@@ -2197,7 +2218,7 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
                     const useStyled = styleToggleCheckbox.checked;
                     const showAvatar = avatarToggleCheckbox.checked;
                     const messagesHtml = await generateHtmlFromNodes(filteredNodes, useStyled, true);
-                    await generateAndDownloadHtmlFile(charName, chatName, messagesHtml,charAvatarUrl);
+                    await generateAndDownloadHtmlFile(charName, chatName, messagesHtml, charAvatarUrl);
                     closeModal();
                 } catch (e) { console.error('[Log Exporter] File save error from modal:', e); }
             });
@@ -2356,32 +2377,32 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
                     return match;
                 });
 
-					// 후처리: td border=0, 이미지 max-width 슬라이더 값 반영, title 태그 제거
-					try {
-						const scale = (typeof imageScaleSlider !== 'undefined' && imageScaleSlider && imageScaleSlider.value) ? imageScaleSlider.value : '100';
-						const tempContainer = document.createElement('div');
-						tempContainer.innerHTML = finalHtml;
+                // 후처리: td border=0, 이미지 max-width 슬라이더 값 반영, title 태그 제거
+                try {
+                    const scale = (typeof imageScaleSlider !== 'undefined' && imageScaleSlider && imageScaleSlider.value) ? imageScaleSlider.value : '100';
+                    const tempContainer = document.createElement('div');
+                    tempContainer.innerHTML = finalHtml;
 
-						// title 태그 제거
-						tempContainer.querySelectorAll('title').forEach(el => el.remove());
+                    // title 태그 제거
+                    tempContainer.querySelectorAll('title').forEach(el => el.remove());
 
-						// 모든 td 태그에 border="0" 부여 (기존 border 속성 제거 후 설정)
-						tempContainer.querySelectorAll('td').forEach(td => {
-							td.style.border = '0px';
-						});
+                    // 모든 td 태그에 border="0" 부여 (기존 border 속성 제거 후 설정)
+                    tempContainer.querySelectorAll('td').forEach(td => {
+                        td.style.border = '0px';
+                    });
 
-						// 이미지 max-width를 슬라이더 값으로 통일, 높이는 auto 유지
-						tempContainer.querySelectorAll('img').forEach(img => {
-							img.style.maxWidth = `${scale}%`;
-							img.style.height = 'auto';
-						});
+                    // 이미지 max-width를 슬라이더 값으로 통일, 높이는 auto 유지
+                    tempContainer.querySelectorAll('img').forEach(img => {
+                        img.style.maxWidth = `${scale}%`;
+                        img.style.height = 'auto';
+                    });
 
-						finalHtml = tempContainer.innerHTML;
-					} catch (e) {
-						console.warn('[Arca Convert] post-process failed:', e);
-					}
+                    finalHtml = tempContainer.innerHTML;
+                } catch (e) {
+                    console.warn('[Arca Convert] post-process failed:', e);
+                }
 
-					arcaFinalHtml.value = finalHtml;
+                arcaFinalHtml.value = finalHtml;
                 alert(`변환 완료! ${usedUrlCount}개의 이미지 위치가 교체되었습니다. 최종 결과물을 복사하여 사용하세요.`, 'success');
             });
 
@@ -2428,14 +2449,14 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
                             p.style.setProperty('margin-bottom', '0.5em', 'important');
                         }
                     });
-                    
+
                     // 참가자 이름 색상 강제 적용
                     const selectedThemeObj = THEMES[theme] || THEMES.dark;
                     tempDiv.querySelectorAll('.unmargin.text-xl').forEach(nameEl => {
                         const parentNode = nameEl.closest('.chat-message-container');
                         const isUser = parentNode && parentNode.classList.contains('justify-end');
                         const nameColor = selectedThemeObj.nameColor;
-                        
+
                         nameEl.style.color = nameColor + ' !important';
                         nameEl.style.fontWeight = '600';
                         nameEl.style.fontSize = '0.95em';
@@ -2591,17 +2612,17 @@ logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:brea
     ensureHtmlToImage().catch(e => console.error(e));
     ensureJSZip().catch(e => console.error(e));
     startObserver();
-    
-async function getHeaderHtml(charAvatarUrl, charName, chatName) {
-    const charAvatarBase64 = await imageUrlToBase64(charAvatarUrl)
-    const headerHtml = `
+
+    async function getHeaderHtml(charAvatarUrl, charName, chatName) {
+        const charAvatarBase64 = await imageUrlToBase64(charAvatarUrl)
+        const headerHtml = `
             <header style="text-align:center; padding-bottom:15px; margin-bottom:20px; border-bottom: 2px solid var(--risu-theme-borderc, #414868);">
                 <img src="${charAvatarBase64}" style="width:80px; height:80px; border-radius:50%; object-fit:cover; margin:0 auto 10px; display:block; border: 2px solid var(--risu-theme-darkbutton, #565f89);">
                 <h1 class="unmargin text-2xl font-bold" style="color: var(--risu-theme-textcolor, #c0caf5); margin-bottom: 4px;">${charName}</h1>
                 <p class="text-sm" style="color: var(--risu-theme-textcolor2, #8a98c9);">${chatName}</p>
             </header>
         `;
-    return headerHtml;
-}
+        return headerHtml;
+    }
 })();
 
