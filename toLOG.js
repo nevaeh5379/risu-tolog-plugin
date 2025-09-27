@@ -617,16 +617,27 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
             .arca-helper-section button { align-self: center; }
             /* --- 모바일 반응형 스타일 --- */
             @media (max-width: 768px) { /* 일반 모바일 기기 */
-                .log-exporter-modal { width: 100%; height: 100%; max-height: 100vh; border-radius: 0; }
-                .log-exporter-modal-content { flex-direction: column; padding: 12px; gap: 12px; }
-                .log-exporter-left-panel { overflow-y: auto; padding-right: 5px; } /* 좌측 패널 스크롤 */
-                .log-exporter-right-panel { overflow-y: hidden; } /* 우측 패널은 미리보기가 스크롤되므로 hidden */
+                .log-exporter-modal { width: 100%; height: 100%; max-height: 100vh; border-radius: 0; flex-direction: column; }
+                .log-exporter-modal-content { flex-direction: column; padding: 10px; gap: 12px; overflow-y: auto; flex-grow: 1; }
+                .log-exporter-left-panel, .log-exporter-right-panel { overflow-y: visible; max-height: none; flex: none; }
+                .log-exporter-modal-preview { max-height: 50vh; }
                 .log-exporter-modal-btn { padding: 10px 14px; font-size: 0.95em; }
                 .log-exporter-modal-options, #filter-controls { flex-direction: column; align-items: stretch; gap: 10px; margin-left: 0; }
-                .log-exporter-modal-footer { justify-content: center; flex-wrap: wrap; }
-                #image-export-controls { flex-direction: column; align-items: stretch !important; gap: 10px !important; margin-left: 0 !important; width: 100%; }
-                #image-export-controls > label { justify-content: space-between; }
-                #image-export-controls > button { width: 100%; }
+                .log-exporter-modal-options { background: transparent; padding: 0; }
+                .log-exporter-modal-options > div { background: #1f2335; padding: 10px; border-radius: 5px; }
+                #format-selection-group { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+                #format-selection-group > strong { grid-column: 1 / -1; margin-bottom: 4px; }
+                #basic-options-group { display: flex; flex-direction: column; gap: 8px; }
+                #image-scale-controls, #filter-controls { display: flex; flex-direction: column; gap: 8px; }
+                .log-exporter-modal-footer { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; flex-shrink: 0; }
+                .log-exporter-modal-footer > button, .log-exporter-modal-footer > div { width: 100%; margin: 0 !important; }
+                .log-exporter-modal-footer .log-exporter-modal-btn { padding: 9px 12px; font-size: 0.9em; }
+                #log-exporter-copy { grid-column: 1 / -1; order: 1; }
+                #image-export-controls { grid-column: 1 / -1; order: 2; display: grid !important; grid-template-columns: 1fr 1fr; gap: 8px !important; }
+                #image-export-controls > label:first-of-type { grid-column: 1 / -1; }
+                #image-export-controls > label { justify-content: space-between; font-size: 0.9em; }
+                #image-export-controls > button { grid-column: 1 / -1; }
+                #log-exporter-close { grid-column: 1 / -1; order: 99; background-color: #565f89; }
             }
         `;
         document.head.appendChild(style);
@@ -1462,7 +1473,7 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
 
 async function savePreviewAsImage(previewContainer, onProgress, cancellationToken, charName, chatName, useHighRes = false, baseFontSize = 16, imageWidth = 900) {
     console.log(`[Log Exporter] savePreviewAsImage: 이미지 저장을 시작합니다.`, { useHighRes, baseFontSize, imageWidth, charName });
-    const MAX_SAFE_CANVAS_HEIGHT = 65000;
+    const MAX_SAFE_CANVAS_HEIGHT = 30000;
 
     let captureTarget = previewContainer.firstElementChild;
     if (!captureTarget) return false;
@@ -1925,26 +1936,33 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                 <div class="log-exporter-modal-content">
                     <div class="log-exporter-left-panel">
                         <div class="log-exporter-modal-options">
-                            <strong>형식:</strong>
-                            <label><input type="radio" name="log-format" value="html"> HTML</label>
-                            <label><input type="radio" name="log-format" value="basic" checked> 기본</label>
-                            <label><input type="radio" name="log-format" value="markdown"> 마크다운</label>
-                            <label><input type="radio" name="log-format" value="text"> 일반 텍스트</label>
-                            <div id="theme-selector-container" style="display: none; margin-left: auto; align-items: center; gap: 10px;">
-                                <label for="theme-selector" style="font-size: 0.9em;">테마:</label>
-                                <select id="theme-selector">
-                                    ${Object.entries(THEMES).map(([key, theme]) =>
+                            <div id="format-selection-group">
+                                <strong>형식:</strong>
+                                <label><input type="radio" name="log-format" value="html"> HTML</label>
+                                <label><input type="radio" name="log-format" value="basic" checked> 기본</label>
+                                <label><input type="radio" name="log-format" value="markdown"> 마크다운</label>
+                                <label><input type="radio" name="log-format" value="text"> 일반 텍스트</label>
+                            </div>
+                            <div id="basic-options-group" style="display: none;">
+                                <div id="theme-selector-container" style="display: flex; justify-content: space-between; align-items: center;">
+                                    <label for="theme-selector" style="font-size: 0.9em;">테마:</label>
+                                    <select id="theme-selector">
+                                        ${Object.entries(THEMES).map(([key, theme]) =>
                 `<option value="${key}" ${key === 'dark' ? 'selected' : ''}>${theme.name}</option>`
             ).join('')}
-                                </select>
+                                    </select>
+                                </div>
+                                <div id="avatar-toggle-controls" style="display: flex; align-items: center; justify-content: space-between;">
+                                    <label style="font-size:0.9em;"><input type="checkbox" id="avatar-toggle-checkbox"> 아바타 표시</label>
+                                    <label style="font-size:0.9em;"><input type="checkbox" id="bubble-toggle-checkbox" checked> 말풍선 디자인</label>
+                                </div>
                             </div>
-                            <div id="image-scale-controls" style="display: flex; align-items: center; gap: 8px; margin-left: auto;">
-                                <label for="image-scale-slider" title="미리보기의 모든 이미지 크기를 조절합니다." style="font-size:0.9em;">이미지 크기:</label>
-                                <input type="range" id="image-scale-slider" min="10" max="100" value="100" step="5" style="width: 80px;">
-                                <span id="image-scale-value" style="font-size: 0.9em; width: 35px; text-align: right;">100%</span>
-                            </div>
-                            <div id="html-style-controls" style="display:inline-flex; align-items:center;">
-                                <label><input type="checkbox" id="style-toggle-checkbox"> 스타일 인라인 적용</label>
+                            <div id="image-scale-controls" style="display: none;">
+                                <div style="display: flex; align-items: center; justify-content: space-between;">
+                                    <label for="image-scale-slider" title="미리보기의 모든 이미지 크기를 조절합니다." style="font-size:0.9em;">이미지 크기:</label>
+                                    <span id="image-scale-value" style="font-size: 0.9em; width: 40px; text-align: right;">100%</span>
+                                </div>
+                                <input type="range" id="image-scale-slider" min="10" max="100" value="100" step="5" style="width: 100%;">
                             </div>
                             <div id="html-hover-controls" style="display:none; align-items:center; margin-left: 10px;">
                 <label><input type="checkbox" id="expand-hover-elements-checkbox"> 호버 요소 항상 펼치기</label>
@@ -1956,14 +1974,6 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                                         커스텀 필터 설정 ▼
                                     </button>
                                 ` : ''}
-                            </div>
-                            <div id="avatar-toggle-controls" style="display: none; align-items: center; gap: 8px; margin-left: 10px;">
-                                <label style="font-size:0.9em;">
-                                    <input type="checkbox" id="avatar-toggle-checkbox"> 아바타 표시
-                                </label>
-                                <label style="font-size:0.9em; margin-left: 10px;">
-            <input type="checkbox" id="bubble-toggle-checkbox" checked> 말풍선 디자인 사용
-        </label>
                             </div>
                         </div>
                         ${customFilterHtml}
@@ -2029,7 +2039,6 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
             const avatarToggleCheckbox = modal.querySelector('#avatar-toggle-checkbox');
 
             const previewEl = modal.querySelector('.log-exporter-modal-preview');
-            const imageScaleControls = modal.querySelector('#image-scale-controls');
             const imageScaleSlider = modal.querySelector('#image-scale-slider');
             const imageScaleValue = modal.querySelector('#image-scale-value');
             const saveFileBtn = modal.querySelector('#log-exporter-save-file');
@@ -2041,7 +2050,11 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
             const filterToggleCheckbox = modal.querySelector('#filter-toggle-checkbox');
             const themeSelector = modal.querySelector('#theme-selector');
             const expandHoverCheckbox = modal.querySelector('#expand-hover-elements-checkbox');
-            const themeSelectorContainer = modal.querySelector('#theme-selector-container');
+            
+            // [수정] 옵션 그룹 컨테이너 변수 추가
+            const basicOptionsGroup = modal.querySelector('#basic-options-group');
+            const imageScaleControls = modal.querySelector('#image-scale-controls');
+
 
             const arcaHelperSection = modal.querySelector('#arca-helper-section');
             const arcaHelperToggleBtn = modal.querySelector('#arca-helper-toggle-btn');
@@ -2168,14 +2181,13 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                 const bubbleToggleCheckbox = modal.querySelector('#bubble-toggle-checkbox');
                 const selectedFormat = modal.querySelector('input[name="log-format"]:checked').value;
                 const selectedTheme = themeSelector.value;
-                updateAvatarOptionVisibility();
 
                 arcaHelperToggleBtn.style.display = (selectedFormat === 'basic') ? 'inline-block' : 'none';
 
                 const isImageFormat = selectedFormat === 'html' || selectedFormat === 'basic';
-                imageScaleControls.style.display = isImageFormat ? 'flex' : 'none';
+                imageScaleControls.style.display = isImageFormat ? 'block' : 'none'; // flex -> block
                 saveImageControls.style.display = isImageFormat ? 'flex' : 'none';
-                htmlStyleControls.style.display = selectedFormat === 'html' ? 'none' : 'inline-flex';
+                basicOptionsGroup.style.display = selectedFormat === 'basic' ? 'block' : 'none';
                 htmlHoverControls.style.display = selectedFormat === 'html' ? 'inline-flex' : 'none';
 
                 previewEl.innerHTML = `<div style="text-align:center;color:#8a98c9;">미리보기 생성 중...</div>`;
@@ -2196,7 +2208,6 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
 
                 if (selectedFormat === 'html') {
                     filterControls.style.display = 'none';
-                    themeSelectorContainer.style.display = 'none';
                     if (customFilterSection) customFilterSection.style.display = 'none';
                     saveFileBtn.style.display = 'inline-block';
 
@@ -2246,7 +2257,6 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                 } else if (selectedFormat === 'basic') {
                     // ... (이 부분은 수정 없음)
                     filterControls.style.display = 'flex';
-                    themeSelectorContainer.style.display = 'flex';
                     saveFileBtn.style.display = 'none';
                     const content = await generateBasicFormatLog(filteredNodes, selectedTheme, true, avatarToggleCheckbox.checked, bubbleToggleCheckbox.checked);
                     lastGeneratedHtml = content;
@@ -2261,7 +2271,6 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                 } else { // Text / Markdown
                     // ... (이 부분은 수정 없음)
                     filterControls.style.display = 'flex';
-                    themeSelectorContainer.style.display = 'none';
                     saveImageControls.style.display = 'none';
                     saveFileBtn.style.display = 'none';
                     const content = await generateFormattedLog(filteredNodes, selectedFormat);
@@ -2299,14 +2308,6 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                 modal.querySelector('#deselect-all-filters')?.addEventListener('click', () => {
                     modal.querySelectorAll('.custom-filter-class').forEach(cb => cb.checked = false); updatePreview();
                 });
-            }
-
-            /**
-             * 선택된 로그 형식에 따라 아바타 표시 옵션 UI의 가시성을 제어합니다.
-             */
-            function updateAvatarOptionVisibility() {
-                const selectedFormat = modal.querySelector('input[name="log-format"]:checked').value;
-                avatarToggleControls.style.display = (selectedFormat === 'basic') ? 'flex' : 'none';
             }
 
             modal.querySelectorAll('input[name="log-format"], #style-toggle-checkbox, #filter-toggle-checkbox, .participant-filter-checkbox, #avatar-toggle-checkbox, #bubble-toggle-checkbox, #expand-hover-elements-checkbox').forEach(el => {
