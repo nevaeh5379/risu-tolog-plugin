@@ -1964,9 +1964,10 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                                 </div>
                                 <input type="range" id="image-scale-slider" min="10" max="100" value="100" step="5" style="width: 100%;">
                             </div>
-                            <div id="html-hover-controls" style="display:none; align-items:center; margin-left: 10px;">
-                <label><input type="checkbox" id="expand-hover-elements-checkbox"> 호버 요소 항상 펼치기</label>
-            </div>
+                            <div id="html-options-group" style="display:none; flex-direction: column; gap: 8px;">
+                                <label><input type="checkbox" id="style-toggle-checkbox"> 스타일 인라인 적용</label>
+                                <label><input type="checkbox" id="expand-hover-elements-checkbox"> 호버 요소 항상 펼치기</label>
+                            </div>
                             <div id="filter-controls">
                                 <label><input type="checkbox" id="filter-toggle-checkbox" checked> UI 필터링 적용</label>
                                 ${uiClasses.length > 0 ? `
@@ -2044,7 +2045,6 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
             const saveFileBtn = modal.querySelector('#log-exporter-save-file');
             const saveImageControls = modal.querySelector('#image-export-controls');
             const htmlStyleControls = modal.querySelector('#html-style-controls');
-            const htmlHoverControls = modal.querySelector('#html-hover-controls');
             const styleToggleCheckbox = modal.querySelector('#style-toggle-checkbox');
             const filterControls = modal.querySelector('#filter-controls');
             const filterToggleCheckbox = modal.querySelector('#filter-toggle-checkbox');
@@ -2054,6 +2054,7 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
             // [수정] 옵션 그룹 컨테이너 변수 추가
             const basicOptionsGroup = modal.querySelector('#basic-options-group');
             const imageScaleControls = modal.querySelector('#image-scale-controls');
+            const htmlOptionsGroup = modal.querySelector('#html-options-group');
 
 
             const arcaHelperSection = modal.querySelector('#arca-helper-section');
@@ -2188,7 +2189,7 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                 imageScaleControls.style.display = isImageFormat ? 'block' : 'none'; // flex -> block
                 saveImageControls.style.display = isImageFormat ? 'flex' : 'none';
                 basicOptionsGroup.style.display = selectedFormat === 'basic' ? 'block' : 'none';
-                htmlHoverControls.style.display = selectedFormat === 'html' ? 'inline-flex' : 'none';
+                htmlOptionsGroup.style.display = selectedFormat === 'html' ? 'flex' : 'none';
 
                 previewEl.innerHTML = `<div style="text-align:center;color:#8a98c9;">미리보기 생성 중...</div>`;
                 let filteredNodes = getFilteredNodes();
@@ -2324,7 +2325,7 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
             saveFileBtn.addEventListener('click', async () => {
                 try {
                     const filteredNodes = getFilteredNodes();
-                    const useStyled = styleToggleCheckbox.checked;
+                    const useStyled = styleToggleCheckbox ? styleToggleCheckbox.checked : false;
                     const showAvatar = avatarToggleCheckbox.checked;
                     const messagesHtml = await generateHtmlFromNodes(filteredNodes, useStyled, true);
                     await generateAndDownloadHtmlFile(charName, chatName, messagesHtml, charAvatarUrl, expandHoverCheckbox.checked);
