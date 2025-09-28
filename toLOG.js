@@ -22,8 +22,8 @@ if (globalThis.__pluginApis__ && globalThis.__pluginApis__.setArg) {
     };
 }
 
-// --- 테마 정의 ---
-const THEMES = {
+// --- 색상 팔레트 정의 ---
+const COLORS = {
     dark: {
         name: '다크 (기본)',
         background: '#1a1b26',
@@ -203,6 +203,85 @@ const THEMES = {
         soundText: '#ffd9a0',
         shadow: '0 0 0 1px rgba(255,255,255,0.05), 0 6px 14px rgba(0,0,0,0.65)',
         avatarBorder: '#6ba8ff'
+    }
+};
+
+// --- 레이아웃 테마 정의 ---
+const THEMES = {
+    basic: {
+        name: '기본',
+        description: '가장 일반적인 말풍선 디자인입니다. 색상 팔레트를 자유롭게 변경할 수 있습니다.'
+        // 이 테마는 COLORS 객체에서 선택된 색상을 사용합니다.
+    },
+    modern: {
+        name: '현대',
+        description: '카드형 UI와 깔끔한 선으로 구성된 모던한 다크 디자인입니다.',
+        // 고정 다크 색상 값
+        color: {
+            background: '#1c1e22', cardBg: '#282a2e', cardBgUser: '#282a2e',
+            text: '#d1d5db', nameColor: '#8fbaff', border: '#373b41',
+            shadow: '0 4px 12px rgba(0,0,0,0.3)', avatarBorder: '#8fbaff',
+            // [추가] 하이라이트 색상
+            quoteBg: 'rgba(143, 186, 255, 0.1)', quoteText: '#a1c6ff',
+            thoughtBg: 'rgba(209, 213, 219, 0.08)', thoughtText: '#b0b8c4'
+        }
+    },
+    fantasy: {
+        name: '판타지',
+        description: '밤하늘의 마법서와 같은 신비로운 디자인입니다.',
+        color: {
+            background: '#191e3a',
+            cardBg: 'rgba(25, 30, 58, 0.7)',
+            cardBgUser: 'rgba(40, 48, 90, 0.7)',
+            text: '#d8deff',
+            textSecondary: '#a9b1d6',
+            nameColor: '#ffc978',
+            border: '#4a558c',
+            separator: '#a9b1d6',
+            shadow: '0 0 20px rgba(175, 192, 255, 0.2)',
+            avatarBorder: '#ffc978',
+            quoteBg: 'rgba(255, 201, 120, 0.15)',
+            quoteText: '#ffd59e',
+            thoughtBg: 'rgba(175, 192, 255, 0.12)',
+            thoughtText: '#c1c8f0',
+            soundBg: 'rgba(254, 200, 154, 0.15)',
+            soundText: '#fec89a'
+        }
+    },
+    // ▼▼▼ [추가] 판타지 2 테마 ▼▼▼
+    fantasy2: {
+        name: '판타지 2',
+        description: '고서나 양피지 같은 느낌을 주는 디자인입니다.',
+        color: {
+            background: '#f5eeda', // 양피지 배경
+            cardBg: 'transparent',
+            cardBgUser: 'transparent',
+            text: '#5a4b41', // 어두운 갈색 텍스트
+            textSecondary: '#8c7d72',
+            nameColor: '#8a3b22', // 잉크 색상
+            border: '#d4c5b0',
+            separator: '#bcae98',
+            shadow: '0 2px 5px rgba(0,0,0,0.1)',
+            avatarBorder: '#a98c6a',
+            quoteBg: 'rgba(138, 59, 34, 0.08)',
+            quoteText: '#7b4c40',
+            thoughtBg: 'rgba(90, 75, 65, 0.08)',
+            thoughtText: '#6b5d54',
+            soundBg: 'rgba(154, 126, 86, 0.1)',
+            soundText: '#8a6d4b'
+        }
+    },
+    // ▲▲▲ [추가] 여기까지 ▲▲▲
+    log: {
+        name: '로그',
+        description: '이름과 대사만 순서대로 나열되는 간단한 텍스트 형식입니다.',
+        // 고정 다크 색상 값
+        color: {
+            background: '#212529', text: '#e9ecef', nameColor: '#adb5bd', border: '#495057',
+            // [추가] 하이라이트 색상
+            quoteBg: 'rgba(233, 236, 239, 0.1)', quoteText: '#f8f9fa',
+            thoughtBg: 'rgba(233, 236, 239, 0.08)', thoughtText: '#e9ecef'
+        }
     }
 };
 
@@ -1064,7 +1143,7 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
                 if (nameEl) {
                     const computedStyle = window.getComputedStyle(nameEl);
                     const isUser = node.classList.contains('justify-end');
-                    const theme = THEMES.dark; // 기본 다크 테마 사용
+                    const theme = COLORS.dark; // 기본 다크 테마 사용
                     const nameColor = isUser ? theme.nameColor : theme.nameColor;
 
                     nameEl.style.color = nameColor;
@@ -1087,7 +1166,7 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
                 const nameEl = clonedNode.querySelector('.unmargin.text-xl');
                 if (nameEl) {
                     const isUser = node.classList.contains('justify-end');
-                    const theme = THEMES.dark;
+                    const theme = COLORS.dark;
                     nameEl.style.color = theme.nameColor;
                     nameEl.style.fontWeight = '600';
                     nameEl.style.fontSize = '0.95em';
@@ -1199,156 +1278,253 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
 
 
         /**
-     * 채팅 메시지 노드 배열로부터 '기본' 형식의 HTML 채팅 로그를 생성합니다.
-     * 테마, 이미지 임베딩, 아바타 표시 여부 등을 설정할 수 있습니다.
-     * @async
-     * @param {HTMLElement[]} nodes - DOM 노드의 배열.
-     * @param {string} [selectedTheme='dark'] - 사용할 테마 ('dark' 또는 THEMES의 다른 키).
-     * @param {boolean} [embedImagesAsBase64=true] - 이미지를 base64 데이터 URI로 임베드할지 여부.
-     * @param {boolean} [showAvatar=true] - 아바타를 표시할지 여부.
-     * @param {boolean} [useBubbleDesign=true] - 말풍선 디자인을 사용할지 여부.
-     * @returns {Promise<string>} 포맷된 채팅 로그를 나타내는 HTML 문자열을 resolve하는 Promise.
-     */
-        async function generateBasicFormatLog(nodes, selectedTheme = 'dark', embedImagesAsBase64 = true, showAvatar = true, useBubbleDesign = true) {
-            console.log(`[Log Exporter] generateBasicFormatLog: '기본' 형식 로그 생성 시작. 테마: ${selectedTheme}, 아바타 표시: ${showAvatar}`);
-            const theme = THEMES[selectedTheme] || THEMES.dark;
+         * 채팅 메시지 노드 배열로부터 '기본' 형식의 HTML 채팅 로그를 생성합니다.
+         * 테마(레이아웃)와 색상을 적용하며, 이미지는 사용하지 않습니다.
+         * @async
+         * @param {HTMLElement[]} nodes - DOM 노드의 배열.
+         * @param {string} [selectedThemeKey='basic'] - 사용할 레이아웃 테마.
+         * @param {string} [selectedColorKey='dark'] - '기본' 테마에서 사용할 색상 팔레트.
+         * @param {boolean} [embedImagesAsBase64=true] - (사용되지 않음)
+         * @param {boolean} [showAvatar=true] - 아바타를 표시할지 여부.
+         * @param {boolean} [showHeader=true] - 헤더를 표시할지 여부.
+         * @param {boolean} [showFooter=true] - 푸터를 표시할지 여부.
+         * @param {boolean} [showBubble=true] - 말풍선을 표시할지 여부.
+         * @returns {Promise<string>} 포맷된 채팅 로그를 나타내는 HTML 문자열.
+         */
+        async function generateBasicFormatLog(nodes, charInfo, selectedThemeKey = 'basic', selectedColorKey = 'dark', showAvatar = true, showHeader = true, showFooter = true, showBubble = true) {
+            console.log(`[Log Exporter] generateBasicFormatLog: 테마: ${selectedThemeKey}, 헤더: ${showHeader}, 푸터: ${showFooter}`);
+            
+            const themeInfo = THEMES[selectedThemeKey] || THEMES.basic;
+            // '기본' 테마는 COLORS에서, 나머지는 THEMES의 고정 color 객체에서 색상 정보를 가져옴
+            const color = (selectedThemeKey === 'basic') ? (COLORS[selectedColorKey] || COLORS.dark) : themeInfo.color;
+
+            // [핵심 수정] CSS 누락 방지를 위한 기본 태그 스타일 정의
+            const baseTagStyles = `
+            p { margin: 0.75em 0; }
+            a { color: ${color.nameColor}; text-decoration: none; }
+            a:hover { text-decoration: underline; }
+            ul, ol { padding-left: 1.5em; margin: 0.75em 0; }
+            li { margin-bottom: 0.25em; }
+            blockquote { border-left: 3px solid ${color.border}; padding-left: 1em; margin-left: 0; color: inherit; opacity: 0.8; }
+            strong, b { font-weight: bold; color: ${color.nameColor}; }
+            em, i { font-style: italic; }
+            hr { border: 0; height: 1px; background-color: ${color.border}; margin: 1.5em 0; }
+        `;
+
+        // [수정] 헤더 HTML 생성 로직
+        let headerHtml = '';
+        if (showHeader) {
+            const charAvatarBase64 = await imageUrlToBase64(charInfo.avatarUrl);
+            const headerStyles = `
+                text-align:center; padding-bottom:1.5em; margin-bottom:2em;
+                border-bottom: 2px solid ${color.border};
+            `;
+            headerHtml = `
+                <header style="${headerStyles}">
+                    <img src="${charAvatarBase64}" style="width:80px; height:80px; border-radius:50%; object-fit:cover; margin:0 auto 1em; display:block; border: 3px solid ${color.avatarBorder}; box-shadow: ${color.shadow};">
+                    <h1 style="color: ${color.nameColor}; margin: 0 0 0.25em 0; font-size: 1.8em; letter-spacing: 1px;">${charInfo.name}</h1>
+                    <p style="color: ${color.text}; opacity: 0.8; margin: 0; font-size: 0.9em;">${charInfo.chatName}</p>
+                </header>
+            `;
+        }
+
             let log = '';
-    
-            const avatarMap = await collectCharacterAvatars(nodes, embedImagesAsBase64);
-    
-            for (const node of nodes) {
+            const avatarMap = await collectCharacterAvatars(nodes, false);
+            const fantasyFont = `'Nanum Myeongjo', serif`;
+
+            for (const [index, node] of nodes.entries()) {
                 if (node.querySelector('textarea')) continue;
     
-                let name = '';
-                const nameEl = node.querySelector('.unmargin.text-xl');
-                if (nameEl) {
-                    name = nameEl.textContent.trim();
-                } else {
-                    name = node.classList.contains('justify-end') ? 'User' : 'Assistant';
-                }
-    
+                let name = node.querySelector('.unmargin.text-xl')?.textContent.trim() || (node.classList.contains('justify-end') ? 'User' : 'Assistant');
                 const messageEl = node.querySelector('.prose, .chattext');
                 if (!messageEl) continue;
     
                 let contentSourceEl = messageEl.cloneNode(true);
-    
-                const styleBlock = (el, bg, color, border = null) => {
-                    const p = document.createElement('p');
-                    p.innerHTML = el.innerHTML;
-                    Object.assign(p.style, {
-                        backgroundColor: bg,
-                        padding: '8px 12px',
-                        borderRadius: '4px',
-                        fontStyle: 'italic',
-                        color: color,
-                        margin: '0.5em 0'
+                contentSourceEl.querySelectorAll('img, script, style, .log-exporter-msg-btn-group').forEach(el => el.remove());
+                contentSourceEl.querySelectorAll('[style*="background-image"]').forEach(el => el.style.backgroundImage = 'none');
+                
+                // [핵심 수정] RisuAI 전용 서식(인용, 생각 등) 스타일링 로직 추가
+                const styleBlock = (el, bg, textColor, border = null) => {
+                    const newBlock = document.createElement('blockquote');
+                    newBlock.innerHTML = el.innerHTML;
+                    Object.assign(newBlock.style, {
+                        backgroundColor: bg, color: textColor,
+                        padding: '0.75em 1em', margin: '0.75em 0',
+                        borderRadius: '4px', borderLeft: `3px solid ${border || 'transparent'}`
                     });
-                    if (border) p.style.borderLeft = `3px solid ${border}`;
-                    el.replaceWith(p);
+                    el.replaceWith(newBlock);
                 };
-                contentSourceEl.querySelectorAll('.x-risu-regex-quote-block').forEach(el => styleBlock(el, theme.quoteBg, theme.quoteText, theme.quoteText));
-                contentSourceEl.querySelectorAll('.x-risu-regex-thought-block').forEach(el => styleBlock(el, theme.thoughtBg, theme.thoughtText));
-                contentSourceEl.querySelectorAll('.x-risu-regex-sound-block').forEach(el => styleBlock(el, theme.soundBg, theme.soundText));
-    
-                // --- [수정] 배경 이미지를 사용하는 div를 <img> 태그로 변환 ---
-                contentSourceEl.querySelectorAll('.x-risu-image-container[style*="background-image"]').forEach(el => {
-                    const style = el.getAttribute('style');
-                    if (style) {
-                        const urlMatch = style.match(/url\(["']?([^"')]+)["']?\)/);
-                        if (urlMatch && urlMatch[1]) {
-                            const imageUrl = urlMatch[1];
-                            const newImg = document.createElement('img');
-                            newImg.src = imageUrl;
-                            el.replaceWith(newImg);
-                        }
-                    }
-                });
-                // --- 수정 끝 ---
-    
-                for (const img of contentSourceEl.querySelectorAll('img')) {
-                    if (img.src) {
-                        if (embedImagesAsBase64) {
-                            img.src = await imageUrlToBase64(img.src);
-                        }
-                        Object.assign(img.style, {
-                            maxWidth: '100%',
-                            height: 'auto',
-                            borderRadius: '8px',
-                            display: 'block',
-                            margin: '12px auto',
-                            boxShadow: theme.shadow
-                        });
-                    }
-                }
-    
-                contentSourceEl.querySelectorAll('script, style, .log-exporter-msg-btn-group').forEach(el => el.remove());
-                contentSourceEl.querySelectorAll('button').forEach(btn => {
-                    btn.disabled = true;
-                    btn.style.pointerEvents = 'none';
-                });
+                
+                contentSourceEl.querySelectorAll('.x-risu-regex-quote-block').forEach(el => styleBlock(el, color.quoteBg, color.quoteText, color.quoteText));
+                contentSourceEl.querySelectorAll('.x-risu-regex-thought-block').forEach(el => styleBlock(el, color.thoughtBg, color.thoughtText));
+                // .x-risu-regex-sound-block 등 다른 서식이 있다면 여기에 추가할 수 있습니다.
     
                 contentSourceEl.querySelectorAll('mark[risu-mark^="quote"]').forEach(markEl => {
-                    markEl.style.fontStyle = 'italic';
-                    markEl.style.color = theme.quoteText;
-                    if (markEl.style.backgroundColor === '') {
-                        markEl.style.backgroundColor = theme.quoteBg;
-                    }
+                    Object.assign(markEl.style, {
+                        backgroundColor: color.quoteBg,
+                        color: color.quoteText,
+                        padding: '0.1em 0.3em',
+                        borderRadius: '3px',
+                        textDecoration: 'none' // mark 태그의 기본 밑줄 제거
+                    });
                 });
-    
+                // --- 스타일링 로직 끝 ---
+                
                 let messageHtml = contentSourceEl.innerHTML.trim();
-    
                 if (messageHtml.length === 0) continue;
     
                 const isUser = node.classList.contains('justify-end');
-                const cardBgColor = isUser ? theme.cardBgUser : theme.cardBg;
                 const avatarSrc = avatarMap.get(name);
                 let avatarHtml = '';
     
-                if (showAvatar) {
+                if (showAvatar && selectedThemeKey !== 'log' && selectedThemeKey !== 'fantasy') {
                     const createAvatarDiv = (src, isUser) => {
                         const margin = isUser ? 'margin-left:12px;' : 'margin-right:12px;';
-                        const baseStyle = `width:48px;height:48px;min-width:48px;border-radius:50%;box-shadow:${theme.shadow};border:2px solid ${theme.avatarBorder};${margin}`;
-                        if (src) { // [수정] 아바타 식별을 위한 data-tolog-avatar 속성 추가
+                        const baseStyle = `width:48px;height:48px;min-width:48px;border-radius:50%;box-shadow:${color.shadow || 'none'};border:2px solid ${color.avatarBorder};${margin}`;
+                        if (src) {
                             return `<div ${AVATAR_ATTR} style="${baseStyle}background:url('${src}');background-size:cover;background-position:center;"></div>`;
                         } else {
-                            const bgColor = isUser ? theme.textSecondary : theme.avatarBorder;
                             const letter = isUser ? 'U' : name.charAt(0).toUpperCase();
-                            return `<div ${AVATAR_ATTR} style="${baseStyle}background-color:${bgColor};display:flex;align-items:center;justify-content:center;"><span style="color:${theme.background};font-weight:bold;font-size:1.2em;">${letter}</span></div>`;
+                            return `<div ${AVATAR_ATTR} style="${baseStyle}background-color:${color.avatarBorder};display:flex;align-items:center;justify-content:center;"><span style="color:${color.background};font-weight:bold;font-size:1.2em;">${letter}</span></div>`;
                         }
                     };
                     avatarHtml = createAvatarDiv(avatarSrc, isUser);
                 }
     
                 let logEntry = '';
-                logEntry += '<div class="chat-message-container" style="display:flex;align-items:flex-start;margin-bottom:28px;' + (isUser ? 'flex-direction:row-reverse;' : '') + '">';
-                logEntry += avatarHtml;
-                logEntry += '<div style="flex:1;">';
-                const namePadding = showAvatar ? '4px;' : '0;';
-                logEntry += '<strong style="color:' + theme.nameColor + ';font-weight:600;font-size:0.95em;display:block;margin-bottom:8px;padding-left:' + (isUser ? '0;' : namePadding) + 'padding-right:' + (isUser ? namePadding : '0;') + 'text-align:' + (isUser ? 'right;' : 'left;') + '">' + name + '</strong>';
-                const bubbleStyle = useBubbleDesign
-                    ? 'background-color:' + cardBgColor + ';border-radius:16px;padding:14px 18px;box-shadow:' + theme.shadow + ';border:1px solid ' + theme.border + ';'
-                    : 'padding:4px 0;';
-    
-                logEntry += '<div style="color:' + theme.text + ';line-height:1.8;word-wrap:break-word;position:relative;' + bubbleStyle + (isUser ? 'margin-left:auto;' : '') + '">' + messageHtml + '</div>';;
-                logEntry += '</div></div>';
+                switch (selectedThemeKey) {
+                    case 'modern':
+                        const modernCardBg = isUser ? color.cardBgUser : color.cardBg;
+                        // 장식: border-left에 포인트 색상 추가
+                        logEntry += `<div class="chat-message-container" style="display:flex; align-items:flex-start; margin-bottom:20px; ${isUser ? 'flex-direction:row-reverse;' : ''}">`;
+                        logEntry += avatarHtml;
+                        logEntry += `<div style="flex:1; border: 1px solid ${color.border}; border-left: 4px solid ${color.avatarBorder}; border-radius: 8px; background-color: ${modernCardBg}; box-shadow:${color.shadow}; overflow:hidden;">`;
+                        logEntry += `<strong style="color:${color.nameColor}; font-weight:600; font-size:0.9em; display:block; padding: 8px 14px; text-align:${isUser ? 'right;' : 'left;'}">${name}</strong>`;
+                        logEntry += `<div style="padding: 0 14px 12px 14px; color:${color.text}; line-height:1.8; word-wrap:break-word;">${messageHtml}</div>`;
+                        logEntry += '</div></div>';
+                        break;
+
+                    case 'fantasy':
+                        let fantasyAvatarHtml = '';
+                        if (showAvatar) {
+                            const baseStyle = `width:52px;height:52px;min-width:52px;border-radius:50%;border:2px solid ${color.avatarBorder}; box-shadow: 0 0 12px rgba(255, 201, 120, 0.5);`;
+                            if (avatarSrc) {
+                                fantasyAvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background:url('${avatarSrc}');background-size:cover;background-position:center;"></div>`;
+                            } else {
+                                const letter = isUser ? 'U' : name.charAt(0).toUpperCase();
+                                fantasyAvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background: linear-gradient(135deg, #2c3e7a, #1a1e3a); display:flex;align-items:center;justify-content:center;"><span style="color:${color.nameColor};font-weight:bold;font-size:1.4em; font-family: 'Nanum Myeongjo', serif; text-shadow: 0 0 6px rgba(255,201,120,0.7);">${letter}</span></div>`;
+                            }
+                        }
+                        if (index > 0) {
+                            logEntry += `
+        <div style="display:flex; align-items: center; text-align: center; margin: 2.2em auto; max-width: 50%;">
+            <div style="flex-grow: 1; height: 1px; background: linear-gradient(to right, transparent, ${color.separator}, transparent);"></div>
+            <span style="padding: 0 0.8em; color: ${color.separator}; font-size: 1.3em; font-family: 'Nanum Myeongjo', serif; text-shadow: 0 0 8px rgba(175,192,255,0.4);">✦</span>
+            <div style="flex-grow: 1; height: 1px; background: linear-gradient(to left, transparent, ${color.separator}, transparent);"></div>
+        </div>`;
+                        }
+                        logEntry += `<div class="chat-message-container" style="display:flex; flex-direction:column; align-items: center; font-family: 'Nanum Myeongjo', serif; text-align:center; margin-bottom:28px;">`;
+                        logEntry += fantasyAvatarHtml;
+                        logEntry += `<strong style="color:${color.nameColor}; font-weight:400; font-size:1.4em; margin-top: 0.6em; letter-spacing: 1.5px; text-shadow: 0 0 10px rgba(255, 201, 120, 0.6);">${name}</strong>`;
+                        // ▼▼▼ [수정] 아래 div에서 배경, 패딩, 테두리 등 말풍선 스타일 제거 ▼▼▼
+                        logEntry += `<div style="color:${color.text}; line-height: 1.85; font-size: 1.1em; text-align: justify; margin-top: 1.2em; max-width: 85%;">${messageHtml}</div>`;
+                        // ▲▲▲ [수정] 여기까지 ▲▲▲
+                        logEntry += `</div>`;
+                        break;
+                    // ▼▼▼ [추가] 판타지 2 테마 렌더링 로직 ▼▼▼
+                    case 'fantasy2':
+                        const fantasy2Font = `'Nanum Myeongjo', serif`;
+                        let fantasy2AvatarHtml = '';
+                        if (showAvatar) {
+                             const baseStyle = `width:40px;height:40px;min-width:40px;border-radius:50%;border:2px solid ${color.avatarBorder}; box-shadow: ${color.shadow}; filter: sepia(0.3);`;
+                            if (avatarSrc) {
+                                fantasy2AvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background:url('${avatarSrc}');background-size:cover;background-position:center;"></div>`;
+                            } else {
+                                const letter = isUser ? 'U' : name.charAt(0).toUpperCase();
+                                fantasy2AvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background-color: ${color.border}; display:flex;align-items:center;justify-content:center;"><span style="color:${color.text};font-weight:bold;font-size:1.2em; font-family: ${fantasy2Font};">${letter}</span></div>`;
+                            }
+                        }
+                        
+                        if (index > 0) {
+                            logEntry += `
+                                <div style="display:flex; align-items: center; text-align: center; margin: 1.5em auto; max-width: 60%;">
+                                    <div style="flex-grow: 1; height: 1px; background: linear-gradient(to right, transparent, ${color.separator});"></div>
+                                    <span style="padding: 0 0.8em; color: ${color.separator}; font-size: 1em; font-family: ${fantasy2Font};">§</span>
+                                    <div style="flex-grow: 1; height: 1px; background: linear-gradient(to left, transparent, ${color.separator});"></div>
+                                </div>`;
+                        }
+
+                        const textAlign = isUser ? 'right' : 'left';
+                        logEntry += `<div class="chat-message-container" style="display:flex; flex-direction: ${isUser ? 'row-reverse' : 'row'}; align-items:flex-start; gap: 12px; font-family: ${fantasy2Font}; margin-bottom:1em;">`;
+                        logEntry += fantasy2AvatarHtml;
+                        logEntry += `<div style="flex:1; text-align: ${textAlign};">`;
+                        logEntry += `<strong style="color:${color.nameColor}; font-weight:700; font-size:1.1em; letter-spacing: 0.5px;">${name}</strong>`;
+                        logEntry += `<div style="color:${color.text}; line-height: 1.8; font-size: 1em; margin-top: 0.4em;">${messageHtml}</div>`;
+                        logEntry += `</div></div>`;
+                        break;
+                    // ▲▲▲ [추가] 여기까지 ▲▲▲
+                    case 'log': // ... (기존 로그 테마와 동일) ...
+                        logEntry += `<div class="chat-message-container" style="padding: 10px 0; border-bottom: 1px solid ${color.border};">`;
+                        logEntry += `<strong style="color:${color.nameColor}; font-weight:600;">${name}: </strong>`;
+                        logEntry += `<span style="color:${color.text}; line-height:1.8;">${messageHtml.replace(/<[^>]+>/g, ' ')}</span>`;
+                        logEntry += `</div>`;
+                        break;
+
+                    case 'basic':
+                    default: // ... (기존 기본 테마와 동일) ...
+                        const cardBgColor = isUser ? color.cardBgUser : color.cardBg;
+                        logEntry += `<div class="chat-message-container" style="display:flex;align-items:flex-start;margin-bottom:28px; ${isUser ? 'flex-direction:row-reverse;' : ''}">`;
+                        logEntry += avatarHtml;
+                        logEntry += `<div style="flex:1;">`;
+                        logEntry += `<strong style="color:${color.nameColor};font-weight:600;font-size:0.95em;display:block;margin-bottom:8px;text-align:${isUser ? 'right;' : 'left;'}">${name}</strong>`;
+                        if (showBubble) {
+                            logEntry += `<div style="background-color:${cardBgColor};border-radius:16px;padding:14px 18px;box-shadow:${color.shadow};border:1px solid ${color.border};color:${color.text};line-height:1.8;word-wrap:break-word;position:relative;">${messageHtml}</div>`;
+                        } else {
+                            logEntry += `<div style="color:${color.text};line-height:1.8;word-wrap:break-word;padding: 0 4px;">${messageHtml}</div>`;
+                        }
+                        logEntry += '</div></div>';
+                        break;
+                }
     
                 log += logEntry;
             }
     
-            // [수정] 이제 이 함수는 순수한 로그 HTML 덩어리만 반환합니다.
-            // 전체 로그를 배경과 둥근 모서리가 있는 컨테이너로 감싸기
-            const containerStyle = `
-                background-color: ${theme.background};
-                border-radius: 16px;
-                padding: 24px;
-                box-shadow: ${theme.shadow};
-                border: 1px solid ${theme.border};
+            // 전체 컨테이너 스타일
+            let containerStyle = `
                 margin: 16px auto;
                 max-width: 900px;
+                background-color: ${color.background};
+                border: 1px solid ${color.border};
+                box-shadow: ${color.shadow || 'none'};
+                padding: 24px 32px;
+                border-radius: ${selectedThemeKey === 'log' ? '8px' : '12px'};
             `;
+
+            // 테마별 최종 컨테이너 장식
+            if (selectedThemeKey === 'modern') {
+                containerStyle += `background-image: linear-gradient(145deg, ${color.background}, #2c2f33);`;
+            }
+            if (selectedThemeKey === 'fantasy') {
+                containerStyle += `font-family:${fantasyFont}; border-image: linear-gradient(to bottom, ${color.border}, ${color.separator}) 1; border-width: 2px; border-style: solid;
+            background-image: radial-gradient(ellipse at top, rgba(74, 85, 140, 0.3), transparent 60%), radial-gradient(ellipse at bottom, rgba(74, 85, 140, 0.2), transparent 70%);`;
+            }
+            // ▼▼▼ [추가] 판타지 2 컨테이너 스타일 ▼▼▼
+            if (selectedThemeKey === 'fantasy2') {
+                containerStyle += `font-family:${fantasyFont}; border-color: ${color.border};`;
+            }
     
-            console.log(`[Log Exporter] generateBasicFormatLog: '기본' 형식 로그 생성 완료.`);
-            return `<div style="${containerStyle}">${log}</div>`;
+        // [수정] 푸터 HTML 생성 로직
+        let footerHtml = '';
+        if (showFooter) {
+            footerHtml = `
+                <footer style="text-align: center; margin-top: 3em; padding-top: 1.5em; border-top: 1px solid ${color.border}; font-size: 0.8em; color: ${color.text}; opacity: 0.6;">
+                    Created by Chat Log Exporter Plugin
+                </footer>
+            `;
+        }
+
+        // [수정] 최종 return 구문에 헤더와 푸터 포함
+        return `<div style="${containerStyle}"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700&display=swap"><style>${baseTagStyles}</style>${headerHtml}${log}${footerHtml}</div>`;
         }
 
     /**
@@ -1944,17 +2120,35 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                                 <label><input type="radio" name="log-format" value="text"> 일반 텍스트</label>
                             </div>
                             <div id="basic-options-group" style="display: none;">
-                                <div id="theme-selector-container" style="display: flex; justify-content: space-between; align-items: center;">
-                                    <label for="theme-selector" style="font-size: 0.9em;">테마:</label>
-                                    <select id="theme-selector">
+                                <div id="theme-selection-group" style="display: flex; flex-direction: column; gap: 8px;">
+                                    <strong style="font-size: 0.9em;">테마:</strong>
+                                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.9em;">
                                         ${Object.entries(THEMES).map(([key, theme]) =>
-                `<option value="${key}" ${key === 'dark' ? 'selected' : ''}>${theme.name}</option>`
-            ).join('')}
+                                            `<label title="${theme.description}"><input type="radio" name="log-theme" value="${key}" ${key === 'basic' ? 'checked' : ''}> ${theme.name}</label>`
+                                        ).join('')}
+                                    </div>
+                                </div>
+                                <div id="color-selector-container" style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; transition: opacity 0.3s;">
+                                    <label for="color-selector" style="font-size: 0.9em;">색상 (기본 테마 전용):</label>
+                                    <select id="color-selector">
+                                        ${Object.entries(COLORS).map(([key, color]) =>
+                                            `<option value="${key}" ${key === 'dark' ? 'selected' : ''}>${color.name}</option>`
+                                        ).join('')}
                                     </select>
                                 </div>
-                                <div id="avatar-toggle-controls" style="display: flex; align-items: center; justify-content: space-between;">
-                                    <label style="font-size:0.9em;"><input type="checkbox" id="avatar-toggle-checkbox"> 아바타 표시</label>
-                                    <label style="font-size:0.9em;"><input type="checkbox" id="bubble-toggle-checkbox" checked> 말풍선 디자인</label>
+                                 <div id="avatar-toggle-controls" style="display: flex; align-items: center; justify-content: space-between; margin-top: 8px;">
+                                    <label style="font-size:0.9em;"><input type="checkbox" id="avatar-toggle-checkbox" checked> 아바타 표시</label>
+                                    <label style="font-size:0.9em;" title="말풍선 배경과 테두리를 표시합니다. 해제 시 텍스트만 나옵니다.">
+                                        <input type="checkbox" id="bubble-toggle-checkbox" checked> 말풍선 표시
+                                    </label>
+                                </div>
+                                <div id="extra-elements-controls" style="display: flex; align-items: center; justify-content: space-between; margin-top: 8px; padding-top: 8px; border-top: 1px solid #414868;">
+                                    <label style="font-size:0.9em;" title="캐릭터 이름과 채팅 제목을 표시합니다.">
+                                        <input type="checkbox" id="header-toggle-checkbox" checked> 헤더 표시
+                                    </label>
+                                    <label style="font-size:0.9em;" title="플러그인 크레딧을 표시합니다.">
+                                        <input type="checkbox" id="footer-toggle-checkbox" checked> 푸터 표시
+                                    </label>
                                 </div>
                             </div>
                             <div id="image-scale-controls" style="display: none;">
@@ -2048,9 +2242,13 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
             const styleToggleCheckbox = modal.querySelector('#style-toggle-checkbox');
             const filterControls = modal.querySelector('#filter-controls');
             const filterToggleCheckbox = modal.querySelector('#filter-toggle-checkbox');
-            const themeSelector = modal.querySelector('#theme-selector');
+            const colorSelector = modal.querySelector('#color-selector');
             const expandHoverCheckbox = modal.querySelector('#expand-hover-elements-checkbox');
+            const colorSelectorContainer = modal.querySelector('#color-selector-container');
             
+            const headerToggleCheckbox = modal.querySelector('#header-toggle-checkbox');
+            const footerToggleCheckbox = modal.querySelector('#footer-toggle-checkbox');
+            const bubbleToggleCheckbox = modal.querySelector('#bubble-toggle-checkbox');
             // [수정] 옵션 그룹 컨테이너 변수 추가
             const basicOptionsGroup = modal.querySelector('#basic-options-group');
             const imageScaleControls = modal.querySelector('#image-scale-controls');
@@ -2104,7 +2302,7 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
              * @returns {string} 완전한 HTML 래퍼 문자열.
              */
             const buildFullHtml = (content, theme = 'dark', applyStyles = true) => {
-                const selectedTheme = THEMES[theme] || THEMES.dark;
+                const selectedTheme = COLORS[theme] || COLORS.dark;
 
                 // 참가자 이름 색상을 강제로 적용하기 위해 content를 수정
                 let modifiedContent = content;
@@ -2179,9 +2377,9 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
             async function updatePreview() {
                 console.log('[Log Exporter] updatePreview: 미리보기 업데이트 시작 (Shadow DOM 방식)');
                 arcaHelperSection.style.display = 'none';
-                const bubbleToggleCheckbox = modal.querySelector('#bubble-toggle-checkbox');
                 const selectedFormat = modal.querySelector('input[name="log-format"]:checked').value;
-                const selectedTheme = themeSelector.value;
+                const selectedThemeKey = modal.querySelector('input[name="log-theme"]:checked').value;
+                const selectedColorKey = colorSelector.value;
 
                 arcaHelperToggleBtn.style.display = (selectedFormat === 'basic') ? 'inline-block' : 'none';
 
@@ -2205,7 +2403,7 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                 const rawBtn = modal.querySelector('#log-exporter-raw-toggle');
                 rawBtn.style.display = (selectedFormat === 'html' || selectedFormat === 'basic') ? 'inline-block' : 'none';
 
-                previewEl.style.backgroundColor = THEMES.dark.background;
+                previewEl.style.backgroundColor = COLORS.dark.background;
 
                 if (selectedFormat === 'html') {
                     filterControls.style.display = 'none';
@@ -2259,10 +2457,22 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                     // ... (이 부분은 수정 없음)
                     filterControls.style.display = 'flex';
                     saveFileBtn.style.display = 'none';
-                    const content = await generateBasicFormatLog(filteredNodes, selectedTheme, true, avatarToggleCheckbox.checked, bubbleToggleCheckbox.checked);
+                    // [수정] 헤더에 필요한 캐릭터 정보를 객체로 묶음
+                    const charInfo = { name: charName, chatName: chatName, avatarUrl: charAvatarUrl };
+                    const content = await generateBasicFormatLog(
+                        filteredNodes, 
+                        charInfo, // 캐릭터 정보 전달
+                        selectedThemeKey, 
+                        selectedColorKey, 
+                        avatarToggleCheckbox.checked,
+                        headerToggleCheckbox.checked,
+                        footerToggleCheckbox.checked,
+                        bubbleToggleCheckbox.checked
+                    );
                     lastGeneratedHtml = content;
-                    const theme = THEMES[selectedTheme] || THEMES.dark;
-                    previewEl.style.backgroundColor = theme.background;
+                    const themeInfo = THEMES[selectedThemeKey] || THEMES.basic;
+                    const color = (selectedThemeKey === 'basic') ? (COLORS[selectedColorKey] || COLORS.dark) : themeInfo.color;
+                    previewEl.style.backgroundColor = color.background;
 
                     if (isRawMode) {
                         previewEl.innerHTML = `<pre style="white-space: pre-wrap; word-wrap: break-word; font-family: monospace; font-size: 0.85em;">${content.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre>`;
@@ -2311,12 +2521,36 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                 });
             }
 
-            modal.querySelectorAll('input[name="log-format"], #style-toggle-checkbox, #filter-toggle-checkbox, .participant-filter-checkbox, #avatar-toggle-checkbox, #bubble-toggle-checkbox, #expand-hover-elements-checkbox').forEach(el => {
+            // 테마 변경 시 색상 선택 활성화/비활성화 로직을 추가합니다.
+            const themeRadios = modal.querySelectorAll('input[name="log-theme"]');
+            // ▼▼▼ [수정] handleThemeChange 함수 ▼▼▼
+            const handleThemeChange = () => {
+                const selectedTheme = modal.querySelector('input[name="log-theme"]:checked').value;
+                const isBasicTheme = selectedTheme === 'basic';
+                
+                // 색상 선택기 활성화/비활성화
+                colorSelector.disabled = !isBasicTheme;
+                colorSelectorContainer.style.opacity = isBasicTheme ? '1' : '0.5';
+
+                // '말풍선 표시' 체크박스 활성화/비활성화
+                const bubbleToggleLabel = bubbleToggleCheckbox.parentElement;
+                bubbleToggleCheckbox.disabled = !isBasicTheme;
+                if (bubbleToggleLabel) {
+                    bubbleToggleLabel.style.opacity = isBasicTheme ? '1' : '0.5';
+                    bubbleToggleLabel.style.cursor = isBasicTheme ? 'pointer' : 'not-allowed';
+                }
+
+                updatePreview();
+            };
+            // ▲▲▲ [수정] 여기까지 ▲▲▲
+            themeRadios.forEach(radio => radio.addEventListener('change', handleThemeChange));
+
+
+            modal.querySelectorAll('input[name="log-format"], input[name="log-theme"], #style-toggle-checkbox, #filter-toggle-checkbox, .participant-filter-checkbox, #avatar-toggle-checkbox, #header-toggle-checkbox, #footer-toggle-checkbox, #bubble-toggle-checkbox, #expand-hover-elements-checkbox').forEach(el => {
                 el.addEventListener('change', updatePreview);
             });
-            themeSelector.addEventListener('change', updatePreview);
-
-            updatePreview();
+            colorSelector.addEventListener('change', updatePreview);
+            handleThemeChange();
 
             const closeModal = () => modal.remove();
             modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
@@ -2443,10 +2677,10 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                         if (selectedClasses.length > 0) nodesForTemplate = filteredNodes.map(node => filterWithCustomClasses(node, selectedClasses));
                     }
 
-                    const selectedTheme = themeSelector.value;
+                    const selectedColorKey = colorSelector.value;
                     const showAvatar = avatarToggleCheckbox.checked;
-                    const useBubbleDesign = modal.querySelector('#bubble-toggle-checkbox').checked;
-                    const template = await generateArcaLiveTemplate(nodesForTemplate, selectedTheme, showAvatar, useBubbleDesign);
+                    const useBubbleDesign = true; // This is now part of 'modern' theme, but arca template is based on it.
+                    const template = await generateArcaLiveTemplate(nodesForTemplate, selectedColorKey, showAvatar, useBubbleDesign);
                     arcaTemplateHtml.value = template;
                 }
             });
@@ -2478,7 +2712,7 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                         const imageUrl = imageUrls[index];
                         if (type.startsWith('ARCA_AVATAR_PLACEHOLDER')) {
                             const isUser = isUserStr === 'true';
-                            const theme = THEMES[themeSelector.value] || THEMES.dark;
+                            const theme = COLORS[colorSelector.value] || COLORS.dark;
                             return `<img src="${imageUrl}" style="${ARCA_IMG_STYLES.avatar(theme, isUser)}">`;
                         } else {
                             return `<img src="${imageUrl}" style="${ARCA_IMG_STYLES.content}">`;
@@ -2519,7 +2753,8 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
             modal.querySelector('#log-exporter-copy').addEventListener('click', async () => {
                 let filteredNodes = getFilteredNodes();
                 const selectedFormat = modal.querySelector('input[name="log-format"]:checked').value;
-                const selectedTheme = themeSelector.value;
+                const selectedThemeKey = modal.querySelector('input[name="log-theme"]:checked').value;
+                const selectedColorKey = colorSelector.value;
 
                 if (selectedFormat !== 'html' && filterToggleCheckbox.checked && customFilterSection) {
                     const selectedClasses = Array.from(modal.querySelectorAll('.custom-filter-class:checked')).map(cb => cb.dataset.class);
@@ -2542,7 +2777,17 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                     if (format === 'html') {
                         htmlContent = await generateHtmlFromNodes(nodes, styleToggleCheckbox.checked, false);
                     } else if (format === 'basic') {
-                        htmlContent = await generateBasicFormatLog(nodes, theme, false, showAvatar);
+                        const charInfo = { name: charName, chatName: chatName, avatarUrl: charAvatarUrl };
+                        htmlContent = await generateBasicFormatLog(
+                            nodes,
+                            charInfo,
+                            selectedThemeKey,
+                            theme,
+                            showAvatar,
+                            headerToggleCheckbox.checked,
+                            footerToggleCheckbox.checked,
+                            bubbleToggleCheckbox.checked
+                        );
                     } else {
                         return '';
                     }
@@ -2561,7 +2806,7 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                     });
 
                     // 참가자 이름 색상 강제 적용
-                    const selectedThemeObj = THEMES[theme] || THEMES.dark;
+                    const selectedThemeObj = COLORS[theme] || COLORS.dark;
                     tempDiv.querySelectorAll('.unmargin.text-xl').forEach(nameEl => {
                         const parentNode = nameEl.closest('.chat-message-container');
                         const isUser = parentNode && parentNode.classList.contains('justify-end');
@@ -2577,7 +2822,7 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                     // --- 수정 끝 ---
 
                     if (format === 'basic') {
-                        const selectedThemeObj = THEMES[theme] || THEMES.dark;
+                        const selectedThemeObj = COLORS[theme] || COLORS.dark;
                         tempDiv.querySelectorAll('[style*="background: url"]').forEach(el => {
                             el.style.background = selectedThemeObj.avatarBorder;
                         });
@@ -2592,7 +2837,7 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                     toCopy = lastGeneratedHtml;
                     copyFormat = 'text';
                 } else if (selectedFormat === 'html' || selectedFormat === 'basic') {
-                    const htmlBody = await generateHtmlForCopy(filteredNodes, selectedFormat, selectedTheme);
+                    const htmlBody = await generateHtmlForCopy(filteredNodes, selectedFormat, selectedColorKey);
                     const fullHtml = `<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"></head><body style="margin:0;padding:0;">${htmlBody}</body></html>`;
                     toCopy = fullHtml;
                     copyFormat = 'html';
