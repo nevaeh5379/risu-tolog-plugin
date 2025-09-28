@@ -583,7 +583,13 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
 
             // 아카라이브 모드에서는 순서가 중요하므로, HTML 생성 후 순서대로 수집
             if (sequentialNaming) {
-                const baseHtml = await generateBasicFormatLog(nodes, 'dark', false, showAvatar, true); // embedImagesAsBase64=false
+                // [수정] generateBasicFormatLog 호출 시 두 번째 인자로 charInfo 객체를 전달하도록 수정
+                const charInfoForLog = {
+                    name: charName,
+                    chatName: chatName,
+                    avatarUrl: '' // 아바타 URL은 이 컨텍스트에서 직접 사용되지 않으므로 빈 값으로 전달
+                };
+                const baseHtml = await generateBasicFormatLog(nodes, charInfoForLog, 'basic', 'dark', showAvatar, false, false, true, true);
                 const tempDiv = document.createElement('div');
                 tempDiv.innerHTML = baseHtml;
 
@@ -689,6 +695,8 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
             .log-exporter-msg-btn:hover { color: #7aa2f7; }
             #filter-controls { display: none; margin-left: auto; align-items: center; gap: 12px; }
             #theme-selector { padding: 4px 8px; background: #1a1b26; color: #c0caf5; border: 1px solid #414868; border-radius: 4px; cursor: pointer; font-size: 0.9em; }
+            #color-selector { padding: 4px 8px; background: #1a1b26; color: #c0caf5; border: 1px solid #414868; border-radius: 4px; cursor: pointer; font-size: 0.9em; }
+            #theme-selector:hover, #color-selector:hover { border-color: #565f89; }
             #theme-selector:hover { border-color: #565f89; }
             .arca-helper-section { display: none; flex-direction: column; gap: 8px; background-color: #1a1b26; padding: 12px; border-radius: 8px; border: 1px solid #7aa2f7; margin-top: 8px; }
             .arca-helper-section h4 { margin: 0 0 8px 0; color: #7aa2f7; }
@@ -1291,7 +1299,7 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
          * @param {boolean} [showBubble=true] - 말풍선을 표시할지 여부.
          * @returns {Promise<string>} 포맷된 채팅 로그를 나타내는 HTML 문자열.
          */
-        async function generateBasicFormatLog(nodes, charInfo, selectedThemeKey = 'basic', selectedColorKey = 'dark', showAvatar = true, showHeader = true, showFooter = true, showBubble = true) {
+        async function generateBasicFormatLog(nodes, charInfo, selectedThemeKey = 'basic', selectedColorKey = 'dark', showAvatar = true, showHeader = true, showFooter = true, showBubble = true, isForArca = false) {
             console.log(`[Log Exporter] generateBasicFormatLog: 테마: ${selectedThemeKey}, 헤더: ${showHeader}, 푸터: ${showFooter}`);
             
             const themeInfo = THEMES[selectedThemeKey] || THEMES.basic;
@@ -1311,22 +1319,22 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
             hr { border: 0; height: 1px; background-color: ${color.border}; margin: 1.5em 0; }
         `;
 
-        // [수정] 헤더 HTML 생성 로직
-        let headerHtml = '';
-        if (showHeader) {
-            const charAvatarBase64 = await imageUrlToBase64(charInfo.avatarUrl);
-            const headerStyles = `
-                text-align:center; padding-bottom:1.5em; margin-bottom:2em;
-                border-bottom: 2px solid ${color.border};
-            `;
-            headerHtml = `
-                <header style="${headerStyles}">
-                    <img src="${charAvatarBase64}" style="width:80px; height:80px; border-radius:50%; object-fit:cover; margin:0 auto 1em; display:block; border: 3px solid ${color.avatarBorder}; box-shadow: ${color.shadow};">
-                    <h1 style="color: ${color.nameColor}; margin: 0 0 0.25em 0; font-size: 1.8em; letter-spacing: 1px;">${charInfo.name}</h1>
-                    <p style="color: ${color.text}; opacity: 0.8; margin: 0; font-size: 0.9em;">${charInfo.chatName}</p>
-                </header>
-            `;
-        }
+            // [수정] 헤더 HTML 생성 로직
+            const generateHeaderHtml = async () => {
+                if (!showHeader) return '';
+                const charAvatarBase64 = await imageUrlToBase64(charInfo.avatarUrl);
+                const headerStyles = `
+                    text-align:center; padding-bottom:1.5em; margin-bottom:2em;
+                    border-bottom: 2px solid ${color.border};
+                `;
+                return `
+                    <header style="${headerStyles}">
+                        <img src="${charAvatarBase64}" style="width:80px; height:80px; border-radius:50%; object-fit:cover; margin:0 auto 1em; display:block; border: 3px solid ${color.avatarBorder}; box-shadow: ${color.shadow};">
+                        <h1 style="color: ${color.nameColor}; margin: 0 0 0.25em 0; font-size: 1.8em; letter-spacing: 1px;">${charInfo.name}</h1>
+                        <p style="color: ${color.text}; opacity: 0.8; margin: 0; font-size: 0.9em;">${charInfo.chatName}</p>
+                    </header>
+                `;
+            };
 
             let log = '';
             const avatarMap = await collectCharacterAvatars(nodes, false);
@@ -1345,13 +1353,18 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
                 
                 // [핵심 수정] RisuAI 전용 서식(인용, 생각 등) 스타일링 로직 추가
                 const styleBlock = (el, bg, textColor, border = null) => {
-                    const newBlock = document.createElement('blockquote');
-                    newBlock.innerHTML = el.innerHTML;
+                    const newBlock = document.createElement('div');
+                    newBlock.innerHTML = `<div style="padding:0; margin:0;">${el.innerHTML}</div>`;
+                    // [핵심 수정] 스타일 제거를 우회하기 위해 구형 bgcolor 속성을 직접 설정
+                    newBlock.setAttribute('bgcolor', bg);
                     Object.assign(newBlock.style, {
-                        backgroundColor: bg, color: textColor,
                         padding: '0.75em 1em', margin: '0.75em 0',
                         borderRadius: '4px', borderLeft: `3px solid ${border || 'transparent'}`
                     });
+                    // 기존 CSS 속성도 유지하여 호환성 확보
+                    newBlock.style.setProperty('background-color', bg );
+                    newBlock.style.setProperty('color', textColor);
+
                     el.replaceWith(newBlock);
                 };
                 
@@ -1423,12 +1436,10 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
             <div style="flex-grow: 1; height: 1px; background: linear-gradient(to left, transparent, ${color.separator}, transparent);"></div>
         </div>`;
                         }
-                        logEntry += `<div class="chat-message-container" style="display:flex; flex-direction:column; align-items: center; font-family: 'Nanum Myeongjo', serif; text-align:center; margin-bottom:28px;">`;
+                        logEntry += `<div class="chat-message-container" style="display:flex; flex-direction:column; align-items: center; ${!isForArca ? `font-family: ${fantasyFont};` : ''} text-align:center; margin-bottom:28px;">`;
                         logEntry += fantasyAvatarHtml;
                         logEntry += `<strong style="color:${color.nameColor}; font-weight:400; font-size:1.4em; margin-top: 0.6em; letter-spacing: 1.5px; text-shadow: 0 0 10px rgba(255, 201, 120, 0.6);">${name}</strong>`;
-                        // ▼▼▼ [수정] 아래 div에서 배경, 패딩, 테두리 등 말풍선 스타일 제거 ▼▼▼
-                        logEntry += `<div style="color:${color.text}; line-height: 1.85; font-size: 1.1em; text-align: justify; margin-top: 1.2em; max-width: 85%;">${messageHtml}</div>`;
-                        // ▲▲▲ [수정] 여기까지 ▲▲▲
+                        logEntry += `<div style="color:${color.text}; line-height: 1.85; font-size: 1.1em; text-align: justify; margin-top: 1.2em; max-width: 85%; margin-left: auto; margin-right: auto; background-color: ${isUser ? color.cardBgUser : color.cardBg}; padding: 14px 18px; border-radius: 12px; border: 1px solid ${color.border}; box-shadow: ${color.shadow};">${messageHtml}</div>`;
                         logEntry += `</div>`;
                         break;
                     // ▼▼▼ [추가] 판타지 2 테마 렌더링 로직 ▼▼▼
@@ -1455,7 +1466,7 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
                         }
 
                         const textAlign = isUser ? 'right' : 'left';
-                        logEntry += `<div class="chat-message-container" style="display:flex; flex-direction: ${isUser ? 'row-reverse' : 'row'}; align-items:flex-start; gap: 12px; font-family: ${fantasy2Font}; margin-bottom:1em;">`;
+                        logEntry += `<div class="chat-message-container" style="display:flex; flex-direction: ${isUser ? 'row-reverse' : 'row'}; align-items:flex-start; gap: 12px; ${!isForArca ? `font-family: ${fantasy2Font};` : ''} margin-bottom:1em;">`;
                         logEntry += fantasy2AvatarHtml;
                         logEntry += `<div style="flex:1; text-align: ${textAlign};">`;
                         logEntry += `<strong style="color:${color.nameColor}; font-weight:700; font-size:1.1em; letter-spacing: 0.5px;">${name}</strong>`;
@@ -1505,26 +1516,33 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
                 containerStyle += `background-image: linear-gradient(145deg, ${color.background}, #2c2f33);`;
             }
             if (selectedThemeKey === 'fantasy') {
-                containerStyle += `font-family:${fantasyFont}; border-image: linear-gradient(to bottom, ${color.border}, ${color.separator}) 1; border-width: 2px; border-style: solid;
+                containerStyle += `${!isForArca ? `font-family:${fantasyFont};` : ''} border-image: linear-gradient(to bottom, ${color.border}, ${color.separator}) 1; border-width: 2px; border-style: solid;
             background-image: radial-gradient(ellipse at top, rgba(74, 85, 140, 0.3), transparent 60%), radial-gradient(ellipse at bottom, rgba(74, 85, 140, 0.2), transparent 70%);`;
             }
             // ▼▼▼ [추가] 판타지 2 컨테이너 스타일 ▼▼▼
             if (selectedThemeKey === 'fantasy2') {
-                containerStyle += `font-family:${fantasyFont}; border-color: ${color.border};`;
+                containerStyle += `${!isForArca ? `font-family:${fantasyFont};` : ''} border-color: ${color.border};`;
             }
-    
-        // [수정] 푸터 HTML 생성 로직
-        let footerHtml = '';
-        if (showFooter) {
-            footerHtml = `
-                <footer style="text-align: center; margin-top: 3em; padding-top: 1.5em; border-top: 1px solid ${color.border}; font-size: 0.8em; color: ${color.text}; opacity: 0.6;">
-                    Created by Chat Log Exporter Plugin
-                </footer>
-            `;
-        }
 
-        // [수정] 최종 return 구문에 헤더와 푸터 포함
-        return `<div style="${containerStyle}"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700&display=swap"><style>${baseTagStyles}</style>${headerHtml}${log}${footerHtml}</div>`;
+            // [수정] 푸터 HTML 생성 로직
+            const generateFooterHtml = () => {
+                if (!showFooter) return '';
+                return `
+                    <footer style="text-align: center; margin-top: 3em; padding-top: 1.5em; border-top: 1px solid ${color.border}; font-size: 0.8em; color: ${color.text}; opacity: 0.6;">
+                        Created by Chat Log Exporter Plugin
+                    </footer>
+                `;
+            };
+
+            // [수정] 최종 return 구문에 헤더와 푸터 포함
+            const headerHtml = await generateHeaderHtml();
+            const footerHtml = generateFooterHtml();
+            let finalHtml = `<div style="${containerStyle}"><style>${baseTagStyles}</style>${headerHtml}${log}${footerHtml}</div>`;
+            if (selectedThemeKey === 'fantasy' || selectedThemeKey === 'fantasy2') {
+                const fontLink = `<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700&display=swap">`;
+                finalHtml = fontLink + finalHtml;
+            }
+            return finalHtml;
         }
 
     /**
@@ -1648,38 +1666,80 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
  */
 
 async function savePreviewAsImage(previewContainer, onProgress, cancellationToken, charName, chatName, useHighRes = false, baseFontSize = 16, imageWidth = 900) {
-    console.log(`[Log Exporter] savePreviewAsImage: 이미지 저장을 시작합니다.`, { useHighRes, baseFontSize, imageWidth, charName });
+    console.log(`[Log Exporter] savePreviewAsImage: 이미지 저장을 시작합니다. (v3, SVG 경유 방식)`);
     const MAX_SAFE_CANVAS_HEIGHT = 30000;
 
-    let captureTarget = previewContainer.firstElementChild;
-    if (!captureTarget) return false;
-    
+    // 캡처 대상이 될 실제 콘텐츠 div를 정확히 찾습니다.
+    let captureTarget = previewContainer.querySelector('div:not([style*="display: none"])');
+    if (!captureTarget) {
+        alert('이미지 저장 실패: 캡처할 콘텐츠를 찾을 수 없습니다.', 'error');
+        return false;
+    }
+
     if (captureTarget.shadowRoot) {
         captureTarget = captureTarget.shadowRoot.querySelector('.preview-wrapper') || captureTarget.shadowRoot.firstElementChild || captureTarget;
     }
-
+    
+    // 복원을 위해 원본 스타일 속성을 저장합니다.
     const rootHtml = document.documentElement;
-    // 나중에 복원할 원본 스타일 저장
     const originalStyles = {
-        preview: { width: previewContainer.style.width, height: previewContainer.style.height, maxHeight: previewContainer.style.maxHeight, overflowY: previewContainer.style.overflowY, padding: previewContainer.style.padding, border: previewContainer.style.border },
-        target: { width: captureTarget.style.width },
-        rootHtml: { fontSize: rootHtml.style.fontSize }
+        preview: { styleAttribute: previewContainer.getAttribute('style') || '' },
+        target: { styleAttribute: captureTarget.getAttribute('style') || '' },
+        rootHtml: { styleAttribute: rootHtml.getAttribute('style') || '' }
     };
     
     const domReplacements = [];
-    // [핵심] 분할 저장이 실패해도 복원할 수 있도록 원본 메시지 노드를 미리 저장
     const originalMessageNodes = Array.from(captureTarget.childNodes);
+
+    // [핵심] SVG를 경유하여 PNG를 생성하는 새로운 헬퍼 함수
+    const renderNodeToPngViaSvg = (node, options) => {
+        return new Promise(async (resolve, reject) => {
+            try {
+                const { pixelRatio = 1, width, height } = options;
+                const svgDataUrl = await window.__htmlToImageLib.toSvg(node, options);
+
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    // 해상도를 위해 pixelRatio를 곱해줍니다.
+                    canvas.width = width * pixelRatio;
+                    canvas.height = height * pixelRatio;
+                    
+                    const ctx = canvas.getContext('2d');
+                    // 캔버스 자체의 크기는 유지하고, 그리는 컨тент만 확대합니다.
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    
+                    resolve(canvas.toDataURL('image/png', 1.0));
+                };
+                img.onerror = (e) => {
+                    console.error("[Log Exporter] SVG 로드 실패", e);
+                    reject(new Error("Failed to load SVG into image for PNG conversion."));
+                };
+                img.src = svgDataUrl;
+
+            } catch (e) {
+                reject(e);
+            }
+        });
+    };
+
 
     try {
         await ensureHtmlToImage();
-        const htmlToImage = window.__htmlToImageLib || window.htmlToImage;
+        const fontLinkEl = previewContainer.querySelector('link[href*="fonts.googleapis.com"]');
+        if (fontLinkEl) {
+            onProgress('웹 폰트 로딩 중...', 2, 100);
+            try {
+                const fontFace = new FontFace('Nanum Myeongjo', `url(${fontLinkEl.href})`);
+                await fontFace.load();
+                document.fonts.add(fontFace);
+            } catch (fontError) { console.warn('[Log Exporter] 웹 폰트 로드 실패', fontError); }
+        }
 
-        // --- 비디오 프레임 캡처 ---
+        // ... (비디오 캡처 로직은 변경 없음) ...
         onProgress('비디오 프레임 캡처 중...', 5, 100);
         const videoElements = Array.from(captureTarget.querySelectorAll('video'));
-        
         if (videoElements.length > 0) {
-            console.log(`[Log Exporter] ${videoElements.length}개의 비디오 요소를 발견하여 프레임 캡처를 시도합니다.`);
             await Promise.all(videoElements.map(videoEl => new Promise(async (resolve) => {
                 let timeoutId = setTimeout(() => resolve(), 10000);
                 try {
@@ -1709,104 +1769,91 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                 } catch (e) { clearTimeout(timeoutId); resolve(); }
             })));
         }
-        
         domReplacements.forEach(({ parent, original, replacement }) => {
             if (parent && parent.contains(original)) parent.replaceChild(replacement, original);
         });
-        await new Promise(r => requestAnimationFrame(r));
+
         
-        // --- 캡처 준비 ---
         onProgress('렌더링 준비 중...', 10, 100);
         await document.fonts.ready;
-        const pixelRatio = useHighRes ? (window.devicePixelRatio || 2) : 1;
-        const commonOptions = { quality: 1.0, pixelRatio, backgroundColor: getComputedStyle(captureTarget).backgroundColor || '#1a1b26' };
-        
-        rootHtml.style.fontSize = `${baseFontSize}px`;
-        Object.assign(previewContainer.style, { height: 'auto', maxHeight: 'none', overflowY: 'visible', border: 'none', padding: '0', width: `${imageWidth}px` });
-        captureTarget.style.width = `${imageWidth}px`;
         await new Promise(r => requestAnimationFrame(r));
-
+        
+        const pixelRatio = useHighRes ? (window.devicePixelRatio || 2) : 1;
+        
+        // 캡처를 위해 스타일을 일시적으로 변경
+        rootHtml.style.cssText = originalStyles.rootHtml.styleAttribute + ` font-size: ${baseFontSize}px !important;`;
+        previewContainer.style.cssText = `width: ${imageWidth}px; height: auto; max-height: none; overflow-y: visible; border: none; padding: 0;`;
+        captureTarget.style.width = `${imageWidth}px`;
+        
+        // getComputedStyle을 사용해 실제 렌더링된 배경색을 가져옵니다.
+        const computedBgColor = getComputedStyle(captureTarget).backgroundColor;
+        const commonOptions = { quality: 1.0, pixelRatio, backgroundColor: computedBgColor };
+        
+        await new Promise(r => requestAnimationFrame(r));
+        
         const totalHeight = captureTarget.scrollHeight;
         const MAX_CHUNK_HEIGHT = Math.floor(MAX_SAFE_CANVAS_HEIGHT / pixelRatio) - 100;
         
-        console.log(`[Log Exporter] 캡처 준비 완료. 전체 높이: ${totalHeight}px, 분할 기준 높이: ${MAX_CHUNK_HEIGHT}px, PixelRatio: ${pixelRatio}`);
         if (totalHeight <= MAX_CHUNK_HEIGHT) {
-            onProgress('이미지 생성 중...', 50, 100);
+            onProgress('이미지 생성 중... (SVG 변환)', 50, 100);
             if (cancellationToken.cancelled) throw new Error("Cancelled");
-            const canvas = await htmlToImage.toCanvas(previewContainer, { ...commonOptions, width: imageWidth, height: totalHeight });
-            downloadImage(canvas.toDataURL('image/png', 1.0), charName, chatName);
-        } else {
-            // --- 라이브 DOM 조작을 통한 분할 저장 ---
-            const messageContainers = Array.from(captureTarget.querySelectorAll('.chat-message-container'));
-            if (messageContainers.length === 0) throw new Error("메시지 단위를 찾을 수 없어 분할 저장을 할 수 없습니다.");
-            console.log(`[Log Exporter] 로그가 너무 길어(${totalHeight}px) ${Math.ceil(totalHeight / MAX_CHUNK_HEIGHT)}개의 이미지로 분할 저장을 시작합니다.`);
-            if (!confirm(`[알림] 로그가 너무 길어 단일 이미지로 만들 수 없습니다.\n\n여러 개의 이미지 파일로 나누어 저장합니다.\n\n계속하시겠습니까?`)) return false;
+            
+            const pngDataUrl = await renderNodeToPngViaSvg(previewContainer, { ...commonOptions, width: imageWidth, height: totalHeight });
+            downloadImage(pngDataUrl, charName, chatName);
 
+        } else {
+            // ... (분할 저장 로직은 SVG 헬퍼 함수를 호출하도록 수정) ...
+            const messageContainers = Array.from(captureTarget.children).filter(el => el.classList.contains('chat-message-container'));
+            if (messageContainers.length === 0) throw new Error("분할 저장을 위한 메시지 단위를 찾을 수 없습니다.");
+            if (!confirm(`[알림] 로그가 너무 길어 단일 이미지로 만들 수 없습니다.\n\n여러 개의 이미지 파일로 나누어 저장합니다.\n\n계속하시겠습니까?`)) return false;
+            
             const groups = [];
             let currentGroup = [], accumulatedHeight = 0;
             messageContainers.forEach(msg => {
                 const msgHeight = msg.offsetHeight;
                 if (currentGroup.length > 0 && accumulatedHeight + msgHeight > MAX_CHUNK_HEIGHT) {
                     groups.push(currentGroup);
-                    currentGroup = [];
-                    accumulatedHeight = 0;
+                    currentGroup = []; accumulatedHeight = 0;
                 }
-                currentGroup.push(msg);
-                accumulatedHeight += msgHeight;
+                currentGroup.push(msg); accumulatedHeight += msgHeight;
             });
             if (currentGroup.length > 0) groups.push(currentGroup);
             
             for (let i = 0; i < groups.length; i++) {
                 if (cancellationToken.cancelled) throw new Error("Cancelled");
                 onProgress(`이미지 ${i + 1}/${groups.length} 렌더링 중...`, i, groups.length);
-
-                // 1. 미리보기 창을 비움
                 while (captureTarget.firstChild) captureTarget.removeChild(captureTarget.firstChild);
-                
-                // 2. 현재 그룹의 노드만 다시 삽입
                 groups[i].forEach(msgNode => captureTarget.appendChild(msgNode));
-                
                 await new Promise(r => requestAnimationFrame(r));
                 
-                // 3. 현재 보이는 부분만 캡처
                 const currentChunkHeight = captureTarget.scrollHeight;
-                console.log(`[Log Exporter] 분할 이미지 ${i + 1} 캡처 중... (높이: ${currentChunkHeight}px)`);
-                const canvas = await htmlToImage.toCanvas(previewContainer, { ...commonOptions, width: imageWidth, height: currentChunkHeight });
-                downloadImage(canvas.toDataURL('image/png', 1.0), charName, chatName, { partNumber: i + 1, showCompletionAlert: false });
-                
+                const pngDataUrl = await renderNodeToPngViaSvg(previewContainer, { ...commonOptions, width: imageWidth, height: currentChunkHeight });
+                downloadImage(pngDataUrl, charName, chatName, { partNumber: i + 1, showCompletionAlert: false });
                 await new Promise(r => setTimeout(r, 100));
             }
-
-            if (!cancellationToken.cancelled) {
-                alert(`${groups.length}개의 이미지로 분할하여 저장되었습니다.`, 'success');
-            }
+            if (!cancellationToken.cancelled) alert(`${groups.length}개의 이미지로 분할하여 저장되었습니다.`, 'success');
         }
         return true;
 
     } catch (e) {
         if (e.message !== "Cancelled") {
-            console.error('[Log Exporter] 이미지 저장 중 심각한 오류가 발생했습니다. 아래 오류 내용을 개발자에게 전달해주세요.', e);
+            console.error('[Log Exporter] 이미지 저장 중 심각한 오류 발생:', e);
             alert('이미지 저장 중 오류가 발생했습니다. 개발자 콘솔(F12)을 확인해주세요.', 'error');
         }
         return false;
     } finally {
-        // --- 최종 정리 및 완벽 복원 ---
-        console.log("[Log Exporter] 이미지 저장 절차를 종료하고 원본 상태로 복원합니다.");
-        
-        // 1. 비디오 이미지 대체를 되돌림
+        // 모든 변경사항을 원본 스타일로 완벽하게 복원합니다.
+        console.log("[Log Exporter] 이미지 저장 절차 종료 및 원본 상태 복원.");
         domReplacements.forEach(({ original, parent, replacement, objectURL }) => {
             if (parent && parent.contains(replacement)) parent.replaceChild(original, replacement);
             if (objectURL) URL.revokeObjectURL(objectURL);
         });
-        
-        // 2. 미리보기 창을 비우고, 미리 저장해둔 원본 메시지 노드 전체를 복원
         while (captureTarget.firstChild) captureTarget.removeChild(captureTarget.firstChild);
         originalMessageNodes.forEach(node => captureTarget.appendChild(node));
-
-        // 3. 모든 스타일을 원상 복구
-        Object.assign(previewContainer.style, originalStyles.preview);
-        Object.assign(captureTarget.style, originalStyles.target);
-        Object.assign(rootHtml.style, originalStyles.rootHtml);
+        
+        previewContainer.setAttribute('style', originalStyles.preview.styleAttribute);
+        captureTarget.setAttribute('style', originalStyles.target.styleAttribute);
+        rootHtml.setAttribute('style', originalStyles.rootHtml.styleAttribute);
     }
 }
     /**
@@ -2017,11 +2064,12 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
      * 아카라이브용 HTML 템플릿을 생성합니다.
      * <img> 태그를 고유한 자리표시자 주석으로 교체합니다.
      */
-    async function generateArcaLiveTemplate(nodes, themeKey = 'dark', showAvatar = true, useBubbleDesign = true) {
+    async function generateArcaLiveTemplate(nodes, charInfo, themeKey = 'basic', colorKey = 'dark', showAvatar = true) {
         console.log('[Log Exporter] generateArcaLiveTemplate: 아카라이브용 템플릿 생성 시작');
         let imageCounter = 0;
 
-        const baseHtml = await generateBasicFormatLog(nodes, themeKey, false, showAvatar, useBubbleDesign);
+        // 헤더/푸터/말풍선은 아카라이브 템플릿에 포함시키지 않음 (false, false, false)
+        const baseHtml = await generateBasicFormatLog(nodes, charInfo, themeKey, colorKey, showAvatar, false, false, true, true);
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = baseHtml;
 
@@ -2121,11 +2169,13 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                             </div>
                             <div id="basic-options-group" style="display: none;">
                                 <div id="theme-selection-group" style="display: flex; flex-direction: column; gap: 8px;">
-                                    <strong style="font-size: 0.9em;">테마:</strong>
-                                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.9em;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <label for="theme-selector" style="font-size: 0.9em;">테마:</label>
+                                        <select id="theme-selector" name="log-theme">
                                         ${Object.entries(THEMES).map(([key, theme]) =>
-                                            `<label title="${theme.description}"><input type="radio" name="log-theme" value="${key}" ${key === 'basic' ? 'checked' : ''}> ${theme.name}</label>`
+                                            `<option value="${key}" title="${theme.description}" ${key === 'basic' ? 'selected' : ''}>${theme.name}</option>`
                                         ).join('')}
+                                        </select>
                                     </div>
                                 </div>
                                 <div id="color-selector-container" style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; transition: opacity 0.3s;">
@@ -2216,7 +2266,12 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                     </div>
                     
                     <button class="log-exporter-modal-btn" id="log-exporter-download-zip" style="background-color: #e0af68; color: #1a1b26;">이미지 ZIP 다운로드</button>
-                    <button class="log-exporter-modal-btn primary" id="log-exporter-copy">텍스트(서식 포함) 복사</button>
+                    <button class="log-exporter-modal-btn" id="log-exporter-copy-formatted" title="메일, 노션 등에 사용해볼 수 있지만, 대상 프로그램에 따라 서식이 깨질 수 있습니다.">
+                        서식 복사 (제한적)
+                    </button>
+                    <button class="log-exporter-modal-btn primary" id="log-exporter-copy-html" title="웹페이지, 블로그, 아카라이브 HTML 모드 등 HTML을 직접 편집할 수 있는 환경에 최적화되어 있습니다. 모든 서식과 이미지가 포함된 완전한 코드를 복사합니다.">
+                        HTML 소스 복사 (권장)
+                    </button>
                 </div>
                 <div class="log-exporter-modal-footer" id="log-exporter-progress-footer" style="display: none; flex-direction: column; align-items: stretch; gap: 10px;">
                     <div style="display: flex; justify-content: space-between; font-size: 0.9em;">
@@ -2378,7 +2433,7 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                 console.log('[Log Exporter] updatePreview: 미리보기 업데이트 시작 (Shadow DOM 방식)');
                 arcaHelperSection.style.display = 'none';
                 const selectedFormat = modal.querySelector('input[name="log-format"]:checked').value;
-                const selectedThemeKey = modal.querySelector('input[name="log-theme"]:checked').value;
+                const selectedThemeKey = modal.querySelector('select[name="log-theme"]').value;
                 const selectedColorKey = colorSelector.value;
 
                 arcaHelperToggleBtn.style.display = (selectedFormat === 'basic') ? 'inline-block' : 'none';
@@ -2522,10 +2577,10 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
             }
 
             // 테마 변경 시 색상 선택 활성화/비활성화 로직을 추가합니다.
-            const themeRadios = modal.querySelectorAll('input[name="log-theme"]');
+            const themeSelector = modal.querySelector('select[name="log-theme"]');
             // ▼▼▼ [수정] handleThemeChange 함수 ▼▼▼
             const handleThemeChange = () => {
-                const selectedTheme = modal.querySelector('input[name="log-theme"]:checked').value;
+                const selectedTheme = themeSelector.value;
                 const isBasicTheme = selectedTheme === 'basic';
                 
                 // 색상 선택기 활성화/비활성화
@@ -2543,10 +2598,10 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                 updatePreview();
             };
             // ▲▲▲ [수정] 여기까지 ▲▲▲
-            themeRadios.forEach(radio => radio.addEventListener('change', handleThemeChange));
+            themeSelector.addEventListener('change', handleThemeChange);
 
 
-            modal.querySelectorAll('input[name="log-format"], input[name="log-theme"], #style-toggle-checkbox, #filter-toggle-checkbox, .participant-filter-checkbox, #avatar-toggle-checkbox, #header-toggle-checkbox, #footer-toggle-checkbox, #bubble-toggle-checkbox, #expand-hover-elements-checkbox').forEach(el => {
+            modal.querySelectorAll('input[name="log-format"], #style-toggle-checkbox, #filter-toggle-checkbox, .participant-filter-checkbox, #avatar-toggle-checkbox, #header-toggle-checkbox, #footer-toggle-checkbox, #bubble-toggle-checkbox, #expand-hover-elements-checkbox').forEach(el => {
                 el.addEventListener('change', updatePreview);
             });
             colorSelector.addEventListener('change', updatePreview);
@@ -2645,7 +2700,8 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                 const footerControlsToToggle = [
                     modal.querySelector('#log-exporter-raw-toggle'),
                     modal.querySelector('#log-exporter-save-file'),
-                    modal.querySelector('#log-exporter-copy'),
+                    modal.querySelector('#log-exporter-copy-formatted'),
+                    modal.querySelector('#log-exporter-copy-html'),
                     modal.querySelector('#log-exporter-download-zip'),
                     ...modal.querySelectorAll('#image-export-controls button, #image-export-controls input')
                 ];
@@ -2678,9 +2734,9 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                     }
 
                     const selectedColorKey = colorSelector.value;
+                    const selectedThemeKey = themeSelector.value;
                     const showAvatar = avatarToggleCheckbox.checked;
-                    const useBubbleDesign = true; // This is now part of 'modern' theme, but arca template is based on it.
-                    const template = await generateArcaLiveTemplate(nodesForTemplate, selectedColorKey, showAvatar, useBubbleDesign);
+                    const template = await generateArcaLiveTemplate(nodesForTemplate, { name: charName, chatName: chatName, avatarUrl: charAvatarUrl }, selectedThemeKey, selectedColorKey, showAvatar);
                     arcaTemplateHtml.value = template;
                 }
             });
@@ -2749,11 +2805,11 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                 arcaFinalHtml.value = finalHtml;
                 alert(`변환 완료! ${usedUrlCount}개의 이미지 위치가 교체되었습니다. 최종 결과물을 복사하여 사용하세요.`, 'success');
             });
-
-            modal.querySelector('#log-exporter-copy').addEventListener('click', async () => {
+            
+            const setupCopyButtons = () => {
                 let filteredNodes = getFilteredNodes();
                 const selectedFormat = modal.querySelector('input[name="log-format"]:checked').value;
-                const selectedThemeKey = modal.querySelector('input[name="log-theme"]:checked').value;
+                const selectedThemeKey = modal.querySelector('select[name="log-theme"]').value;
                 const selectedColorKey = colorSelector.value;
 
                 if (selectedFormat !== 'html' && filterToggleCheckbox.checked && customFilterSection) {
@@ -2779,14 +2835,8 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                     } else if (format === 'basic') {
                         const charInfo = { name: charName, chatName: chatName, avatarUrl: charAvatarUrl };
                         htmlContent = await generateBasicFormatLog(
-                            nodes,
-                            charInfo,
-                            selectedThemeKey,
-                            theme,
-                            showAvatar,
-                            headerToggleCheckbox.checked,
-                            footerToggleCheckbox.checked,
-                            bubbleToggleCheckbox.checked
+                            nodes, charInfo, selectedThemeKey, theme, showAvatar,
+                            headerToggleCheckbox.checked, footerToggleCheckbox.checked, bubbleToggleCheckbox.checked
                         );
                     } else {
                         return '';
@@ -2794,6 +2844,21 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                     const tempDiv = document.createElement('div');
                     tempDiv.innerHTML = htmlContent;
                     tempDiv.querySelectorAll('img').forEach(img => img.remove());
+
+                    // [추가] 기본 태그 스타일을 인라인으로 주입
+                    if (format === 'basic') {
+                        const color = COLORS[theme] || COLORS.dark;
+                        const baseTagStyles = `
+                            p { margin: 0.75em 0; } a { color: ${color.nameColor}; text-decoration: none; } a:hover { text-decoration: underline; }
+                            ul, ol { padding-left: 1.5em; margin: 0.75em 0; } li { margin-bottom: 0.25em; }
+                            blockquote { border-left: 3px solid ${color.border}; padding-left: 1em; margin-left: 0; color: inherit; opacity: 0.8; }
+                            strong, b { font-weight: bold; color: ${color.nameColor}; } em, i { font-style: italic; }
+                            hr { border: 0; height: 1px; background-color: ${color.border}; margin: 1.5em 0; }`;
+                        const styleEl = document.createElement('style');
+                        styleEl.textContent = baseTagStyles;
+                        tempDiv.prepend(styleEl);
+                    }
+
                     tempDiv.querySelectorAll('[style*="background-image"]').forEach(el => el.style.backgroundImage = 'none');
 
                     // --- 수정된 부분 ---
@@ -2831,41 +2896,58 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                     return (format === 'html') ? buildFullHtml(tempDiv.innerHTML, 'dark', styleToggleCheckbox.checked) : tempDiv.innerHTML;
                 };
 
-                let toCopy, copyFormat;
-
-                if (isRawMode && (selectedFormat === 'html' || selectedFormat === 'basic')) {
-                    toCopy = lastGeneratedHtml;
-                    copyFormat = 'text';
-                } else if (selectedFormat === 'html' || selectedFormat === 'basic') {
+                const copyFormattedBtn = modal.querySelector('#log-exporter-copy-formatted');
+                copyFormattedBtn.addEventListener('click', async () => {
                     const htmlBody = await generateHtmlForCopy(filteredNodes, selectedFormat, selectedColorKey);
                     const fullHtml = `<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"></head><body style="margin:0;padding:0;">${htmlBody}</body></html>`;
-                    toCopy = fullHtml;
-                    copyFormat = 'html';
-                } else {
-                    toCopy = await generateFormattedLog(filteredNodes, selectedFormat);
-                    copyFormat = 'text';
-                }
+                    
+                    const success = await copyToClipboard(fullHtml, 'html');
 
-                const success = await copyToClipboard(toCopy, copyFormat);
-                if (success) {
-                    const copyBtn = modal.querySelector('#log-exporter-copy');
-                    const originalText = copyBtn.textContent;
-                    copyBtn.textContent = '✓ 복사 완료!';
-                    copyBtn.style.backgroundColor = '#9ece6a';
-                    setTimeout(() => {
-                        copyBtn.textContent = originalText;
-                        copyBtn.style.backgroundColor = '';
-                    }, 2000);
-                } else {
-                    alert("복사에 실패했습니다. 수동으로 복사해주세요.", "error");
-                }
-            });
+                    if (success) {
+                        const originalText = copyFormattedBtn.textContent;
+                        copyFormattedBtn.textContent = '✓ 복사 완료!';
+                        copyFormattedBtn.style.backgroundColor = '#9ece6a';
+                        setTimeout(() => {
+                            copyFormattedBtn.textContent = originalText;
+                            copyFormattedBtn.style.backgroundColor = '';
+                        }, 2000);
+                    } else {
+                        alert("복사에 실패했습니다.", "error");
+                    }
+                });
+
+                const copyHtmlBtn = modal.querySelector('#log-exporter-copy-html');
+                copyHtmlBtn.addEventListener('click', async () => {
+                    let contentToCopy = lastGeneratedHtml;
+
+                    if (selectedFormat === 'markdown' || selectedFormat === 'text') {
+                        contentToCopy = await generateFormattedLog(getFilteredNodes(), selectedFormat);
+                    }
+
+                    const success = await copyToClipboard(contentToCopy, 'text');
+
+                    if (success) {
+                        const originalText = copyHtmlBtn.textContent;
+                        copyHtmlBtn.textContent = '✓ 복사 완료!';
+                        copyHtmlBtn.style.backgroundColor = '#9ece6a';
+                        setTimeout(() => {
+                            copyHtmlBtn.textContent = originalText;
+                            copyHtmlBtn.style.backgroundColor = '';
+                        }, 2000);
+                    } else {
+                        alert("복사에 실패했습니다. 수동으로 복사해주세요.", "error");
+                    }
+                });
+            };
+
+            setupCopyButtons();
 
         } catch (e) {
             console.error('[Log Exporter] Modal open error:', e);
             alert(`오류 발생: ${e.message}`, "error");
         }
     }
+
 
     /**
      * 범위 선택 버튼 클릭을 처리합니다.
