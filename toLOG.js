@@ -248,45 +248,140 @@ const THEMES = {
             soundText: '#fec89a'
         }
     },
-    // ▼▼▼ [추가] 판타지 2 테마 ▼▼▼
     fantasy2: {
-        name: '판타지 2',
-        description: '고서나 양피지 같은 느낌을 주는 디자인입니다.',
+        name: '엘프의 숲',
+        description: '신비로운 엘프 왕국의 자연과 마법이 어우러진 신록의 디자인입니다.',
         color: {
-            background: '#f5eeda', // 양피지 배경
-            cardBg: 'transparent',
-            cardBgUser: 'transparent',
-            text: '#5a4b41', // 어두운 갈색 텍스트
-            textSecondary: '#8c7d72',
-            nameColor: '#8a3b22', // 잉크 색상
-            border: '#d4c5b0',
-            separator: '#bcae98',
-            shadow: '0 2px 5px rgba(0,0,0,0.1)',
-            avatarBorder: '#a98c6a',
-            quoteBg: 'rgba(138, 59, 34, 0.08)',
-            quoteText: '#7b4c40',
-            thoughtBg: 'rgba(90, 75, 65, 0.08)',
-            thoughtText: '#6b5d54',
-            soundBg: 'rgba(154, 126, 86, 0.1)',
-            soundText: '#8a6d4b'
+            background: 'linear-gradient(135deg, #064e3b 0%, #022c22 50%, #052e16 100%)',
+            cardBg: 'linear-gradient(145deg, rgba(34, 197, 94, 0.15), rgba(21, 128, 61, 0.1))',
+            cardBgUser: 'linear-gradient(145deg, rgba(16, 185, 129, 0.2), rgba(5, 150, 105, 0.15))',
+            text: '#d1fae5',
+            textSecondary: '#86efac',
+            nameColor: '#34d399',
+            border: 'linear-gradient(45deg, #10b981, #34d399)',
+            separator: '#6ee7b7',
+            shadow: '0 0 25px rgba(52, 211, 153, 0.2), 0 8px 32px rgba(16, 185, 129, 0.1)',
+            avatarBorder: '#34d399',
+            quoteBg: 'rgba(52, 211, 153, 0.1)',
+            quoteText: '#6ee7b7',
+            thoughtBg: 'rgba(16, 185, 129, 0.08)',
+            thoughtText: '#a7f3d0',
+            soundBg: 'rgba(251, 191, 36, 0.1)',
+            soundText: '#fde68a'
         }
     },
-    // ▲▲▲ [추가] 여기까지 ▲▲▲
+    royal: {
+        name: '로얄',
+        description: '황금과 보라빛이 어우러진 고귀한 왕실 디자인입니다.',
+        color: {
+            background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e1b4b 100%)',
+            cardBg: 'linear-gradient(145deg, rgba(79, 70, 229, 0.2), rgba(99, 102, 241, 0.1))',
+            cardBgUser: 'linear-gradient(145deg, rgba(147, 51, 234, 0.25), rgba(168, 85, 247, 0.15))',
+            text: '#e0e7ff',
+            textSecondary: '#c7d2fe',
+            nameColor: '#fbbf24',
+            border: 'linear-gradient(45deg, #7c3aed, #fbbf24)',
+            separator: '#a855f7',
+            shadow: '0 0 40px rgba(168, 85, 247, 0.3), 0 8px 32px rgba(251, 191, 36, 0.15)',
+            avatarBorder: '#fbbf24',
+            quoteBg: 'rgba(251, 191, 36, 0.12)',
+            quoteText: '#fcd34d',
+            thoughtBg: 'rgba(168, 85, 247, 0.12)',
+            thoughtText: '#c084fc',
+            soundBg: 'rgba(239, 68, 68, 0.1)',
+            soundText: '#fca5a5'
+        }
+    },
+    ocean: {
+        name: '심해',
+        description: '깊은 바다의 신비로운 청록빛과 산호초가 빛나는 디자인입니다.',
+        color: {
+            background: 'radial-gradient(ellipse at center, #0c4a6e 0%, #0f172a 70%)',
+            cardBg: 'linear-gradient(145deg, rgba(14, 116, 144, 0.2), rgba(6, 78, 59, 0.15))',
+            cardBgUser: 'linear-gradient(145deg, rgba(8, 145, 178, 0.25), rgba(14, 116, 144, 0.2))',
+            text: '#a7f3d0',
+            textSecondary: '#5eead4',
+            nameColor: '#22d3ee',
+            border: 'linear-gradient(45deg, #0891b2, #06b6d4)',
+            separator: '#67e8f9',
+            shadow: '0 0 30px rgba(34, 211, 238, 0.2), 0 8px 32px rgba(6, 182, 212, 0.1)',
+            avatarBorder: '#22d3ee',
+            quoteBg: 'rgba(34, 211, 238, 0.1)',
+            quoteText: '#67e8f9',
+            thoughtBg: 'rgba(6, 182, 212, 0.08)',
+            thoughtText: '#a5f3fc',
+            soundBg: 'rgba(244, 114, 182, 0.1)',
+            soundText: '#f9a8d4'
+        }
+    },
+    sakura: {
+        name: '벚꽃',
+        description: '봄날의 벚꽃잎이 흩날리는 따뜻하고 로맨틱한 디자인입니다.',
+        color: {
+            background: 'linear-gradient(135deg, #fdf2f8 0%, #f9fafb 50%, #fef7ff 100%)',
+            cardBg: 'linear-gradient(145deg, rgba(251, 207, 232, 0.3), rgba(252, 231, 243, 0.2))',
+            cardBgUser: 'linear-gradient(145deg, rgba(244, 114, 182, 0.2), rgba(236, 72, 153, 0.15))',
+            text: '#831843',
+            textSecondary: '#be185d',
+            nameColor: '#ec4899',
+            border: 'linear-gradient(45deg, #f472b6, #ec4899)',
+            separator: '#f9a8d4',
+            shadow: '0 0 25px rgba(244, 114, 182, 0.2), 0 8px 32px rgba(236, 72, 153, 0.1)',
+            avatarBorder: '#ec4899',
+            quoteBg: 'rgba(244, 114, 182, 0.08)',
+            quoteText: '#be185d',
+            thoughtBg: 'rgba(168, 85, 247, 0.06)',
+            thoughtText: '#a21caf',
+            soundBg: 'rgba(251, 191, 36, 0.08)',
+            soundText: '#d97706'
+        }
+    },
+    matrix: {
+        name: '매트릭스',
+        description: '컴퓨터 터미널과 해킹 코드가 흐르는 사이버펑크 디자인입니다.',
+        color: {
+            background: '#000000',
+            cardBg: 'rgba(0, 255, 0, 0.05)',
+            cardBgUser: 'rgba(0, 255, 0, 0.08)',
+            text: '#00ff00',
+            textSecondary: '#008f00',
+            nameColor: '#00ff41',
+            border: '#00ff00',
+            separator: '#008f00',
+            shadow: '0 0 20px rgba(0, 255, 0, 0.3), inset 0 0 20px rgba(0, 255, 0, 0.05)',
+            avatarBorder: '#00ff41',
+            quoteBg: 'rgba(0, 255, 0, 0.1)',
+            quoteText: '#00ff41',
+            thoughtBg: 'rgba(0, 255, 65, 0.08)',
+            thoughtText: '#32ff7e',
+            soundBg: 'rgba(255, 255, 0, 0.08)',
+            soundText: '#ffff00'
+        }
+    },
     log: {
         name: '로그',
-        description: '이름과 대사만 순서대로 나열되는 간단한 텍스트 형식입니다.',
-        // 고정 다크 색상 값
+        description: '개발자 콘솔과 같은 깔끔한 터미널 스타일 디자인입니다.',
         color: {
-            background: '#212529', text: '#e9ecef', nameColor: '#adb5bd', border: '#495057',
-            // [추가] 하이라이트 색상
-            quoteBg: 'rgba(233, 236, 239, 0.1)', quoteText: '#f8f9fa',
-            thoughtBg: 'rgba(233, 236, 239, 0.08)', thoughtText: '#e9ecef'
+            background: '#0d1117',
+            cardBg: 'rgba(33, 38, 45, 0.3)',
+            cardBgUser: 'rgba(56, 139, 253, 0.1)',
+            text: '#e6edf3',
+            textSecondary: '#7d8590',
+            nameColor: '#58a6ff',
+            border: '#30363d',
+            shadow: '0 0 0 1px rgba(48, 54, 61, 0.5)',
+            avatarBorder: '#58a6ff',
+            quoteBg: 'rgba(88, 166, 255, 0.1)',
+            quoteText: '#79c0ff',
+            thoughtBg: 'rgba(125, 133, 144, 0.08)',
+            thoughtText: '#8b949e'
         }
     }
 };
 
 const CHAT_ITEM_SELECTOR = 'button[data-risu-chat-idx]';
 const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
+const AVATAR_ATTR = 'data-avatar';
 
 (async () => {
     async function getComprehensivePageCSS() {
@@ -1616,6 +1711,8 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
             strong, b { font-weight: bold; color: ${color.nameColor}; }
             em, i { font-style: italic; }
             hr { border: 0; height: 1px; background-color: ${color.border}; margin: 1.5em 0; }
+            /* Add monospace font for code-like elements */
+            code, pre { font-family: 'Nanum Gothic Coding', 'D2Coding', 'Fira Code', 'JetBrains Mono', monospace, sans-serif; }
         `;
 
             // [수정] 헤더 HTML 생성 로직
@@ -1743,49 +1840,226 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
                         logEntry += `</div>`;
                         break;
                     } // case 'fantasy' 종료
-                    // ▼▼▼ [추가] 판타지 2 테마 렌더링 로직 ▼▼▼
-                    case 'fantasy2':
-                        const fantasy2Font = `'Nanum Myeongjo', serif`;
-                        let fantasy2AvatarHtml = '';
+                    case 'fantasy2': // 엘프의 숲
+                        const elfFont = `'Nanum Myeongjo', serif`;
+                        let elfAvatarHtml = '';
                         if (showAvatar) {
-                             const baseStyle = `width:40px;height:40px;min-width:40px;border-radius:50%;border:2px solid ${color.avatarBorder}; box-shadow: ${color.shadow}; filter: sepia(0.3);`;
+                            const baseStyle = `width:50px;height:50px;min-width:50px;border-radius:50%;border:3px solid ${color.avatarBorder}; box-shadow: ${color.shadow}; position: relative;`;
                             if (avatarSrc) {
-                                fantasy2AvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background:url('${avatarSrc}');background-size:cover;background-position:center;"></div>`;
+                                elfAvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background:url('${avatarSrc}');background-size:cover;background-position:center; overflow: hidden;"><div style="position: absolute; inset: 0; background: radial-gradient(circle at center, transparent 60%, rgba(52, 211, 153, 0.3) 100%);"></div></div>`;
                             } else {
-                                const letter = isUser ? 'U' : name.charAt(0).toUpperCase();
-                                fantasy2AvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background-color: ${color.border}; display:flex;align-items:center;justify-content:center;"><span style="color:${color.text};font-weight:bold;font-size:1.2em; font-family: ${fantasy2Font};">${letter}</span></div>`;
+                                const letter = isUser ? '🌿' : name.charAt(0).toUpperCase();
+                                elfAvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background: linear-gradient(135deg, #059669, #10b981); display:flex;align-items:center;justify-content:center;"><span style="color: #d1fae5;font-weight:bold;font-size:1.3em; text-shadow: 0 0 8px rgba(52, 211, 153, 0.8);">${letter}</span></div>`;
                             }
                         }
                         
                         if (index > 0) {
                             logEntry += `
-                                <div style="display:flex; align-items: center; text-align: center; margin: 1.5em auto; max-width: 60%;">
-                                    <div style="flex-grow: 1; height: 1px; background: linear-gradient(to right, transparent, ${color.separator});"></div>
-                                    <span style="padding: 0 0.8em; color: ${color.separator}; font-size: 1em; font-family: ${fantasy2Font};">§</span>
-                                    <div style="flex-grow: 1; height: 1px; background: linear-gradient(to left, transparent, ${color.separator});"></div>
+                                <div style="display:flex; align-items: center; text-align: center; margin: 2em auto; max-width: 70%;">
+                                    <div style="flex-grow: 1; height: 2px; background: linear-gradient(to right, transparent, ${color.separator}, transparent); border-radius: 1px;"></div>
+                                    <div style="padding: 0 1.2em; color: ${color.separator}; font-size: 1.2em; position: relative;">
+                                        <span style="text-shadow: 0 0 10px rgba(52, 211, 153, 0.6);">🌺</span>
+                                        <div style="position: absolute; inset: 0; animation: pulse 2s infinite; opacity: 0.5;">
+                                            <span style="color: ${color.separator};">🌺</span>
+                                        </div>
+                                    </div>
+                                    <div style="flex-grow: 1; height: 2px; background: linear-gradient(to left, transparent, ${color.separator}, transparent); border-radius: 1px;"></div>
                                 </div>`;
                         }
 
-                        const textAlign = isUser ? 'right' : 'left';
-                        logEntry += `<div class="chat-message-container" style="display:flex; flex-direction: ${isUser ? 'row-reverse' : 'row'}; align-items:flex-start; gap: 12px; ${!isForArca ? `font-family: ${fantasy2Font};` : ''} margin-bottom:1em;">`;
-                        logEntry += fantasy2AvatarHtml;
-                        logEntry += `<div style="flex:1; text-align: ${textAlign};">`;
-                        logEntry += `<strong style="color:${color.nameColor}; font-weight:700; font-size:1.1em; letter-spacing: 0.5px;">${name}</strong>`;
-                        logEntry += `<div style="color:${color.text}; line-height: 1.8; font-size: 1em; margin-top: 0.4em;">${messageHtml}</div>`;
-                        logEntry += `</div></div>`;
+                        logEntry += `<div class="chat-message-container" style="display:flex; align-items:flex-start; gap: 16px; ${!isForArca ? `font-family: ${elfFont};` : ''} margin-bottom:2em; ${isUser ? 'flex-direction:row-reverse;' : ''}">`;
+                        logEntry += elfAvatarHtml;
+                        logEntry += `<div style="flex:1; position: relative;">`;
+                        logEntry += `<div style="position: absolute; top: -5px; left: ${isUser ? 'auto' : '-8px'}; right: ${isUser ? '-8px' : 'auto'}; width: 3px; height: calc(100% + 10px); background: ${color.border}; border-radius: 2px; opacity: 0.6;"></div>`;
+                        logEntry += `<strong style="color:${color.nameColor}; font-weight:600; font-size:1.2em; text-shadow: 0 0 8px rgba(52, 211, 153, 0.4); letter-spacing: 1px; margin-bottom: 0.8em; display: block; text-align: ${isUser ? 'right' : 'left'};">${name}</strong>`;
+                        logEntry += `<div style="background: ${isUser ? color.cardBgUser : color.cardBg}; border-radius: 15px; padding: 16px 20px; box-shadow: ${color.shadow}; border: 1px solid rgba(52, 211, 153, 0.2); position: relative; overflow: hidden;">`;
+                        logEntry += `<div style="position: absolute; top: 0; left: 0; right: 0; height: 1px; background: linear-gradient(90deg, transparent, ${color.nameColor}, transparent);"></div>`;
+                        logEntry += `<div style="color:${color.text}; line-height: 1.7; font-size: 1.05em; position: relative; z-index: 1;">${messageHtml}</div>`;
+                        logEntry += `</div></div></div>`;
                         break;
-                    // ▲▲▲ [추가] 여기까지 ▲▲▲
-                    case 'log':
-                        const lineNumber = String(index + 1).padStart(3, '0');
-                        const logBg = isUser ? 'rgba(255,255,255,0.03)' : 'transparent';
-                        logEntry += `<div class="chat-message-container" style="display:flex; gap:16px; padding: 14px 10px; border-bottom: 1px solid ${color.border}; background-color: ${logBg};">`;
-                        logEntry += `<div style="font-family: monospace; color: ${color.nameColor}; font-size: 0.9em; flex-shrink: 0;">[${lineNumber}]</div>`;
+
+                    case 'royal': // 로얄 테마
+                        const royalFont = `'Nanum Myeongjo', serif`;
+                        let royalAvatarHtml = '';
+                        if (showAvatar) {
+                            const baseStyle = `width:55px;height:55px;min-width:55px;border-radius:50%;border:3px solid ${color.avatarBorder}; box-shadow: ${color.shadow}; position: relative;`;
+                            if (avatarSrc) {
+                                royalAvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background:url('${avatarSrc}');background-size:cover;background-position:center;"></div>`;
+                            } else {
+                                const letter = isUser ? '👑' : name.charAt(0).toUpperCase();
+                                royalAvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background: linear-gradient(135deg, #7c3aed, #a855f7); display:flex;align-items:center;justify-content:center;"><span style="color: #fbbf24;font-weight:bold;font-size:1.4em; text-shadow: 0 0 10px rgba(251, 191, 36, 0.8);">${letter}</span></div>`;
+                            }
+                        }
+                        
+                        if (index > 0) {
+                            logEntry += `
+                                <div style="display:flex; align-items: center; text-align: center; margin: 2.5em auto; max-width: 60%;">
+                                    <div style="flex-grow: 1; height: 1px; background: linear-gradient(to right, transparent, ${color.separator}, transparent);"></div>
+                                    <span style="padding: 0 1em; color: ${color.separator}; font-size: 1.4em; text-shadow: 0 0 15px rgba(168, 85, 247, 0.6);">♦</span>
+                                    <div style="flex-grow: 1; height: 1px; background: linear-gradient(to left, transparent, ${color.separator}, transparent);"></div>
+                                </div>`;
+                        }
+
+                        logEntry += `<div class="chat-message-container" style="display:flex; flex-direction:column; align-items: center; ${!isForArca ? `font-family: ${royalFont};` : ''} text-align:center; margin-bottom:3em; position: relative;">`;
+                        logEntry += `<div style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); width: 80%; height: 2px; background: linear-gradient(90deg, transparent, ${color.nameColor}, transparent); opacity: 0.6;"></div>`;
+                        logEntry += royalAvatarHtml;
+                        logEntry += `<strong style="color:${color.nameColor}; font-weight:500; font-size:1.5em; margin-top: 1em; letter-spacing: 2px; text-shadow: 0 0 12px rgba(251, 191, 36, 0.5);">${name}</strong>`;
+                        logEntry += `<div style="background: ${isUser ? color.cardBgUser : color.cardBg}; color:${color.text}; line-height: 1.8; font-size: 1.1em; text-align: justify; margin-top: 1.5em; max-width: 90%; padding: 20px 25px; border-radius: 15px; border: 2px solid transparent; background-clip: padding-box; box-shadow: ${color.shadow}; position: relative; overflow: hidden;">`;
+                        logEntry += `<div style="position: absolute; inset: -2px; background: linear-gradient(45deg, #7c3aed, #fbbf24, #7c3aed); border-radius: 17px; z-index: -1;"></div>`;
+                        logEntry += `${messageHtml}</div>`;
+                        logEntry += `</div>`;
+                        break;
+
+                    case 'ocean': // 심해 테마
+                        let oceanAvatarHtml = '';
+                        if (showAvatar) {
+                            const baseStyle = `width:48px;height:48px;min-width:48px;border-radius:50%;border:2px solid ${color.avatarBorder}; box-shadow: ${color.shadow}; position: relative;`;
+                            if (avatarSrc) {
+                                oceanAvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background:url('${avatarSrc}');background-size:cover;background-position:center;"></div>`;
+                            } else {
+                                const letter = isUser ? '🌊' : name.charAt(0).toUpperCase();
+                                oceanAvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background: radial-gradient(circle, #0891b2, #0c4a6e); display:flex;align-items:center;justify-content:center;"><span style="color: #22d3ee;font-weight:bold;font-size:1.2em; text-shadow: 0 0 8px rgba(34, 211, 238, 0.8);">${letter}</span></div>`;
+                            }
+                            const margin = isUser ? 'margin-left:14px;' : 'margin-right:14px;';
+                            oceanAvatarHtml = oceanAvatarHtml.replace('style="', `style="${margin}`);
+                        }
+
+                        logEntry += `<div class="chat-message-container" style="display:flex; align-items:flex-start; margin-bottom:2em; position: relative; ${isUser ? 'flex-direction:row-reverse;' : ''}">`;
+                        logEntry += `<div style="position: absolute; ${isUser ? 'right: 0;' : 'left: 0;'} top: 0; bottom: 0; width: 2px; background: linear-gradient(to bottom, ${color.nameColor}, transparent); opacity: 0.5;"></div>`;
+                        logEntry += oceanAvatarHtml;
+                        logEntry += `<div style="flex:1; position: relative;">`;
+                        logEntry += `<strong style="color:${color.nameColor}; font-weight:600; font-size:1em; display:block; margin-bottom:10px; text-align:${isUser ? 'right;' : 'left;'} text-shadow: 0 0 8px rgba(34, 211, 238, 0.4);">${name}</strong>`;
+                        logEntry += `<div style="background: ${isUser ? color.cardBgUser : color.cardBg}; border-radius:18px; padding:16px 20px; box-shadow:${color.shadow}; border:1px solid rgba(34, 211, 238, 0.3); color:${color.text}; line-height:1.75; word-wrap:break-word; position:relative; overflow: hidden;">`;
+                        logEntry += `<div style="position: absolute; top: 0; left: 0; right: 0; height: 100%; background: radial-gradient(ellipse at ${isUser ? 'right' : 'left'} top, rgba(34, 211, 238, 0.05), transparent 70%); pointer-events: none;"></div>`;
+                        logEntry += `<div style="position: relative; z-index: 1;">${messageHtml}</div>`;
+                        logEntry += `</div></div></div>`;
+                        break;
+
+                    case 'sakura': // 벚꽃 테마
+                        let sakuraAvatarHtml = '';
+                        if (showAvatar) {
+                            const baseStyle = `width:46px;height:46px;min-width:46px;border-radius:50%;border:2px solid ${color.avatarBorder}; box-shadow: ${color.shadow}; position: relative;`;
+                            if (avatarSrc) {
+                                sakuraAvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background:url('${avatarSrc}');background-size:cover;background-position:center;"></div>`;
+                            } else {
+                                const letter = isUser ? '🌸' : name.charAt(0).toUpperCase();
+                                sakuraAvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background: linear-gradient(135deg, #f472b6, #ec4899); display:flex;align-items:center;justify-content:center;"><span style="color: #fdf2f8;font-weight:bold;font-size:1.2em; text-shadow: 0 0 6px rgba(244, 114, 182, 0.6);">${letter}</span></div>`;
+                            }
+                            const margin = isUser ? 'margin-left:12px;' : 'margin-right:12px;';
+                            sakuraAvatarHtml = sakuraAvatarHtml.replace('style="', `style="${margin}`);
+                        }
+
+                        if (index > 0) {
+                            logEntry += `
+                                <div style="display:flex; align-items: center; text-align: center; margin: 1.8em auto; max-width: 65%;">
+                                    <div style="flex-grow: 1; height: 1px; background: linear-gradient(to right, transparent, ${color.separator}, transparent);"></div>
+                                    <span style="padding: 0 0.8em; color: ${color.separator}; font-size: 1.1em;">🌸</span>
+                                    <div style="flex-grow: 1; height: 1px; background: linear-gradient(to left, transparent, ${color.separator}, transparent);"></div>
+                                </div>`;
+                        }
+
+                        logEntry += `<div class="chat-message-container" style="display:flex; align-items:flex-start; margin-bottom:2em; ${isUser ? 'flex-direction:row-reverse;' : ''}">`;
+                        logEntry += sakuraAvatarHtml;
                         logEntry += `<div style="flex:1;">`;
-                        logEntry += `<strong style="color:${color.nameColor}; font-weight:600; display:block; margin-bottom: 6px;">${name}</strong>`;
-                        // [수정] messageHtml에서 태그를 제거하는 로직을 삭제하여 서식을 보존합니다.
-                        logEntry += `<div style="color:${color.text}; line-height:1.8; word-wrap:break-word;">${messageHtml}</div>`;
-                        logEntry += `</div>`;
-                        logEntry += `</div>`;
+                        logEntry += `<strong style="color:${color.nameColor}; font-weight:600; font-size:0.95em; display:block; margin-bottom:8px; text-align:${isUser ? 'right;' : 'left;'} text-shadow: 0 0 6px rgba(244, 114, 182, 0.3);">${name}</strong>`;
+                        logEntry += `<div style="background: ${isUser ? color.cardBgUser : color.cardBg}; border-radius:20px; padding:15px 18px; box-shadow:${color.shadow}; border:1px solid rgba(244, 114, 182, 0.2); color:${color.text}; line-height:1.7; word-wrap:break-word; position: relative; overflow: hidden;">`;
+                        logEntry += `<div style="position: absolute; top: -50%; right: -50%; width: 100%; height: 200%; background: radial-gradient(circle, rgba(244, 114, 182, 0.05), transparent 60%); pointer-events: none; animation: float 6s ease-in-out infinite;"></div>`;
+                        logEntry += `<div style="position: relative; z-index: 1;">${messageHtml}</div>`;
+                        logEntry += `</div></div></div>`;
+                        break;
+
+                    case 'matrix': // 매트릭스 테마
+                        let matrixAvatarHtml = '';
+                        if (showAvatar) {
+                            const baseStyle = `width:44px;height:44px;min-width:44px;border-radius:4px;border:1px solid ${color.avatarBorder}; box-shadow: ${color.shadow}; font-family: 'Courier New', monospace;`;
+                            if (avatarSrc) {
+                                matrixAvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background:url('${avatarSrc}');background-size:cover;background-position:center; filter: hue-rotate(120deg) saturate(0.8);"></div>`;
+                            } else {
+                                const letter = isUser ? '[U]' : `[${name.charAt(0).toUpperCase()}]`;
+                                matrixAvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background: #000000; display:flex;align-items:center;justify-content:center;"><span style="color: ${color.nameColor};font-weight:bold;font-size:0.8em; text-shadow: 0 0 8px ${color.nameColor};">${letter}</span></div>`;
+                            }
+                            const margin = isUser ? 'margin-left:10px;' : 'margin-right:10px;';
+                            matrixAvatarHtml = matrixAvatarHtml.replace('style="', `style="${margin}`);
+                        }
+
+                        logEntry += `<div class="chat-message-container" style="display:flex; align-items:flex-start; margin-bottom:1.5em; font-family: 'Courier New', monospace; ${isUser ? 'flex-direction:row-reverse;' : ''}">`;
+                        logEntry += matrixAvatarHtml;
+                        logEntry += `<div style="flex:1;">`;
+                        logEntry += `<div style="color:${color.nameColor}; font-weight:bold; font-size:0.9em; margin-bottom:5px; text-align:${isUser ? 'right;' : 'left;'} text-shadow: 0 0 5px ${color.nameColor}; font-family: 'Courier New', monospace;">&gt; ${name.toUpperCase()}</div>`;
+                        logEntry += `<div style="background: ${isUser ? color.cardBgUser : color.cardBg}; border:1px solid ${color.border}; padding:12px 15px; color:${color.text}; line-height:1.6; word-wrap:break-word; font-family: 'Courier New', monospace; font-size: 0.9em; text-shadow: 0 0 3px ${color.text}; position: relative;">`;
+                        logEntry += `<div style="position: absolute; top: 0; left: 0; right: 0; height: 1px; background: ${color.nameColor}; opacity: 0.6;"></div>`;
+                        logEntry += `${messageHtml}</div></div></div>`;
+                        break;
+                    case 'log': // 개선된 로그 테마
+                        const lineNumber = String(index + 1).padStart(4, '0');
+                        const logBg = isUser ? color.cardBgUser : color.cardBg;
+                        const statusIcon = isUser ? '→' : '←';
+
+                        logEntry += `<div class="chat-message-container" style="
+                            display: flex;
+                            align-items: flex-start;
+                            gap: 8px;
+                            padding: 8px 12px;
+                            background: ${logBg};
+                            border: 1px solid ${color.border};
+                            margin-bottom: 2px;
+                            font-family: 'Courier New', 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+                            font-size: 0.9em;
+                            position: relative;
+                            transition: all 0.2s ease;
+                        ">`;
+                        
+                        // 라인 번호
+                        logEntry += `<div style="
+                            color: ${color.textSecondary};
+                            font-size: 0.8em;
+                            width: 35px;
+                            flex-shrink: 0;
+                            text-align: right;
+                            padding-right: 8px;
+                            border-right: 1px solid ${color.border};
+                            opacity: 0.6;
+                        ">${lineNumber}</div>`;
+                        
+                        // 상태 아이콘
+                        logEntry += `<div style="
+                            color: ${color.nameColor};
+                            font-size: 0.9em;
+                            width: 15px;
+                            flex-shrink: 0;
+                            text-align: center;
+                            font-weight: bold;
+                        ">${statusIcon}</div>`;
+                        
+                        // 이름 (더 작게)
+                        logEntry += `<div style="
+                            color: ${color.nameColor};
+                            font-weight: bold;
+                            width: 80px;
+                            flex-shrink: 0;
+                            text-overflow: ellipsis;
+                            overflow: hidden;
+                            white-space: nowrap;
+                            font-size: 0.85em;
+                        ">[${name.toUpperCase()}]</div>`;
+                        
+                        // 메시지 내용
+                        logEntry += `<div style="
+                            color: ${color.text};
+                            flex: 1;
+                            line-height: 1.4;
+                            word-wrap: break-word;
+                        ">`;
+                        
+                        const tempMessageDiv = document.createElement('div');
+                        tempMessageDiv.innerHTML = messageHtml;
+                        tempMessageDiv.querySelectorAll('p').forEach(p => { 
+                            p.style.margin = '0'; 
+                            p.style.padding = '0';
+                            p.style.display = 'inline';
+                        });
+                        logEntry += tempMessageDiv.innerHTML;
+                        logEntry += `</div></div>`;
                         break;
 
                     case 'basic':
@@ -1812,11 +2086,23 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
                 margin: 16px auto;
                 max-width: 900px;
                 background-color: ${color.background};
-                border: 1px solid ${color.border};
-                box-shadow: ${color.shadow || 'none'};
-                padding: 24px 32px;
                 border-radius: ${selectedThemeKey === 'log' ? '8px' : '12px'};
+                overflow: hidden; /* 둥근 모서리에서 내용이 삐져나가지 않도록 */
             `;
+
+            if (selectedThemeKey === 'log') {
+                containerStyle += `
+                    padding: 0; /* 컨테이너 자체 패딩 제거 */
+                    border: none; /* 컨테이너 테두리 제거 */
+                    box-shadow: none; /* 컨테이너 그림자 제거 */
+                `;
+            } else {
+                containerStyle += `
+                    border: 1px solid ${color.border};
+                    box-shadow: ${color.shadow || 'none'};
+                    padding: 24px 32px;
+                `;
+            }
 
             const containerIdSuffix = Date.now();
 
@@ -1847,9 +2133,88 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
                     }
                 `;
             }
-            // ▼▼▼ [추가] 판타지 2 컨테이너 스타일 ▼▼▼
             if (selectedThemeKey === 'fantasy2') {
-                containerStyle += `${!isForArca ? `font-family:${fantasyFont};` : ''} border-color: ${color.border};`;
+                containerStyle += `${!isForArca ? `font-family: 'Nanum Myeongjo', serif;` : ''} background: ${color.background}; border: 2px solid transparent; background-clip: padding-box; position: relative; overflow: hidden;`;
+                extraStyles = `
+                    #tolog-fantasy2-container-${containerIdSuffix}::before {
+                        content: '';
+                        position: absolute;
+                        inset: -2px;
+                        background: linear-gradient(45deg, #10b981, #34d399, #10b981);
+                        border-radius: 14px;
+                        z-index: -1;
+                    }
+                    @keyframes pulse {
+                        0%, 100% { opacity: 0.5; transform: scale(1); }
+                        50% { opacity: 0.8; transform: scale(1.05); }
+                    }
+                    @keyframes float {
+                        0%, 100% { transform: translateY(0px) rotate(0deg); }
+                        33% { transform: translateY(-10px) rotate(1deg); }
+                        66% { transform: translateY(5px) rotate(-1deg); }
+                    }
+                `;
+            }
+            if (selectedThemeKey === 'royal') {
+                containerStyle += `${!isForArca ? `font-family: 'Nanum Myeongjo', serif;` : ''} background: ${color.background}; border: 3px solid transparent; background-clip: padding-box; position: relative;`;
+                extraStyles = `
+                    #tolog-royal-container-${containerIdSuffix}::before {
+                        content: '';
+                        position: absolute;
+                        inset: -3px;
+                        background: linear-gradient(45deg, #7c3aed, #fbbf24, #a855f7, #fbbf24, #7c3aed);
+                        border-radius: 15px;
+                        z-index: -1;
+                        animation: royalShine 4s linear infinite;
+                    }
+                    @keyframes royalShine {
+                        0% { background-position: 0% 50%; }
+                        100% { background-position: 200% 50%; }
+                    }
+                `;
+            }
+            if (selectedThemeKey === 'ocean') {
+                containerStyle += `background: ${color.background}; border: 1px solid rgba(34, 211, 238, 0.3); position: relative; overflow: hidden;`;
+                extraStyles = `
+                    #tolog-ocean-container-${containerIdSuffix}::before {
+                        content: '';
+                        position: absolute;
+                        top: 0; left: -100%; width: 200%; height: 100%;
+                        background: linear-gradient(90deg, transparent, rgba(34, 211, 238, 0.1), transparent);
+                        animation: wave 3s ease-in-out infinite;
+                        z-index: -1;
+                    }
+                    @keyframes wave {
+                        0% { left: -100%; }
+                        100% { left: 100%; }
+                    }
+                `;
+            }
+            if (selectedThemeKey === 'sakura') {
+                containerStyle += `background: ${color.background}; border: 1px solid rgba(244, 114, 182, 0.2); position: relative; overflow: hidden;`;
+                extraStyles = `
+                    @keyframes float {
+                        0%, 100% { transform: translateY(0px) rotate(0deg); }
+                        33% { transform: translateY(-8px) rotate(2deg); }
+                        66% { transform: translateY(4px) rotate(-1deg); }
+                    }
+                `;
+            }
+            if (selectedThemeKey === 'matrix') {
+                containerStyle += `background: ${color.background}; border: 1px solid ${color.border}; font-family: 'Courier New', monospace; position: relative;`;
+                extraStyles = `
+                    #tolog-matrix-container-${containerIdSuffix}::before {
+                        content: '';
+                        position: absolute;
+                        top: 0; left: 0; right: 0; height: 2px;
+                        background: linear-gradient(90deg, transparent, ${color.nameColor}, transparent);
+                        animation: scan 2s linear infinite;
+                    }
+                    @keyframes scan {
+                        0% { transform: translateX(-100%); }
+                        100% { transform: translateX(100%); }
+                    }
+                `;
             }
 
             // [수정] 푸터 HTML 생성 로직
@@ -1866,11 +2231,19 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
             const headerHtml = await generateHeaderHtml();
             const footerHtml = generateFooterHtml();
             // 최종 HTML 생성 로직 수정
-            const containerId = (selectedThemeKey === 'fantasy') ? ` id="tolog-fantasy-container-${containerIdSuffix}"` : '';
+            const containerIdMap = {
+                'fantasy': `tolog-fantasy-container-${containerIdSuffix}`,
+                'fantasy2': `tolog-fantasy2-container-${containerIdSuffix}`,
+                'modern': `tolog-modern-container-${containerIdSuffix}`,
+                'royal': `tolog-royal-container-${containerIdSuffix}`,
+                'ocean': `tolog-ocean-container-${containerIdSuffix}`,
+                'matrix': `tolog-matrix-container-${containerIdSuffix}`
+            };
+            const containerId = containerIdMap[selectedThemeKey] ? ` id="${containerIdMap[selectedThemeKey]}"` : '';
             let finalHtml = `<div${containerId} style="${containerStyle}">
                                 <style>${baseTagStyles}${extraStyles}</style>${headerHtml}${log}${footerHtml}
                              </div>`;
-            if (selectedThemeKey === 'fantasy' || selectedThemeKey === 'fantasy2') {
+            if (['fantasy', 'fantasy2', 'royal'].includes(selectedThemeKey)) {
                 const fontLink = `<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700&display=swap">`;
                 finalHtml = fontLink + finalHtml;
             }
@@ -3039,6 +3412,7 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                 const isBasicTheme = selectedTheme === 'basic';
                 
                 // 색상 선택기 활성화/비활성화
+                colorSelector.style.opacity = isBasicTheme ? '1' : '0.5';
                 colorSelector.disabled = !isBasicTheme;
                 colorSelectorContainer.style.opacity = isBasicTheme ? '1' : '0.5';
 
