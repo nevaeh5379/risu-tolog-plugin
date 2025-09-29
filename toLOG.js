@@ -432,7 +432,7 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
         htmlToImagePromise = new Promise(async (resolve, reject) => {
             console.log('[Log Exporter] html-to-image 라이브러리 로드 시작...');
             try {
-                const response = await fetch('https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.min.js');
+                const response = await fetch('https://cdn.jsdelivr.net/npm/html-to-image@1.11.13/dist/html-to-image.min.js');
                 if (!response.ok) {
                     throw new Error(`CDN에서 스크립트를 가져오는 데 실패했습니다: ${response.statusText}`);
                 }
