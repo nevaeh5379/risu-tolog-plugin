@@ -1668,8 +1668,14 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
     console.log(`[Log Exporter] savePreviewAsImage: 이미지 저장을 시작합니다.`, { useHighRes, baseFontSize, imageWidth, charName });
     const MAX_SAFE_CANVAS_HEIGHT = 30000;
 
-    let captureTarget = previewContainer.firstElementChild;
-    if (!captureTarget) return false;
+    // [핵심 수정] firstElementChild 대신 querySelector를 사용하여 <link> 태그를 건너뛰고 실제 콘텐츠 div를 선택합니다.
+    let captureTarget = previewContainer.querySelector('div'); 
+
+    if (!captureTarget) {
+        console.error('[Log Exporter] 캡처할 대상 div를 찾을 수 없습니다.');
+        alert('이미지 저장에 실패했습니다: 캡처할 콘텐츠를 찾을 수 없습니다.', 'error');
+        return false;
+    }
     
     if (captureTarget.shadowRoot) {
         captureTarget = captureTarget.shadowRoot.querySelector('.preview-wrapper') || captureTarget.shadowRoot.firstElementChild || captureTarget;
@@ -1688,6 +1694,24 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
     const originalMessageNodes = Array.from(captureTarget.childNodes);
 
     try {
+        // --- [수정] 웹 폰트 로드 ---
+        // 미리보기 요소에서 <link> 태그를 찾아 href를 추출합니다.
+        const fontLinkEl = previewContainer.querySelector('link[href*="fonts.googleapis.com"]'); // [수정] previewContainer에서 직접 찾기
+        if (fontLinkEl) {
+            onProgress('웹 폰트 로딩 중...', 2, 100);
+            console.log('[Log Exporter] 판타지 테마용 웹 폰트를 로드합니다:', fontLinkEl.href);
+            try {
+                // FontFace API를 사용하여 프로그래매틱하게 폰트를 로드하고 문서에 추가합니다.
+                const fontFace = new FontFace('Nanum Myeongjo', `url(${fontLinkEl.href})`);
+                await fontFace.load();
+                document.fonts.add(fontFace);
+                console.log('[Log Exporter] \'Nanum Myeongjo\' 폰트 로드 및 적용 완료.');
+            } catch (fontError) {
+                console.warn('[Log Exporter] 웹 폰트 로드에 실패했습니다. 기본 폰트로 렌더링될 수 있습니다.', fontError);
+            }
+        }
+        // --- [수정] 여기까지 ---
+
         await ensureHtmlToImage();
         const htmlToImage = window.__htmlToImageLib || window.htmlToImage;
 
@@ -1754,7 +1778,10 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
             downloadImage(canvas.toDataURL('image/png', 1.0), charName, chatName);
         } else {
             // --- 라이브 DOM 조작을 통한 분할 저장 ---
-            const messageContainers = Array.from(captureTarget.querySelectorAll('.chat-message-container'));
+            // [수정] 판타지 테마의 구분선(separator) div를 건너뛰고 메시지 컨테이너만 정확히 선택하도록 수정
+            // captureTarget의 직계 자식 중에서 '.chat-message-container' 클래스를 가진 요소만 선택합니다.
+            const messageContainers = Array.from(captureTarget.children)
+                                           .filter(el => el.classList.contains('chat-message-container'));
             if (messageContainers.length === 0) throw new Error("메시지 단위를 찾을 수 없어 분할 저장을 할 수 없습니다.");
             console.log(`[Log Exporter] 로그가 너무 길어(${totalHeight}px) ${Math.ceil(totalHeight / MAX_CHUNK_HEIGHT)}개의 이미지로 분할 저장을 시작합니다.`);
             if (!confirm(`[알림] 로그가 너무 길어 단일 이미지로 만들 수 없습니다.\n\n여러 개의 이미지 파일로 나누어 저장합니다.\n\n계속하시겠습니까?`)) return false;
