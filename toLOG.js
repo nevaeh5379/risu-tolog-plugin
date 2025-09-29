@@ -725,8 +725,35 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
         const style = document.createElement('style');
         style.id = 'log-exporter-styles';
         style.innerHTML = `
-            .log-exporter-modal-backdrop { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); z-index: 10001; display: flex; align-items: center; justify-content: center; }
-            .log-exporter-modal { background-color: #24283b; color: #c0caf5; border-radius: 10px; width: 90%; max-width: 1200px; max-height: 90vh; display: flex; flex-direction: column; box-shadow: 0 5px 15px rgba(0,0,0,0.3); overflow: hidden; }
+            .log-exporter-modal-backdrop { 
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+                background-color: rgba(0,0,0,0.6); z-index: 10001; 
+                display: flex; align-items: center; justify-content: center;
+                /* 모바일에서 키보드가 올라와도 스크롤 방지 */
+                overflow: hidden;
+                /* 터치 스크롤 부드럽게 */
+                -webkit-overflow-scrolling: touch;
+                /* 텍스트 선택 방지 (배경 영역) */
+                -webkit-user-select: none;
+                -moz-user-select: none;
+                -ms-user-select: none;
+                user-select: none;
+                /* 터치 하이라이트 제거 */
+                -webkit-tap-highlight-color: transparent;
+            }
+            .log-exporter-modal { 
+                background-color: #24283b; color: #c0caf5; border-radius: 10px; 
+                width: 90%; max-width: 1200px; max-height: 90vh; 
+                display: flex; flex-direction: column; 
+                box-shadow: 0 5px 15px rgba(0,0,0,0.3); overflow: hidden;
+                /* 모달 내용에서는 텍스트 선택 허용 */
+                -webkit-user-select: text;
+                -moz-user-select: text;
+                -ms-user-select: text;
+                user-select: text;
+                /* 모바일에서 부드러운 애니메이션 */
+                transition: transform 0.3s ease-out;
+            }
             .log-exporter-modal-header { padding: 12px 18px; font-size: 1.15em; font-weight: bold; border-bottom: 1px solid #414868; }
             .log-exporter-modal-content { padding: 15px; display: flex; flex-direction: row; gap: 15px; overflow-y: hidden; flex-grow: 1; }
             .log-exporter-left-panel { flex: 1; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; max-height: 100%; }
@@ -738,6 +765,15 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
             .log-exporter-modal-footer { padding: 12px 18px; border-top: 1px solid #414868; display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
             .log-exporter-modal-btn { background-color: #414868; color: #c0caf5; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; transition: background-color 0.2s; white-space: nowrap; }
             .log-exporter-modal-btn:hover { background-color: #565f89; }
+            .log-exporter-modal-btn:focus { 
+                outline: 2px solid #7aa2f7; 
+                outline-offset: 2px; 
+                background-color: #565f89; 
+            }
+            .log-exporter-modal-btn:active { 
+                transform: translateY(1px); 
+                background-color: #4a5374; 
+            }
             .log-exporter-modal-btn.primary { background-color: #7aa2f7; color: #1a1b26; }
             .log-exporter-modal-btn.primary:hover { background-color: #9eceff; }
             @media (max-width: 992px) { /* Tablet breakpoint: revert to column layout */
@@ -764,29 +800,230 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
             .arca-helper-section h4 { margin: 0 0 8px 0; color: #7aa2f7; }
             .arca-helper-section textarea { width: 100%; height: 100px; background-color: #1f2335; color: #c0caf5; border: 1px solid #414868; border-radius: 5px; padding: 8px; font-family: monospace; font-size: 0.9em; resize: vertical; }
             .arca-helper-section button { align-self: center; }
-            /* --- 모바일 반응형 스타일 --- */
+            /* --- 모바일 반응형 스타일 (개선) --- */
             @media (max-width: 768px) { /* 일반 모바일 기기 */
-                .log-exporter-modal { width: 100%; height: 100%; max-height: 100vh; border-radius: 0; flex-direction: column; }
-                .log-exporter-modal-content { flex-direction: column; padding: 10px; gap: 12px; overflow-y: auto; flex-grow: 1; }
-                .log-exporter-left-panel, .log-exporter-right-panel { overflow-y: visible; max-height: none; flex: none; }
-                .log-exporter-modal-preview { max-height: 50vh; }
-                .log-exporter-modal-btn { padding: 10px 14px; font-size: 0.95em; }
-                .log-exporter-modal-options, #filter-controls { flex-direction: column; align-items: stretch; gap: 10px; margin-left: 0; }
+                .log-exporter-modal { 
+                    width: 100%; height: 100%; max-height: 100vh; border-radius: 0; 
+                    flex-direction: column; 
+                    /* 모바일 Safari 주소창 문제 해결 */
+                    height: 100dvh; 
+                }
+                .log-exporter-modal-content { 
+                    flex-direction: column; padding: 12px; gap: 16px; 
+                    overflow-y: auto; flex-grow: 1; 
+                    /* 부드러운 스크롤과 모멘텀 스크롤 */
+                    -webkit-overflow-scrolling: touch;
+                    overscroll-behavior: contain;
+                }
+                .log-exporter-left-panel, .log-exporter-right-panel { 
+                    overflow-y: visible; max-height: none; flex: none; 
+                }
+                .log-exporter-modal-preview { 
+                    max-height: 50vh; 
+                    /* 터치 스크롤 개선 */
+                    -webkit-overflow-scrolling: touch;
+                    overscroll-behavior: contain;
+                }
+                /* 터치 친화적인 버튼 크기 (최소 44px) */
+                .log-exporter-modal-btn { 
+                    padding: 14px 16px; font-size: 1em; 
+                    min-height: 44px; min-width: 44px;
+                    /* 터치 타겟을 명확하게 */
+                    touch-action: manipulation;
+                }
+                /* 체크박스와 라디오 버튼도 터치 친화적으로 */
+                input[type="checkbox"], input[type="radio"] {
+                    min-width: 18px; min-height: 18px;
+                    transform: scale(1.2);
+                    touch-action: manipulation;
+                }
+                /* 라벨도 터치하기 쉽게 */
+                label {
+                    padding: 8px 4px;
+                    min-height: 44px;
+                    display: flex;
+                    align-items: center;
+                    touch-action: manipulation;
+                }
+                .log-exporter-modal-options, #filter-controls { 
+                    flex-direction: column; align-items: stretch; gap: 12px; margin-left: 0; 
+                }
                 .log-exporter-modal-options { background: transparent; padding: 0; }
-                .log-exporter-modal-options > div { background: #1f2335; padding: 10px; border-radius: 5px; }
-                #format-selection-group { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-                #format-selection-group > strong { grid-column: 1 / -1; margin-bottom: 4px; }
-                #basic-options-group { display: flex; flex-direction: column; gap: 8px; }
-                #image-scale-controls, #filter-controls { display: flex; flex-direction: column; gap: 8px; }
-                .log-exporter-modal-footer { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; flex-shrink: 0; }
-                .log-exporter-modal-footer > button, .log-exporter-modal-footer > div { width: 100%; margin: 0 !important; }
-                .log-exporter-modal-footer .log-exporter-modal-btn { padding: 9px 12px; font-size: 0.9em; }
-                #log-exporter-copy { grid-column: 1 / -1; order: 1; }
-                #image-export-controls { grid-column: 1 / -1; order: 2; display: grid !important; grid-template-columns: 1fr 1fr; gap: 8px !important; }
-                #image-export-controls > label:first-of-type { grid-column: 1 / -1; }
-                #image-export-controls > label { justify-content: space-between; font-size: 0.9em; }
-                #image-export-controls > button { grid-column: 1 / -1; }
-                #log-exporter-close { grid-column: 1 / -1; order: 99; background-color: #565f89; }
+                .log-exporter-modal-options > div { 
+                    background: #1f2335; padding: 16px; border-radius: 8px; 
+                    /* 시각적 구분을 위한 박스 섀도우 */
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+                }
+                #format-selection-group { 
+                    display: grid; grid-template-columns: 1fr 1fr; gap: 12px; 
+                }
+                #format-selection-group > strong { grid-column: 1 / -1; margin-bottom: 8px; }
+                #basic-options-group { display: flex; flex-direction: column; gap: 12px; }
+                #image-scale-controls, #filter-controls { display: flex; flex-direction: column; gap: 12px; }
+                /* 슬라이더를 터치하기 쉽게 */
+                input[type="range"] {
+                    height: 8px;
+                    -webkit-appearance: none;
+                    background: #414868;
+                    border-radius: 4px;
+                }
+                input[type="range"]::-webkit-slider-thumb {
+                    -webkit-appearance: none;
+                    width: 24px;
+                    height: 24px;
+                    border-radius: 50%;
+                    background: #7aa2f7;
+                    cursor: pointer;
+                    border: 2px solid #fff;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                }
+                /* 푸터 버튼 레이아웃 개선 - 극도로 컴팩트한 버전 */
+                .log-exporter-modal-footer { 
+                    display: flex; flex-wrap: wrap; gap: 6px; 
+                    flex-shrink: 0; padding: 8px;
+                    /* 안전 영역 고려 (아이폰 홈 인디케이터) */
+                    padding-bottom: max(8px, env(safe-area-inset-bottom));
+                    max-height: 15vh; /* 최대 화면 높이의 15%로 제한 */
+                    overflow: hidden;
+                }
+                .log-exporter-modal-footer > button { 
+                    flex: 1; margin: 0 !important; 
+                    min-width: calc(50% - 3px);
+                }
+                .log-exporter-modal-footer .log-exporter-modal-btn { 
+                    padding: 8px 6px; font-size: 0.8em; 
+                    min-height: 36px; line-height: 1.2;
+                }
+                /* 핵심 버튼만 표시하는 컴팩트 레이아웃 */
+                #image-export-controls { 
+                    display: none !important; /* 모바일에서는 숨김 */
+                }
+                /* 부차적인 버튼들 숨기기 */
+                #log-exporter-raw-toggle,
+                #log-exporter-save-file,
+                #log-exporter-copy-formatted,
+                #log-exporter-download-zip,
+                #arca-helper-toggle-btn {
+                    display: none !important;
+                }
+                /* 핵심 버튼들만 표시 */
+                #log-exporter-copy-html {
+                    order: 1; background-color: #7aa2f7 !important; color: #1a1b26 !important;
+                }
+                #log-exporter-close { 
+                    order: 3; background-color: #565f89; 
+                    border: 1px solid #7aa2f7;
+                }
+                /* 더보기 메뉴 버튼 추가 */
+                .mobile-more-menu-btn {
+                    order: 2; background-color: #9ece6a !important; color: #1a1b26 !important;
+                    position: relative; transition: all 0.3s ease;
+                }
+                /* 더보기 메뉴가 펼쳐졌을 때 버튼들 스타일 */
+                .log-exporter-modal-footer[data-expanded="true"] {
+                    max-height: 50vh !important;
+                    overflow-y: auto !important;
+                    -webkit-overflow-scrolling: touch;
+                }
+                .log-exporter-modal-footer[data-expanded="true"] > button {
+                    min-width: calc(33.33% - 4px);
+                    margin-bottom: 4px;
+                }
+                /* 텍스트 입력 요소들 개선 */
+                select, input[type="number"], textarea {
+                    padding: 12px;
+                    font-size: 16px; /* iOS 자동 줌 방지 */
+                    border-radius: 8px;
+                    touch-action: manipulation;
+                }
+                textarea {
+                    resize: vertical;
+                    min-height: 120px;
+                }
+            }
+            
+            /* 작은 화면 기기 추가 최적화 */
+            @media (max-width: 480px) {
+                .log-exporter-modal-content {
+                    padding: 8px;
+                    gap: 12px;
+                }
+                .log-exporter-modal-header {
+                    padding: 12px 8px;
+                    font-size: 1.05em;
+                    text-align: center;
+                }
+                .log-exporter-modal-btn {
+                    padding: 12px 8px;
+                    font-size: 0.9em;
+                    min-height: 42px;
+                }
+                /* 푸터를 극도로 컴팩트하게 */
+                .log-exporter-modal-footer {
+                    padding: 6px;
+                    gap: 4px;
+                    padding-bottom: max(6px, env(safe-area-inset-bottom));
+                    max-height: 12vh; /* 작은 화면에서는 12%로 더 제한 */
+                }
+                .log-exporter-modal-footer .log-exporter-modal-btn {
+                    padding: 6px 4px;
+                    font-size: 0.75em;
+                    min-height: 32px;
+                    line-height: 1.1;
+                }
+                /* 아카라이브 도우미 섹션 최적화 */
+                .arca-helper-section {
+                    padding: 12px;
+                }
+                .arca-helper-section ol {
+                    font-size: 0.85em;
+                    padding-left: 16px;
+                }
+                .arca-helper-section textarea {
+                    min-height: 100px;
+                    font-size: 14px;
+                }
+                /* 미리보기 영역 최적화 */
+                .log-exporter-modal-preview {
+                    max-height: 40vh;
+                    font-size: 0.9em;
+                }
+                /* 옵션 그룹들 간격 조정 */
+                .log-exporter-modal-options > div {
+                    padding: 12px;
+                }
+                /* 체크박스/라디오 그룹 최적화 */
+                #format-selection-group {
+                    grid-template-columns: 1fr;
+                    gap: 8px;
+                }
+                #format-selection-group label {
+                    padding: 12px 8px;
+                    background: #24283b;
+                    border-radius: 6px;
+                    margin: 2px 0;
+                }
+            }
+            
+            /* 가로 모드 최적화 */
+            @media (max-width: 768px) and (orientation: landscape) {
+                .log-exporter-modal-content {
+                    flex-direction: row;
+                    gap: 12px;
+                }
+                .log-exporter-left-panel {
+                    flex: 0 0 50%;
+                    max-height: calc(100vh - 140px);
+                    overflow-y: auto;
+                    -webkit-overflow-scrolling: touch;
+                }
+                .log-exporter-right-panel {
+                    flex: 1;
+                }
+                .log-exporter-modal-preview {
+                    max-height: none;
+                    height: calc(100vh - 180px);
+                }
             }
         `;
         document.head.appendChild(style);
@@ -2326,6 +2563,9 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                     <button class="log-exporter-modal-btn primary" id="log-exporter-copy-html" title="웹페이지, 블로그, 아카라이브 HTML 모드 등 HTML을 직접 편집할 수 있는 환경에 최적화되어 있습니다. 모든 서식과 이미지가 포함된 완전한 코드를 복사합니다.">
                         HTML 소스 복사 (권장)
                     </button>
+                    <button class="log-exporter-modal-btn mobile-more-menu-btn" id="mobile-more-menu" title="추가 기능 보기">
+                        더보기 ⋯
+                    </button>
                 </div>
                 <div class="log-exporter-modal-footer" id="log-exporter-progress-footer" style="display: none; flex-direction: column; align-items: stretch; gap: 10px;">
                     <div style="display: flex; justify-content: space-between; font-size: 0.9em;">
@@ -2337,6 +2577,152 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                 </div>
             </div>`;
             document.body.appendChild(modal);
+
+            // 모바일 환경 최적화: 모달 열릴 때 배경 스크롤 방지
+            const originalOverflow = document.body.style.overflow;
+            const originalPosition = document.body.style.position;
+            const originalTop = document.body.style.top;
+            const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+            
+            document.body.style.overflow = 'hidden';
+            document.body.style.position = 'fixed';
+            document.body.style.top = `-${scrollTop}px`;
+            document.body.style.width = '100%';
+
+            // 접근성: 포커스 트랩 설정
+            const focusableElements = modal.querySelectorAll(
+                'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+            );
+            const firstFocusableElement = focusableElements[0];
+            const lastFocusableElement = focusableElements[focusableElements.length - 1];
+
+            // 모달이 열리면 첫 번째 요소에 포커스
+            setTimeout(() => {
+                if (firstFocusableElement) {
+                    firstFocusableElement.focus();
+                }
+            }, 100);
+
+            // Tab 키 트랩 핸들러
+            const handleTabKey = (e) => {
+                if (e.key === 'Tab') {
+                    if (e.shiftKey) {
+                        if (document.activeElement === firstFocusableElement) {
+                            lastFocusableElement.focus();
+                            e.preventDefault();
+                        }
+                    } else {
+                        if (document.activeElement === lastFocusableElement) {
+                            firstFocusableElement.focus();
+                            e.preventDefault();
+                        }
+                    }
+                }
+            };
+
+            // ESC 키로 모달 닫기
+            const handleEscapeKey = (e) => {
+                if (e.key === 'Escape') {
+                    closeModal();
+                }
+            };
+
+            document.addEventListener('keydown', handleTabKey);
+            document.addEventListener('keydown', handleEscapeKey);
+
+            // 터치 제스처 지원: 스와이프로 모달 닫기
+            let touchStartY = 0;
+            let touchStartX = 0;
+            let touchStartTime = 0;
+            
+            const handleTouchStart = (e) => {
+                touchStartY = e.touches[0].clientY;
+                touchStartX = e.touches[0].clientX;
+                touchStartTime = Date.now();
+            };
+            
+            const handleTouchEnd = (e) => {
+                if (!e.changedTouches[0]) return;
+                
+                const touchEndY = e.changedTouches[0].clientY;
+                const touchEndX = e.changedTouches[0].clientX;
+                const touchDuration = Date.now() - touchStartTime;
+                
+                const deltaY = touchEndY - touchStartY;
+                const deltaX = touchEndX - touchStartX;
+                const absDeltaY = Math.abs(deltaY);
+                const absDeltaX = Math.abs(deltaX);
+                
+                // 빠른 세로 스와이프 (아래로 300px 이상 또는 빠른 속도)
+                if (absDeltaY > absDeltaX && 
+                    ((absDeltaY > 300) || (absDeltaY > 100 && touchDuration < 300)) &&
+                    deltaY > 0) {
+                    closeModal();
+                }
+            };
+            
+            // 모달 배경에서만 터치 제스처 적용 (내용 영역에서는 제외)
+            modal.addEventListener('touchstart', (e) => {
+                if (e.target === modal) {
+                    handleTouchStart(e);
+                }
+            }, { passive: true });
+            
+            modal.addEventListener('touchend', (e) => {
+                if (e.target === modal) {
+                    handleTouchEnd(e);
+                }
+            }, { passive: true });
+
+            // 더보기 메뉴 기능 구현
+            const mobileMoreBtn = modal.querySelector('#mobile-more-menu');
+            let moreMenuExpanded = false;
+            
+            const hiddenButtons = [
+                '#log-exporter-save-file',
+                '#log-exporter-copy-formatted', 
+                '#log-exporter-download-zip',
+                '#arca-helper-toggle-btn'
+            ];
+            
+            if (mobileMoreBtn) {
+                mobileMoreBtn.addEventListener('click', () => {
+                    moreMenuExpanded = !moreMenuExpanded;
+                    
+                    hiddenButtons.forEach(selector => {
+                        const btn = modal.querySelector(selector);
+                        if (btn) {
+                            btn.style.setProperty('display', moreMenuExpanded ? 'block' : 'none', 'important');
+                        }
+                    });
+                    
+                    // 이미지 익스포트 컨트롤도 토글
+                    const imageControls = modal.querySelector('#image-export-controls');
+                    if (imageControls) {
+                        imageControls.style.setProperty('display', moreMenuExpanded ? 'flex' : 'none', 'important');
+                    }
+                    
+                    // 버튼 텍스트 변경
+                    mobileMoreBtn.textContent = moreMenuExpanded ? '간단히 ⋀' : '더보기 ⋯';
+                    mobileMoreBtn.style.backgroundColor = moreMenuExpanded ? '#f7768e' : '#9ece6a';
+                    
+                    // 푸터 높이 조정 및 스타일 적용
+                    const footer = modal.querySelector('.log-exporter-modal-footer');
+                    if (moreMenuExpanded) {
+                        footer.setAttribute('data-expanded', 'true');
+                        footer.style.maxHeight = '50vh';
+                        footer.style.overflow = 'auto';
+                        footer.style.flexWrap = 'wrap';
+                        footer.style.alignContent = 'flex-start';
+                    } else {
+                        footer.removeAttribute('data-expanded');
+                        footer.style.maxHeight = '15vh';
+                        footer.style.overflow = 'hidden';
+                        footer.style.flexWrap = 'wrap';
+                        footer.style.alignContent = 'center';
+                    }
+                });
+            }
 
             // [추가] 아바타 토글 컨트롤 변수 정의 (ReferenceError 방지)
             const avatarToggleControls = modal.querySelector('#avatar-toggle-controls');
@@ -2374,6 +2760,7 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
 
             /**
              * 미리보기 내의 이미지 크기를 슬라이더 값에 따라 조절합니다.
+             * 모바일 환경에서 터치 피드백을 제공합니다.
              */
             const applyImageScaling = () => {
                 const scale = imageScaleSlider.value;
@@ -2381,9 +2768,23 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                 previewEl.querySelectorAll('img').forEach(img => {
                     img.style.maxWidth = `${scale}%`;
                     img.style.height = 'auto';
+                    // 모바일에서 이미지 터치 시 확대 방지
+                    img.style.touchAction = 'manipulation';
                 });
+                
+                // 슬라이더 값 변경 시 햅틱 피드백 (지원하는 기기에서)
+                if (navigator.vibrate && window.innerWidth <= 768) {
+                    navigator.vibrate(10);
+                }
             };
+            
+            // 터치와 마우스 모두 지원
             imageScaleSlider.addEventListener('input', applyImageScaling);
+            imageScaleSlider.addEventListener('touchmove', (e) => {
+                // 터치 스크롤 방지
+                e.preventDefault();
+                applyImageScaling();
+            }, { passive: false });
 
             /**
              * 참가자 필터 체크박스 상태에 따라 표시할 메시지 노드 배열을 반환합니다.
@@ -2661,7 +3062,23 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
             colorSelector.addEventListener('change', updatePreview);
             handleThemeChange();
 
-            const closeModal = () => modal.remove();
+            const closeModal = () => {
+                // 모바일 환경: 스크롤 복원
+                document.body.style.overflow = originalOverflow;
+                document.body.style.position = originalPosition;
+                document.body.style.top = originalTop;
+                document.body.style.width = '';
+                window.scrollTo(0, scrollTop);
+                
+                // 이벤트 리스너 정리
+                document.removeEventListener('keydown', handleTabKey);
+                document.removeEventListener('keydown', handleEscapeKey);
+                modal.removeEventListener('touchstart', handleTouchStart);
+                modal.removeEventListener('touchend', handleTouchEnd);
+                
+                // 모달 제거
+                modal.remove();
+            };
             modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
             modal.querySelector('#log-exporter-close').addEventListener('click', closeModal);
 
