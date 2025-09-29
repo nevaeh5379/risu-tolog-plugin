@@ -1664,82 +1664,39 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
  * @param {number} [imageWidth=900] - 캡처할 이미지의 너비.
  * @returns {Promise<boolean>} 저장 성공 여부.
  */
-
 async function savePreviewAsImage(previewContainer, onProgress, cancellationToken, charName, chatName, useHighRes = false, baseFontSize = 16, imageWidth = 900) {
-    console.log(`[Log Exporter] savePreviewAsImage: 이미지 저장을 시작합니다. (v3, SVG 경유 방식)`);
+    console.log(`[Log Exporter] savePreviewAsImage: 이미지 저장을 시작합니다.`, { useHighRes, baseFontSize, imageWidth, charName });
     const MAX_SAFE_CANVAS_HEIGHT = 30000;
 
-    // 캡처 대상이 될 실제 콘텐츠 div를 정확히 찾습니다.
-    let captureTarget = previewContainer.querySelector('div:not([style*="display: none"])');
-    if (!captureTarget) {
-        alert('이미지 저장 실패: 캡처할 콘텐츠를 찾을 수 없습니다.', 'error');
-        return false;
-    }
-
+    let captureTarget = previewContainer.firstElementChild;
+    if (!captureTarget) return false;
+    
     if (captureTarget.shadowRoot) {
         captureTarget = captureTarget.shadowRoot.querySelector('.preview-wrapper') || captureTarget.shadowRoot.firstElementChild || captureTarget;
     }
-    
-    // 복원을 위해 원본 스타일 속성을 저장합니다.
+
     const rootHtml = document.documentElement;
+    // 나중에 복원할 원본 스타일 저장
     const originalStyles = {
-        preview: { styleAttribute: previewContainer.getAttribute('style') || '' },
-        target: { styleAttribute: captureTarget.getAttribute('style') || '' },
-        rootHtml: { styleAttribute: rootHtml.getAttribute('style') || '' }
+        preview: { width: previewContainer.style.width, height: previewContainer.style.height, maxHeight: previewContainer.style.maxHeight, overflowY: previewContainer.style.overflowY, padding: previewContainer.style.padding, border: previewContainer.style.border },
+        target: { width: captureTarget.style.width },
+        rootHtml: { fontSize: rootHtml.style.fontSize }
     };
     
     const domReplacements = [];
+    // [핵심] 분할 저장이 실패해도 복원할 수 있도록 원본 메시지 노드를 미리 저장
     const originalMessageNodes = Array.from(captureTarget.childNodes);
-
-    // [핵심] SVG를 경유하여 PNG를 생성하는 새로운 헬퍼 함수
-    const renderNodeToPngViaSvg = (node, options) => {
-        return new Promise(async (resolve, reject) => {
-            try {
-                const { pixelRatio = 1, width, height } = options;
-                const svgDataUrl = await window.__htmlToImageLib.toSvg(node, options);
-
-                const img = new Image();
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    // 해상도를 위해 pixelRatio를 곱해줍니다.
-                    canvas.width = width * pixelRatio;
-                    canvas.height = height * pixelRatio;
-                    
-                    const ctx = canvas.getContext('2d');
-                    // 캔버스 자체의 크기는 유지하고, 그리는 컨тент만 확대합니다.
-                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                    
-                    resolve(canvas.toDataURL('image/png', 1.0));
-                };
-                img.onerror = (e) => {
-                    console.error("[Log Exporter] SVG 로드 실패", e);
-                    reject(new Error("Failed to load SVG into image for PNG conversion."));
-                };
-                img.src = svgDataUrl;
-
-            } catch (e) {
-                reject(e);
-            }
-        });
-    };
-
 
     try {
         await ensureHtmlToImage();
-        const fontLinkEl = previewContainer.querySelector('link[href*="fonts.googleapis.com"]');
-        if (fontLinkEl) {
-            onProgress('웹 폰트 로딩 중...', 2, 100);
-            try {
-                const fontFace = new FontFace('Nanum Myeongjo', `url(${fontLinkEl.href})`);
-                await fontFace.load();
-                document.fonts.add(fontFace);
-            } catch (fontError) { console.warn('[Log Exporter] 웹 폰트 로드 실패', fontError); }
-        }
+        const htmlToImage = window.__htmlToImageLib || window.htmlToImage;
 
-        // ... (비디오 캡처 로직은 변경 없음) ...
+        // --- 비디오 프레임 캡처 ---
         onProgress('비디오 프레임 캡처 중...', 5, 100);
         const videoElements = Array.from(captureTarget.querySelectorAll('video'));
+        
         if (videoElements.length > 0) {
+            console.log(`[Log Exporter] ${videoElements.length}개의 비디오 요소를 발견하여 프레임 캡처를 시도합니다.`);
             await Promise.all(videoElements.map(videoEl => new Promise(async (resolve) => {
                 let timeoutId = setTimeout(() => resolve(), 10000);
                 try {
@@ -1769,91 +1726,104 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                 } catch (e) { clearTimeout(timeoutId); resolve(); }
             })));
         }
+        
         domReplacements.forEach(({ parent, original, replacement }) => {
             if (parent && parent.contains(original)) parent.replaceChild(replacement, original);
         });
-
+        await new Promise(r => requestAnimationFrame(r));
         
+        // --- 캡처 준비 ---
         onProgress('렌더링 준비 중...', 10, 100);
         await document.fonts.ready;
-        await new Promise(r => requestAnimationFrame(r));
-        
         const pixelRatio = useHighRes ? (window.devicePixelRatio || 2) : 1;
+        const commonOptions = { quality: 1.0, pixelRatio, backgroundColor: getComputedStyle(captureTarget).backgroundColor || '#1a1b26' };
         
-        // 캡처를 위해 스타일을 일시적으로 변경
-        rootHtml.style.cssText = originalStyles.rootHtml.styleAttribute + ` font-size: ${baseFontSize}px !important;`;
-        previewContainer.style.cssText = `width: ${imageWidth}px; height: auto; max-height: none; overflow-y: visible; border: none; padding: 0;`;
+        rootHtml.style.fontSize = `${baseFontSize}px`;
+        Object.assign(previewContainer.style, { height: 'auto', maxHeight: 'none', overflowY: 'visible', border: 'none', padding: '0', width: `${imageWidth}px` });
         captureTarget.style.width = `${imageWidth}px`;
-        
-        // getComputedStyle을 사용해 실제 렌더링된 배경색을 가져옵니다.
-        const computedBgColor = getComputedStyle(captureTarget).backgroundColor;
-        const commonOptions = { quality: 1.0, pixelRatio, backgroundColor: computedBgColor };
-        
         await new Promise(r => requestAnimationFrame(r));
-        
+
         const totalHeight = captureTarget.scrollHeight;
         const MAX_CHUNK_HEIGHT = Math.floor(MAX_SAFE_CANVAS_HEIGHT / pixelRatio) - 100;
         
+        console.log(`[Log Exporter] 캡처 준비 완료. 전체 높이: ${totalHeight}px, 분할 기준 높이: ${MAX_CHUNK_HEIGHT}px, PixelRatio: ${pixelRatio}`);
         if (totalHeight <= MAX_CHUNK_HEIGHT) {
-            onProgress('이미지 생성 중... (SVG 변환)', 50, 100);
+            onProgress('이미지 생성 중...', 50, 100);
             if (cancellationToken.cancelled) throw new Error("Cancelled");
-            
-            const pngDataUrl = await renderNodeToPngViaSvg(previewContainer, { ...commonOptions, width: imageWidth, height: totalHeight });
-            downloadImage(pngDataUrl, charName, chatName);
-
+            const canvas = await htmlToImage.toCanvas(previewContainer, { ...commonOptions, width: imageWidth, height: totalHeight });
+            downloadImage(canvas.toDataURL('image/png', 1.0), charName, chatName);
         } else {
-            // ... (분할 저장 로직은 SVG 헬퍼 함수를 호출하도록 수정) ...
-            const messageContainers = Array.from(captureTarget.children).filter(el => el.classList.contains('chat-message-container'));
-            if (messageContainers.length === 0) throw new Error("분할 저장을 위한 메시지 단위를 찾을 수 없습니다.");
+            // --- 라이브 DOM 조작을 통한 분할 저장 ---
+            const messageContainers = Array.from(captureTarget.querySelectorAll('.chat-message-container'));
+            if (messageContainers.length === 0) throw new Error("메시지 단위를 찾을 수 없어 분할 저장을 할 수 없습니다.");
+            console.log(`[Log Exporter] 로그가 너무 길어(${totalHeight}px) ${Math.ceil(totalHeight / MAX_CHUNK_HEIGHT)}개의 이미지로 분할 저장을 시작합니다.`);
             if (!confirm(`[알림] 로그가 너무 길어 단일 이미지로 만들 수 없습니다.\n\n여러 개의 이미지 파일로 나누어 저장합니다.\n\n계속하시겠습니까?`)) return false;
-            
+
             const groups = [];
             let currentGroup = [], accumulatedHeight = 0;
             messageContainers.forEach(msg => {
                 const msgHeight = msg.offsetHeight;
                 if (currentGroup.length > 0 && accumulatedHeight + msgHeight > MAX_CHUNK_HEIGHT) {
                     groups.push(currentGroup);
-                    currentGroup = []; accumulatedHeight = 0;
+                    currentGroup = [];
+                    accumulatedHeight = 0;
                 }
-                currentGroup.push(msg); accumulatedHeight += msgHeight;
+                currentGroup.push(msg);
+                accumulatedHeight += msgHeight;
             });
             if (currentGroup.length > 0) groups.push(currentGroup);
             
             for (let i = 0; i < groups.length; i++) {
                 if (cancellationToken.cancelled) throw new Error("Cancelled");
                 onProgress(`이미지 ${i + 1}/${groups.length} 렌더링 중...`, i, groups.length);
+
+                // 1. 미리보기 창을 비움
                 while (captureTarget.firstChild) captureTarget.removeChild(captureTarget.firstChild);
+                
+                // 2. 현재 그룹의 노드만 다시 삽입
                 groups[i].forEach(msgNode => captureTarget.appendChild(msgNode));
+                
                 await new Promise(r => requestAnimationFrame(r));
                 
+                // 3. 현재 보이는 부분만 캡처
                 const currentChunkHeight = captureTarget.scrollHeight;
-                const pngDataUrl = await renderNodeToPngViaSvg(previewContainer, { ...commonOptions, width: imageWidth, height: currentChunkHeight });
-                downloadImage(pngDataUrl, charName, chatName, { partNumber: i + 1, showCompletionAlert: false });
+                console.log(`[Log Exporter] 분할 이미지 ${i + 1} 캡처 중... (높이: ${currentChunkHeight}px)`);
+                const canvas = await htmlToImage.toCanvas(previewContainer, { ...commonOptions, width: imageWidth, height: currentChunkHeight });
+                downloadImage(canvas.toDataURL('image/png', 1.0), charName, chatName, { partNumber: i + 1, showCompletionAlert: false });
+                
                 await new Promise(r => setTimeout(r, 100));
             }
-            if (!cancellationToken.cancelled) alert(`${groups.length}개의 이미지로 분할하여 저장되었습니다.`, 'success');
+
+            if (!cancellationToken.cancelled) {
+                alert(`${groups.length}개의 이미지로 분할하여 저장되었습니다.`, 'success');
+            }
         }
         return true;
 
     } catch (e) {
         if (e.message !== "Cancelled") {
-            console.error('[Log Exporter] 이미지 저장 중 심각한 오류 발생:', e);
+            console.error('[Log Exporter] 이미지 저장 중 심각한 오류가 발생했습니다. 아래 오류 내용을 개발자에게 전달해주세요.', e);
             alert('이미지 저장 중 오류가 발생했습니다. 개발자 콘솔(F12)을 확인해주세요.', 'error');
         }
         return false;
     } finally {
-        // 모든 변경사항을 원본 스타일로 완벽하게 복원합니다.
-        console.log("[Log Exporter] 이미지 저장 절차 종료 및 원본 상태 복원.");
+        // --- 최종 정리 및 완벽 복원 ---
+        console.log("[Log Exporter] 이미지 저장 절차를 종료하고 원본 상태로 복원합니다.");
+        
+        // 1. 비디오 이미지 대체를 되돌림
         domReplacements.forEach(({ original, parent, replacement, objectURL }) => {
             if (parent && parent.contains(replacement)) parent.replaceChild(original, replacement);
             if (objectURL) URL.revokeObjectURL(objectURL);
         });
+        
+        // 2. 미리보기 창을 비우고, 미리 저장해둔 원본 메시지 노드 전체를 복원
         while (captureTarget.firstChild) captureTarget.removeChild(captureTarget.firstChild);
         originalMessageNodes.forEach(node => captureTarget.appendChild(node));
-        
-        previewContainer.setAttribute('style', originalStyles.preview.styleAttribute);
-        captureTarget.setAttribute('style', originalStyles.target.styleAttribute);
-        rootHtml.setAttribute('style', originalStyles.rootHtml.styleAttribute);
+
+        // 3. 모든 스타일을 원상 복구
+        Object.assign(previewContainer.style, originalStyles.preview);
+        Object.assign(captureTarget.style, originalStyles.target);
+        Object.assign(rootHtml.style, originalStyles.rootHtml);
     }
 }
     /**
