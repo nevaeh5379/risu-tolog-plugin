@@ -476,6 +476,68 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
 
         return htmlToImagePromise;
     }
+    let domToImagePromise = null;
+    /**
+     * dom-to-image-more 라이브러리가 로드되었는지 확인하고, 로드되지 않았다면 CDN에서 동적으로 로드합니다.
+     * @returns {Promise<void>} 라이브러리 로드가 완료되면 resolve되는 Promise.
+     */
+    function ensureDomToImage() {
+        console.log('[Log Exporter] ensureDomToImage: dom-to-image-more 라이브러리 확인/로드 시작');
+        if (typeof window.domtoimage !== 'undefined') {
+            console.log('[Log Exporter] ensureDomToImage: 이미 로드됨');
+            return Promise.resolve();
+        }
+        if (domToImagePromise) {
+            return domToImagePromise;
+        }
+
+        domToImagePromise = new Promise(async (resolve, reject) => {
+            console.log('[Log Exporter] dom-to-image-more 라이브러리 로드 시작...');
+            try {
+                const response = await fetch('https://cdn.jsdelivr.net/npm/dom-to-image-more@3.1.6/dist/dom-to-image-more.min.js');
+                if (!response.ok) {
+                    throw new Error(`CDN에서 스크립트를 가져오는 데 실패했습니다: ${response.statusText}`);
+                }
+                const libraryCode = await response.text();
+
+                // [수정] try...catch...finally 구문이 문자열 내에서 문제를 일으키는 것을 방지하기 위해
+                // try...catch와 try...finally를 분리하여 코드를 실행하고 정리하는 로직으로 변경합니다.
+                const wrappedCode = `
+                    (() => {
+                        const define_backup = window.define;
+                        const require_backup = window.require;
+                        try {
+                            window.define = undefined;
+                            window.require = undefined;
+                            try {
+                                ${libraryCode}
+                            } catch (e) {
+                                console.error("[Log Exporter] 주입된 dom-to-image-more 코드 실행 중 오류 발생:", e);
+                            }
+                        } finally {
+                            window.define = define_backup;
+                            window.require = require_backup;
+                        }
+                    })();
+                `;
+
+                const script = document.createElement('script');
+                script.textContent = wrappedCode;
+                document.head.appendChild(script);
+                document.head.removeChild(script);
+
+                if (typeof window.domtoimage !== 'undefined') {
+                    console.log('[Log Exporter] dom-to-image-more 라이브러리가 성공적으로 로드되었습니다.');
+                    resolve();
+                } else { throw new Error('코드를 주입하여 실행했지만 domtoimage 객체가 생성되지 않았습니다.'); }
+            } catch (error) {
+                console.error('[Log Exporter] dom-to-image-more 라이브러리 동적 로드에 최종 실패했습니다.', error);
+                domToImagePromise = null;
+                reject(error);
+            }
+        });
+        return domToImagePromise;
+    }
     let jszipPromise = null;
     /**
      * JSZip 라이브러리가 로드되었는지 확인하고, 로드되지 않았다면 CDN에서 동적으로 로드합니다.
@@ -1664,8 +1726,9 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
  * @param {number} [imageWidth=900] - 캡처할 이미지의 너비.
  * @returns {Promise<boolean>} 저장 성공 여부.
  */
-async function savePreviewAsImage(previewContainer, onProgress, cancellationToken, charName, chatName, useHighRes = false, baseFontSize = 16, imageWidth = 900) {
-    console.log(`[Log Exporter] savePreviewAsImage: 이미지 저장을 시작합니다.`, { useHighRes, baseFontSize, imageWidth, charName });
+async function savePreviewAsImage(previewContainer, onProgress, cancellationToken, charName, chatName, options = {}) {
+    const { useHighRes = false, baseFontSize = 16, imageWidth = 900, library = 'html-to-image' } = options;
+    console.log(`[Log Exporter] savePreviewAsImage: 이미지 저장을 시작합니다.`, { useHighRes, baseFontSize, imageWidth, library, charName });
     const MAX_SAFE_CANVAS_HEIGHT = 30000;
 
     // [핵심 수정] firstElementChild 대신 querySelector를 사용하여 <link> 태그를 건너뛰고 실제 콘텐츠 div를 선택합니다.
@@ -1712,8 +1775,14 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
         }
         // --- [수정] 여기까지 ---
 
-        await ensureHtmlToImage();
-        const htmlToImage = window.__htmlToImageLib || window.htmlToImage;
+        let imageLib;
+        if (library === 'dom-to-image') {
+            await ensureDomToImage();
+            imageLib = window.domtoimage;
+        } else {
+            await ensureHtmlToImage();
+            imageLib = window.__htmlToImageLib || window.htmlToImage;
+        }
 
         // --- 비디오 프레임 캡처 ---
         onProgress('비디오 프레임 캡처 중...', 5, 100);
@@ -1774,7 +1843,15 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
         if (totalHeight <= MAX_CHUNK_HEIGHT) {
             onProgress('이미지 생성 중...', 50, 100);
             if (cancellationToken.cancelled) throw new Error("Cancelled");
-            const canvas = await htmlToImage.toCanvas(previewContainer, { ...commonOptions, width: imageWidth, height: totalHeight });
+            
+            let canvas;
+            if (library === 'dom-to-image') {
+                // dom-to-image-more는 toPng를 직접 사용하고, 반환된 dataURL로 canvas를 만듭니다.
+                const dataUrl = await imageLib.toPng(previewContainer, { ...commonOptions, width: imageWidth, height: totalHeight });
+                canvas = await (new Promise(resolve => { const img = new Image(); img.onload = () => { const c = document.createElement('canvas'); c.width = img.width; c.height = img.height; c.getContext('2d').drawImage(img, 0, 0); resolve(c); }; img.src = dataUrl; }));
+            } else {
+                canvas = await imageLib.toCanvas(previewContainer, { ...commonOptions, width: imageWidth, height: totalHeight });
+            }
             downloadImage(canvas.toDataURL('image/png', 1.0), charName, chatName);
         } else {
             // --- 라이브 DOM 조작을 통한 분할 저장 ---
@@ -1815,7 +1892,14 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                 // 3. 현재 보이는 부분만 캡처
                 const currentChunkHeight = captureTarget.scrollHeight;
                 console.log(`[Log Exporter] 분할 이미지 ${i + 1} 캡처 중... (높이: ${currentChunkHeight}px)`);
-                const canvas = await htmlToImage.toCanvas(previewContainer, { ...commonOptions, width: imageWidth, height: currentChunkHeight });
+                let canvas;
+                if (library === 'dom-to-image') {
+                    const dataUrl = await imageLib.toPng(previewContainer, { ...commonOptions, width: imageWidth, height: currentChunkHeight });
+                    canvas = await (new Promise(resolve => { const img = new Image(); img.onload = () => { const c = document.createElement('canvas'); c.width = img.width; c.height = img.height; c.getContext('2d').drawImage(img, 0, 0); resolve(c); }; img.src = dataUrl; }));
+                } else {
+                    canvas = await imageLib.toCanvas(previewContainer, { ...commonOptions, width: imageWidth, height: currentChunkHeight });
+                }
+
                 downloadImage(canvas.toDataURL('image/png', 1.0), charName, chatName, { partNumber: i + 1, showCompletionAlert: false });
                 
                 await new Promise(r => setTimeout(r, 100));
@@ -2257,6 +2341,11 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                     <!-- [복원] 이미지 저장 옵션 UI -->
                     <div id="image-export-controls" style="display: flex; align-items: center; gap: 8px; margin-left: auto; flex-wrap: wrap; font-size: 0.9em;">
                         <label><input type="checkbox" id="image-high-res-checkbox" checked>고해상도</label>
+                        <label>엔진:
+                            <select id="image-library-selector" style="width: auto; margin-left: 4px; background: #1a1b26; color: #c0caf5; border: 1px solid #414868; border-radius: 4px; text-align: center;">
+                                <option value="html-to-image" selected>html-to-image</option>
+                                <option value="dom-to-image">dom-to-image</option>
+                            </select></label>
                         <label>폰트:<input type="number" id="image-font-size-input" value="26" min="12" max="40" style="width: 45px; margin-left: 4px; background: #1a1b26; color: #c0caf5; border: 1px solid #414868; border-radius: 4px; text-align: center;"></label>
                         <label>너비:<input type="number" id="image-width-input" value="700" min="600" max="1200" step="50" style="width: 60px; margin-left: 4px; background: #1a1b26; color: #c0caf5; border: 1px solid #414868; border-radius: 4px; text-align: center;"></label>
                         <button class="log-exporter-modal-btn image-save" id="log-exporter-save-image">이미지로 저장</button>    
@@ -2630,6 +2719,7 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
             const saveImageBtn = modal.querySelector('#log-exporter-save-image');
             const highResCheckbox = modal.querySelector('#image-high-res-checkbox');
             const fontSizeInput = modal.querySelector('#image-font-size-input');
+            const imageLibrarySelector = modal.querySelector('#image-library-selector');
             const imageWidthInput = modal.querySelector('#image-width-input');
             let cancellationToken = { cancelled: false };
 
@@ -2652,7 +2742,12 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                 const baseFontSize = parseInt(fontSizeInput.value) || 16;
                 const imageWidth = parseInt(imageWidthInput.value) || 900;
 
-                const success = await savePreviewAsImage(previewEl, updateProgress, cancellationToken, charName, chatName, useHighRes, baseFontSize, imageWidth);
+                const success = await savePreviewAsImage(previewEl, updateProgress, cancellationToken, charName, chatName, {
+                    useHighRes,
+                    baseFontSize,
+                    imageWidth,
+                    library: imageLibrarySelector.value
+                });
 
                 footer.style.display = 'flex';
                 progressFooter.style.display = 'none';
@@ -2699,7 +2794,7 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                     modal.querySelector('#log-exporter-save-file'),
                     modal.querySelector('#log-exporter-copy-formatted'),
                     modal.querySelector('#log-exporter-copy-html'),
-                    modal.querySelector('#log-exporter-download-zip'),
+                    modal.querySelector('#log-exporter-download-zip'), // 이 버튼은 아카라이브 섹션에 있으므로 중복될 수 있음
                     ...modal.querySelectorAll('#image-export-controls button, #image-export-controls input')
                 ];
                 // 좌측 패널의 컨트롤 (아카라이브 변환기 제외)
@@ -3121,6 +3216,7 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
 
     injectModalStyles();
     ensureHtmlToImage().catch(e => console.error(e));
+    ensureDomToImage().catch(e => console.error(e)); // 미리 로드
     ensureJSZip().catch(e => console.error(e));
     startObserver();
 
