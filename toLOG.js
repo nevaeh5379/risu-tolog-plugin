@@ -1480,7 +1480,7 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
                          logEntry += '</div></div>';
                          break;
 
-                    case 'fantasy':
+                    case 'fantasy': { // 중괄호로 스코프를 만들어 변수 충돌 방지
                         let fantasyAvatarHtml = '';
                         if (showAvatar) {
                             const baseStyle = `width:52px;height:52px;min-width:52px;border-radius:50%;border:2px solid ${color.avatarBorder}; box-shadow: 0 0 12px rgba(255, 201, 120, 0.5);`;
@@ -1505,6 +1505,7 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
                         logEntry += `<div style="color:${color.text}; line-height: 1.85; font-size: 1.1em; text-align: justify; margin-top: 1.2em; max-width: 85%; margin-left: auto; margin-right: auto; background-color: ${isUser ? color.cardBgUser : color.cardBg}; padding: 14px 18px; border-radius: 12px; border: 1px solid ${color.border}; box-shadow: ${color.shadow};">${messageHtml}</div>`;
                         logEntry += `</div>`;
                         break;
+                    } // case 'fantasy' 종료
                     // ▼▼▼ [추가] 판타지 2 테마 렌더링 로직 ▼▼▼
                     case 'fantasy2':
                         const fantasy2Font = `'Nanum Myeongjo', serif`;
@@ -1580,13 +1581,34 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
                 border-radius: ${selectedThemeKey === 'log' ? '8px' : '12px'};
             `;
 
+            const containerIdSuffix = Date.now();
+
             // 테마별 최종 컨테이너 장식
+            let extraStyles = '';
             if (selectedThemeKey === 'modern') {
                 containerStyle += `background-image: linear-gradient(145deg, ${color.background}, #2c2f33);`;
             }
             if (selectedThemeKey === 'fantasy') {
-                containerStyle += `${!isForArca ? `font-family:${fantasyFont};` : ''} border-image: linear-gradient(to bottom, ${color.border}, ${color.separator}) 1; border-width: 2px; border-style: solid;
-            background-image: radial-gradient(ellipse at top, rgba(74, 85, 140, 0.3), transparent 60%), radial-gradient(ellipse at bottom, rgba(74, 85, 140, 0.2), transparent 70%);`;
+                containerStyle += `
+                    ${!isForArca ? `font-family:${fantasyFont};` : ''} 
+                    border-image: linear-gradient(to bottom, ${color.border}, ${color.separator}) 1; 
+                    border-width: 2px; 
+                    border-style: solid;
+                    position: relative; /* 가상 요소를 위한 기준점 */
+                    overflow: hidden; /* 가상 요소가 삐져나가지 않도록 */
+                    z-index: 0; /* 내용물과의 z-index 계층을 위해 */
+                `;
+                // 그라데이션 배경을 ::before 가상 요소로 분리하여 렌더링 문제 해결
+                extraStyles = `
+                    #tolog-fantasy-container-${containerIdSuffix}::before {
+                        content: '';
+                        position: absolute;
+                        top: 0; left: 0; width: 100%; height: 100%;
+                        background-image: radial-gradient(ellipse at top, rgba(74, 85, 140, 0.3), transparent 60%), radial-gradient(ellipse at bottom, rgba(74, 85, 140, 0.2), transparent 70%);
+                        pointer-events: none; /* 마우스 이벤트 방해 방지 */
+                        z-index: -1; /* 내용물 뒤로 보내기 */
+                    }
+                `;
             }
             // ▼▼▼ [추가] 판타지 2 컨테이너 스타일 ▼▼▼
             if (selectedThemeKey === 'fantasy2') {
@@ -1606,7 +1628,11 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
             // [수정] 최종 return 구문에 헤더와 푸터 포함
             const headerHtml = await generateHeaderHtml();
             const footerHtml = generateFooterHtml();
-            let finalHtml = `<div style="${containerStyle}"><style>${baseTagStyles}</style>${headerHtml}${log}${footerHtml}</div>`;
+            // 최종 HTML 생성 로직 수정
+            const containerId = (selectedThemeKey === 'fantasy') ? ` id="tolog-fantasy-container-${containerIdSuffix}"` : '';
+            let finalHtml = `<div${containerId} style="${containerStyle}">
+                                <style>${baseTagStyles}${extraStyles}</style>${headerHtml}${log}${footerHtml}
+                             </div>`;
             if (selectedThemeKey === 'fantasy' || selectedThemeKey === 'fantasy2') {
                 const fontLink = `<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700&display=swap">`;
                 finalHtml = fontLink + finalHtml;
