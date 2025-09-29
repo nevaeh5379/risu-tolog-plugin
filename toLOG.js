@@ -741,12 +741,13 @@ const AVATAR_ATTR = 'data-avatar';
             // 아카라이브 모드에서는 순서가 중요하므로, HTML 생성 후 순서대로 수집
             if (sequentialNaming) {
                 // [수정] generateBasicFormatLog 호출 시 두 번째 인자로 charInfo 객체를 전달하도록 수정
+                // [수정] 이미지를 Base64로 임베드하지 않고 원본 URL을 유지하도록 embedImagesAsBase64: false 옵션 추가
                 const charInfoForLog = {
                     name: charName,
                     chatName: chatName,
                     avatarUrl: '' // 아바타 URL은 이 컨텍스트에서 직접 사용되지 않으므로 빈 값으로 전달
                 };
-                const baseHtml = await generateBasicFormatLog(nodes, charInfoForLog, 'basic', 'dark', showAvatar, false, false, true, true);
+                const baseHtml = await generateBasicFormatLog(nodes, charInfoForLog, 'basic', 'dark', showAvatar, false, false, true, true, false);
                 const tempDiv = document.createElement('div');
                 tempDiv.innerHTML = baseHtml;
 
@@ -1693,7 +1694,7 @@ const AVATAR_ATTR = 'data-avatar';
          * @param {boolean} [showBubble=true] - 말풍선을 표시할지 여부.
          * @returns {Promise<string>} 포맷된 채팅 로그를 나타내는 HTML 문자열.
          */
-        async function generateBasicFormatLog(nodes, charInfo, selectedThemeKey = 'basic', selectedColorKey = 'dark', showAvatar = true, showHeader = true, showFooter = true, showBubble = true, isForArca = false) {
+        async function generateBasicFormatLog(nodes, charInfo, selectedThemeKey = 'basic', selectedColorKey = 'dark', showAvatar = true, showHeader = true, showFooter = true, showBubble = true, isForArca = false, embedImagesAsBase64 = true) {
             console.log(`[Log Exporter] generateBasicFormatLog: 테마: ${selectedThemeKey}, 헤더: ${showHeader}, 푸터: ${showFooter}`);
             
             const themeInfo = THEMES[selectedThemeKey] || THEMES.basic;
@@ -1740,13 +1741,31 @@ const AVATAR_ATTR = 'data-avatar';
                 if (node.querySelector('textarea')) continue;
     
                 let name = node.querySelector('.unmargin.text-xl')?.textContent.trim() || (node.classList.contains('justify-end') ? 'User' : 'Assistant');
-                const messageEl = node.querySelector('.prose, .chattext');
-                if (!messageEl) continue;
+                const originalMessageEl = node.querySelector('.prose, .chattext');
+                if (!originalMessageEl) continue;
     
-                let contentSourceEl = messageEl.cloneNode(true);
-                contentSourceEl.querySelectorAll('img, script, style, .log-exporter-msg-btn-group').forEach(el => el.remove());
+                let contentSourceEl = originalMessageEl.cloneNode(true);
+                // [수정] script, style, 버튼 그룹만 제거하고 img 태그는 유지합니다.
+                contentSourceEl.querySelectorAll('script, style, .log-exporter-msg-btn-group').forEach(el => el.remove());
                 contentSourceEl.querySelectorAll('[style*="background-image"]').forEach(el => el.style.backgroundImage = 'none');
                 
+                // [추가] 메시지 내의 모든 이미지를 Base64로 변환하여 포함시킵니다.
+                const imagePromises = Array.from(contentSourceEl.querySelectorAll('img')).map(async (img) => {
+                    if (img.src && embedImagesAsBase64) { // embedImagesAsBase64 플래그 확인
+                        if (img.src) {
+                            try {
+                                const base64Src = await imageUrlToBase64(img.src);
+                                img.src = base64Src;
+                            } catch (e) {
+                                console.warn(`[Log Exporter] 이미지 Base64 변환 실패: ${img.src}`, e);
+                            }
+                        }
+                    }
+                    // [수정] 스타일 적용은 Base64 변환 여부와 관계없이 항상 수행
+                    Object.assign(img.style, { maxWidth: '100%', height: 'auto', borderRadius: '8px', display: 'block', margin: '12px 0' });
+                });
+                await Promise.all(imagePromises);
+
                 // [핵심 수정] RisuAI 전용 서식(인용, 생각 등) 스타일링 로직 추가
                 const styleBlock = (el, bg, textColor, border = null) => {
                     const newBlock = document.createElement('div');
