@@ -3090,6 +3090,401 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
             modal.setAttribute('aria-labelledby', 'modal-header');
             modal.innerHTML = `
             <style>
+                /* 데스크톱 전용 스타일 */
+                @media (min-width: 769px) {
+                    .log-exporter-modal {
+                        display: flex !important;
+                        flex-direction: column !important;
+                        width: 90vw !important;
+                        max-width: 1800px !important;
+                        height: 90vh !important;
+                        padding: 0 !important;
+                    }
+                    
+                    .log-exporter-modal-content {
+                        display: grid !important;
+                        grid-template-columns: 450px 1fr !important;
+                        grid-template-rows: 1fr auto !important;
+                        gap: 0 !important;
+                        flex: 1 !important;
+                        padding: 0 !important;
+                        overflow: hidden !important;
+                    }
+                    
+                    .log-exporter-modal-header {
+                        background: linear-gradient(135deg, #7aa2f7 0%, #bb9af7 100%);
+                        color: #1a1b26;
+                        padding: 20px 24px !important;
+                        font-size: 1.3em !important;
+                        font-weight: bold;
+                        border-bottom: none !important;
+                        display: flex;
+                        align-items: center;
+                        justify-content: space-between;
+                        flex-shrink: 0;
+                    }
+                    
+                    .log-exporter-modal-close-btn {
+                        position: static !important;
+                        background: rgba(255, 255, 255, 0.15) !important;
+                        color: #ffffff !important;
+                        border-radius: 50% !important;
+                        width: 36px !important;
+                        height: 36px !important;
+                        transition: all 0.2s !important;
+                        font-weight: bold !important;
+                    }
+                    
+                    .log-exporter-modal-close-btn:hover {
+                        background: rgba(255, 255, 255, 0.25) !important;
+                        transform: rotate(90deg) scale(1.1) !important;
+                    }
+                    
+                    .desktop-settings-panel {
+                        grid-column: 1;
+                        grid-row: 1;
+                        background: #1f2335;
+                        border-right: 1px solid #414868;
+                        overflow-y: auto;
+                        overflow-x: hidden;
+                        padding: 20px;
+                        -webkit-overflow-scrolling: touch;
+                    }
+                    
+                    .desktop-settings-panel::-webkit-scrollbar {
+                        width: 8px;
+                    }
+                    
+                    .desktop-settings-panel::-webkit-scrollbar-track {
+                        background: #1a1b26;
+                    }
+                    
+                    .desktop-settings-panel::-webkit-scrollbar-thumb {
+                        background: #414868;
+                        border-radius: 4px;
+                    }
+                    
+                    .desktop-settings-panel::-webkit-scrollbar-thumb:hover {
+                        background: #7aa2f7;
+                    }
+                    
+                    .desktop-preview-panel {
+                        grid-column: 2;
+                        grid-row: 1;
+                        background: #1a1b26;
+                        overflow-y: auto;
+                        position: relative;
+                        display: flex;
+                        flex-direction: column;
+                    }
+                    
+                    .desktop-action-bar {
+                        grid-column: 1 / -1;
+                        grid-row: 2;
+                        background: #1f2335;
+                        border-top: 1px solid #414868;
+                        padding: 16px 24px;
+                        display: flex;
+                        gap: 12px;
+                        align-items: center;
+                        flex-wrap: wrap;
+                    }
+                    
+                    .desktop-section {
+                        margin-bottom: 24px;
+                        background: #24283b;
+                        border-radius: 12px;
+                        padding: 16px;
+                        border: 1px solid #414868;
+                        transition: all 0.3s;
+                    }
+                    
+                    .desktop-section:hover {
+                        border-color: #7aa2f7;
+                        box-shadow: 0 4px 12px rgba(122, 162, 247, 0.1);
+                    }
+                    
+                    .desktop-section-header {
+                        display: flex;
+                        align-items: center;
+                        gap: 10px;
+                        margin-bottom: 12px;
+                        padding-bottom: 8px;
+                        border-bottom: 1px solid #414868;
+                    }
+                    
+                    .desktop-section-icon {
+                        font-size: 1.2em;
+                    }
+                    
+                    .desktop-section-title {
+                        font-weight: bold;
+                        color: #7aa2f7;
+                        font-size: 1em;
+                        flex: 1;
+                    }
+                    
+                    .desktop-option-row {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        padding: 10px 0;
+                        border-bottom: 1px solid rgba(65, 72, 104, 0.3);
+                    }
+                    
+                    .desktop-option-row:last-child {
+                        border-bottom: none;
+                    }
+                    
+                    .desktop-option-label {
+                        color: #c0caf5;
+                        font-size: 0.95em;
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                    }
+                    
+                    .desktop-option-control {
+                        display: flex;
+                        gap: 8px;
+                        align-items: center;
+                    }
+                    
+                    .desktop-radio-group {
+                        display: grid;
+                        grid-template-columns: 1fr 1fr;
+                        gap: 8px;
+                        margin-top: 8px;
+                    }
+                    
+                    .desktop-radio-label {
+                        background: #1a1b26;
+                        padding: 10px 12px;
+                        border-radius: 8px;
+                        border: 2px solid #414868;
+                        cursor: pointer;
+                        text-align: center;
+                        transition: all 0.2s;
+                        font-size: 0.9em;
+                    }
+                    
+                    .desktop-radio-label:hover {
+                        border-color: #7aa2f7;
+                        background: #24283b;
+                    }
+                    
+                    .desktop-radio-label.active {
+                        background: #7aa2f7;
+                        color: #1a1b26;
+                        border-color: #7aa2f7;
+                        font-weight: bold;
+                    }
+                    
+                    .desktop-select,
+                    .desktop-input {
+                        background: #1a1b26;
+                        color: #c0caf5;
+                        border: 1px solid #414868;
+                        border-radius: 6px;
+                        padding: 6px 10px;
+                        font-size: 0.9em;
+                        transition: all 0.2s;
+                    }
+                    
+                    .desktop-select:focus,
+                    .desktop-input:focus {
+                        outline: none;
+                        border-color: #7aa2f7;
+                        box-shadow: 0 0 0 3px rgba(122, 162, 247, 0.1);
+                    }
+                    
+                    .desktop-slider-container {
+                        margin-top: 8px;
+                    }
+                    
+                    .desktop-slider {
+                        width: 100%;
+                        height: 6px;
+                        border-radius: 3px;
+                        background: #414868;
+                        outline: none;
+                        -webkit-appearance: none;
+                    }
+                    
+                    .desktop-slider::-webkit-slider-thumb {
+                        -webkit-appearance: none;
+                        appearance: none;
+                        width: 18px;
+                        height: 18px;
+                        border-radius: 50%;
+                        background: #7aa2f7;
+                        cursor: pointer;
+                        transition: all 0.2s;
+                    }
+                    
+                    .desktop-slider::-webkit-slider-thumb:hover {
+                        background: #bb9af7;
+                        transform: scale(1.2);
+                    }
+                    
+                    .desktop-slider::-moz-range-thumb {
+                        width: 18px;
+                        height: 18px;
+                        border-radius: 50%;
+                        background: #7aa2f7;
+                        cursor: pointer;
+                        border: none;
+                        transition: all 0.2s;
+                    }
+                    
+                    .desktop-toggle {
+                        position: relative;
+                        width: 44px;
+                        height: 24px;
+                        background: #414868;
+                        border-radius: 12px;
+                        cursor: pointer;
+                        transition: all 0.3s;
+                    }
+                    
+                    .desktop-toggle::after {
+                        content: '';
+                        position: absolute;
+                        top: 2px;
+                        left: 2px;
+                        width: 20px;
+                        height: 20px;
+                        background: #1a1b26;
+                        border-radius: 50%;
+                        transition: all 0.3s;
+                    }
+                    
+                    .desktop-toggle.active {
+                        background: #7aa2f7;
+                    }
+                    
+                    .desktop-toggle.active::after {
+                        left: 22px;
+                    }
+                    
+                    .desktop-preview-toolbar {
+                        position: sticky;
+                        top: 0;
+                        background: #1f2335;
+                        border-bottom: 1px solid #414868;
+                        padding: 12px 16px;
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        z-index: 10;
+                    }
+                    
+                    .desktop-preview-toolbar-title {
+                        font-weight: bold;
+                        color: #7aa2f7;
+                        font-size: 1em;
+                    }
+                    
+                    .desktop-preview-content {
+                        flex: 1;
+                        padding: 20px;
+                        overflow-y: auto;
+                    }
+                    
+                    .desktop-btn {
+                        padding: 10px 16px;
+                        border-radius: 8px;
+                        border: none;
+                        font-size: 0.9em;
+                        cursor: pointer;
+                        transition: all 0.2s;
+                        font-weight: 500;
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 6px;
+                    }
+                    
+                    .desktop-btn:hover {
+                        transform: translateY(-2px);
+                        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+                    }
+                    
+                    .desktop-btn-primary {
+                        background: #7aa2f7;
+                        color: #1a1b26;
+                    }
+                    
+                    .desktop-btn-secondary {
+                        background: #414868;
+                        color: #c0caf5;
+                    }
+                    
+                    .desktop-btn-success {
+                        background: #9ece6a;
+                        color: #1a1b26;
+                    }
+                    
+                    .desktop-btn-warning {
+                        background: #e0af68;
+                        color: #1a1b26;
+                    }
+                    
+                    .desktop-btn-danger {
+                        background: #f7768e;
+                        color: #1a1b26;
+                    }
+                    
+                    .desktop-collapsible-btn {
+                        width: 100%;
+                        background: #1a1b26;
+                        color: #7aa2f7;
+                        border: 1px solid #414868;
+                        padding: 8px 12px;
+                        border-radius: 6px;
+                        cursor: pointer;
+                        text-align: left;
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        margin-top: 10px;
+                        transition: all 0.2s;
+                    }
+                    
+                    .desktop-collapsible-btn:hover {
+                        background: #24283b;
+                        border-color: #7aa2f7;
+                    }
+                    
+                    .desktop-collapsible-content {
+                        max-height: 0;
+                        overflow: hidden;
+                        transition: max-height 0.3s ease-out;
+                        background: #1a1b26;
+                        border-radius: 6px;
+                    }
+                    
+                    .desktop-collapsible-content.open {
+                        max-height: 400px;
+                        margin-top: 10px;
+                        overflow-y: auto;
+                        padding: 10px;
+                    }
+                    
+                    .desktop-collapsible-content::-webkit-scrollbar {
+                        width: 6px;
+                    }
+                    
+                    .desktop-collapsible-content::-webkit-scrollbar-track {
+                        background: #24283b;
+                        border-radius: 3px;
+                    }
+                    
+                    .desktop-collapsible-content::-webkit-scrollbar-thumb {
+                        background: #414868;
+                        border-radius: 3px;
+                    }
+                }
+                
                 @media (max-width: 768px) {
                     .log-exporter-modal-backdrop {
                         padding: 0 !important;
@@ -3242,11 +3637,27 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                     }
                     .log-exporter-left-panel,
                     .log-exporter-right-panel {
+                        display: none !important;
+                    }
+                    .desktop-settings-panel {
                         display: block !important;
                     }
-                    .log-exporter-modal-content {
+                    .desktop-preview-panel {
                         display: flex !important;
-                        flex-direction: row !important;
+                    }
+                    .desktop-action-bar {
+                        display: flex !important;
+                    }
+                    .log-exporter-modal-footer {
+                        display: none !important;
+                    }
+                }
+                
+                @media (max-width: 768px) {
+                    .desktop-settings-panel,
+                    .desktop-preview-panel,
+                    .desktop-action-bar {
+                        display: none !important;
                     }
                 }
             </style>
@@ -3416,8 +3827,200 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                         </div>
                     </div>
                     
-                    <!-- 데스크톱 전용 기존 레이아웃 -->
-                    <div class="log-exporter-left-panel">
+                    <!-- 데스크톱 전용 새로운 레이아웃 -->
+                    <div class="desktop-settings-panel">
+                        <!-- 형식 선택 -->
+                        <div class="desktop-section">
+                            <div class="desktop-section-header">
+                                <span class="desktop-section-icon">📄</span>
+                                <span class="desktop-section-title">출력 형식</span>
+                            </div>
+                            <div class="desktop-radio-group">
+                                <label class="desktop-radio-label ${savedSettings.format === 'html' ? 'active' : ''}" data-format="html">
+                                    <input type="radio" name="log-format-desktop" value="html" data-setting-key="format" ${savedSettings.format === 'html' ? 'checked' : ''} style="display: none;">
+                                    HTML
+                                </label>
+                                <label class="desktop-radio-label ${!savedSettings.format || savedSettings.format === 'basic' ? 'active' : ''}" data-format="basic">
+                                    <input type="radio" name="log-format-desktop" value="basic" data-setting-key="format" ${!savedSettings.format || savedSettings.format === 'basic' ? 'checked' : ''} style="display: none;">
+                                    기본
+                                </label>
+                                <label class="desktop-radio-label ${savedSettings.format === 'markdown' ? 'active' : ''}" data-format="markdown">
+                                    <input type="radio" name="log-format-desktop" value="markdown" data-setting-key="format" ${savedSettings.format === 'markdown' ? 'checked' : ''} style="display: none;">
+                                    마크다운
+                                </label>
+                                <label class="desktop-radio-label ${savedSettings.format === 'text' ? 'active' : ''}" data-format="text">
+                                    <input type="radio" name="log-format-desktop" value="text" data-setting-key="format" ${savedSettings.format === 'text' ? 'checked' : ''} style="display: none;">
+                                    텍스트
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <!-- 기본 형식 옵션 -->
+                        <div class="desktop-section" id="desktop-basic-options" style="display: none;">
+                            <div class="desktop-section-header">
+                                <span class="desktop-section-icon">🎨</span>
+                                <span class="desktop-section-title">테마 & 스타일</span>
+                            </div>
+                            <div class="desktop-option-row">
+                                <span class="desktop-option-label">테마</span>
+                                <select id="theme-selector" name="log-theme" class="desktop-select" data-setting-key="theme">
+                                ${Object.entries(THEMES).map(([key, theme]) => 
+                                    `<option value="${key}" ${key === (savedSettings.theme || 'basic') ? 'selected' : ''}>${theme.name}</option>`
+                                ).join('')}
+                                </select>
+                            </div>
+                            <div class="desktop-option-row" id="color-selector-container">
+                                <span class="desktop-option-label">색상</span>
+                                <select id="color-selector" name="log-color" class="desktop-select" data-setting-key="color">
+                                    ${Object.entries(COLORS).map(([key, color]) => 
+                                        `<option value="${key}" ${key === (savedSettings.color || 'dark') ? 'selected' : ''}>${color.name}</option>`
+                                    ).join('')}
+                                </select>
+                            </div>
+                            <div class="desktop-option-row">
+                                <span class="desktop-option-label">💬 아바타 표시</span>
+                                <div class="desktop-toggle ${savedSettings.showAvatar !== false ? 'active' : ''}" id="avatar-toggle-checkbox-wrapper" data-setting-key="showAvatar">
+                                    <input type="checkbox" id="avatar-toggle-checkbox" data-setting-key="showAvatar" ${savedSettings.showAvatar !== false ? 'checked' : ''} style="display: none;">
+                                </div>
+                            </div>
+                            <div class="desktop-option-row">
+                                <span class="desktop-option-label">💭 말풍선 표시</span>
+                                <div class="desktop-toggle ${savedSettings.showBubble !== false ? 'active' : ''}" id="bubble-toggle-checkbox-wrapper" data-setting-key="showBubble">
+                                    <input type="checkbox" id="bubble-toggle-checkbox" data-setting-key="showBubble" ${savedSettings.showBubble !== false ? 'checked' : ''} style="display: none;">
+                                </div>
+                            </div>
+                            <div class="desktop-option-row">
+                                <span class="desktop-option-label">📌 헤더 표시</span>
+                                <div class="desktop-toggle ${savedSettings.showHeader !== false ? 'active' : ''}" id="header-toggle-checkbox-wrapper" data-setting-key="showHeader">
+                                    <input type="checkbox" id="header-toggle-checkbox" data-setting-key="showHeader" ${savedSettings.showHeader !== false ? 'checked' : ''} style="display: none;">
+                                </div>
+                            </div>
+                            <div class="desktop-option-row">
+                                <span class="desktop-option-label">📝 푸터 표시</span>
+                                <div class="desktop-toggle ${savedSettings.showFooter !== false ? 'active' : ''}" id="footer-toggle-checkbox-wrapper" data-setting-key="showFooter">
+                                    <input type="checkbox" id="footer-toggle-checkbox" data-setting-key="showFooter" ${savedSettings.showFooter !== false ? 'checked' : ''} style="display: none;">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 이미지 크기 조절 -->
+                        <div class="desktop-section" id="image-scale-controls" style="display: none;">
+                            <div class="desktop-section-header">
+                                <span class="desktop-section-icon">🖼️</span>
+                                <span class="desktop-section-title">이미지 크기</span>
+                            </div>
+                            <div class="desktop-option-row">
+                                <span class="desktop-option-label">크기</span>
+                                <span id="image-scale-value" style="font-weight: bold; color: #7aa2f7;">100%</span>
+                            </div>
+                            <div class="desktop-slider-container">
+                                <input type="range" id="image-scale-slider" class="desktop-slider" min="10" max="100" value="${savedSettings.imageScale || 100}" step="5" data-setting-key="imageScale">
+                            </div>
+                        </div>
+                        
+                        <!-- HTML 옵션 -->
+                        <div class="desktop-section" id="html-options-group" style="display: none;">
+                            <div class="desktop-section-header">
+                                <span class="desktop-section-icon">🌐</span>
+                                <span class="desktop-section-title">HTML 설정</span>
+                            </div>
+                            <div class="desktop-option-row">
+                                <span class="desktop-option-label">스타일 인라인 적용</span>
+                                <div class="desktop-toggle ${savedSettings.applyStyles ? 'active' : ''}" id="style-toggle-checkbox-wrapper" data-setting-key="applyStyles">
+                                    <input type="checkbox" id="style-toggle-checkbox" data-setting-key="applyStyles" ${savedSettings.applyStyles ? 'checked' : ''} style="display: none;">
+                                </div>
+                            </div>
+                            <div class="desktop-option-row">
+                                <span class="desktop-option-label">호버 요소 펼치기</span>
+                                <div class="desktop-toggle ${savedSettings.expandHover ? 'active' : ''}" id="expand-hover-elements-checkbox-wrapper" data-setting-key="expandHover">
+                                    <input type="checkbox" id="expand-hover-elements-checkbox" data-setting-key="expandHover" ${savedSettings.expandHover ? 'checked' : ''} style="display: none;">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 필터 설정 -->
+                        <div class="desktop-section" id="filter-controls">
+                            <div class="desktop-section-header">
+                                <span class="desktop-section-icon">🔍</span>
+                                <span class="desktop-section-title">필터링</span>
+                            </div>
+                            <div class="desktop-option-row">
+                                <span class="desktop-option-label">UI 필터링 적용</span>
+                                <div class="desktop-toggle ${savedSettings.useUiFilter !== false ? 'active' : ''}" id="filter-toggle-checkbox-wrapper" data-setting-key="useUiFilter">
+                                    <input type="checkbox" id="filter-toggle-checkbox" data-setting-key="useUiFilter" ${savedSettings.useUiFilter !== false ? 'checked' : ''} style="display: none;">
+                                </div>
+                            </div>
+                            ${uiClasses.length > 0 ? `
+                                <button id="custom-filter-toggle" class="desktop-collapsible-btn">
+                                    <span>커스텀 필터 설정</span>
+                                    <span class="toggle-icon">▼</span>
+                                </button>
+                                <div class="desktop-collapsible-content" id="custom-filter-section">
+                                    <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+                                        <button id="select-all-filters" class="desktop-btn desktop-btn-secondary" style="flex: 1; padding: 6px 12px; font-size: 0.85em;">전체 선택</button>
+                                        <button id="deselect-all-filters" class="desktop-btn desktop-btn-secondary" style="flex: 1; padding: 6px 12px; font-size: 0.85em;">전체 해제</button>
+                                    </div>
+                                    <div style="max-height: 250px; overflow-y: auto;">
+                                        ${uiClasses.map(classInfo => `
+                                            <label style="display: flex; align-items: center; margin-bottom: 6px; cursor: pointer; padding: 6px 8px; border-radius: 4px; transition: background 0.2s; background: #24283b;" onmouseover="this.style.background='#414868'" onmouseout="this.style.background='#24283b'">
+                                                <input type="checkbox" class="custom-filter-class" data-setting-key="customFilters" data-class="${classInfo.name}" 
+                                                    ${(savedSettings.customFilters && savedSettings.customFilters[classInfo.name] !== undefined) ? (savedSettings.customFilters[classInfo.name] ? 'checked' : '') : (!classInfo.hasImage ? 'checked' : '')}
+                                                    style="margin-right: 8px;">
+                                                <span style="font-size: 0.85em; flex: 1;">${classInfo.displayName}</span>
+                                            </label>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                            ` : ''}
+                        </div>
+                        
+                        <!-- 참가자 필터 -->
+                        <div class="desktop-section">
+                            <div class="desktop-section-header">
+                                <span class="desktop-section-icon">👥</span>
+                                <span class="desktop-section-title">참가자 필터</span>
+                            </div>
+                            <div id="participant-filter-container" style="display: flex; flex-direction: column; gap: 8px;">
+                                ${participantCheckboxesHtml.replace(/<label/g, '<label style="display: flex; align-items: center; padding: 6px; background: #1a1b26; border-radius: 6px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background=\'#24283b\'" onmouseout="this.style.background=\'#1a1b26\'"')}
+                            </div>
+                        </div>
+                        
+                        <!-- 아카라이브 변환기 (숨김 상태) -->
+                        <div class="desktop-section" id="arca-live-converter-section" style="display: none;">
+                            <div class="desktop-section-header">
+                                <span class="desktop-section-icon">🎨</span>
+                                <span class="desktop-section-title">아카라이브 HTML 변환기</span>
+                            </div>
+                            <ol style="font-size: 0.85em; padding-left: 20px; margin: 0 0 12px 0; line-height: 1.6; color: #a9b1d6;">
+                                <li><b>이미지 준비:</b> 하단 'ZIP 다운로드' 버튼으로 이미지를 다운로드하세요.</li>
+                                <li><b>이미지 업로드:</b> 아카라이브 에디터를 HTML 모드로 전환하고 이미지를 업로드하세요.</li>
+                                <li><b>소스 붙여넣기:</b> 에디터의 HTML 소스를 아래 '아카라이브 소스'에 붙여넣으세요.</li>
+                                <li><b>변환 완료:</b> '변환' 버튼을 누르고 '최종 결과물'을 복사하세요.</li>
+                            </ol>
+                            <label style="display: block; margin: 8px 0 4px; font-weight: bold; font-size: 0.9em;">템플릿 HTML (자동 생성)</label>
+                            <textarea placeholder="변환기를 열면 자동으로 생성됩니다" readonly style="width: 100%; min-height: 80px; background: #1a1b26; color: #c0caf5; border: 1px solid #414868; border-radius: 6px; padding: 8px; font-family: monospace; font-size: 0.85em; resize: vertical;"></textarea>
+                            <label style="display: block; margin: 8px 0 4px; font-weight: bold; font-size: 0.9em;">아카라이브 소스 (붙여넣기)</label>
+                            <textarea placeholder="아카라이브 HTML 에디터의 전체 내용을 여기에 붙여넣으세요." style="width: 100%; min-height: 80px; background: #1a1b26; color: #c0caf5; border: 1px solid #414868; border-radius: 6px; padding: 8px; font-family: monospace; font-size: 0.85em; resize: vertical;"></textarea>
+                            <button class="desktop-btn desktop-btn-primary desktop-arca-convert-btn" style="width: 100%; margin: 8px 0;">변환</button>
+                            <label style="display: block; margin: 8px 0 4px; font-weight: bold; font-size: 0.9em;">최종 결과물 (복사하여 사용)</label>
+                            <textarea placeholder="변환 후 결과물이 여기에 표시됩니다" readonly style="width: 100%; min-height: 80px; background: #1a1b26; color: #c0caf5; border: 1px solid #414868; border-radius: 6px; padding: 8px; font-family: monospace; font-size: 0.85em; resize: vertical;"></textarea>
+                        </div>
+                    </div>
+                    
+                    <div class="desktop-preview-panel">
+                        <div class="desktop-preview-toolbar">
+                            <span class="desktop-preview-toolbar-title">📱 미리보기</span>
+                            <button class="desktop-btn desktop-btn-secondary" id="log-exporter-raw-toggle" style="display: none; padding: 6px 12px; font-size: 0.85em;">
+                                Raw 보기
+                            </button>
+                        </div>
+                        <div class="desktop-preview-content">
+                            <div class="log-exporter-modal-preview"><div style="text-align:center;color:#8a98c9;">로그 데이터 생성 중...</div></div>
+                        </div>
+                    </div>
+                    
+                    <!-- 기존 데스크톱 레이아웃 (하위 호환성) -->
+                    <div class="log-exporter-left-panel" style="display: none;">
                         <div class="log-exporter-modal-options">
                             <div id="format-selection-group" role="radiogroup" aria-label="로그 형식 선택">
                                 <strong>형식: <span style="font-size: 0.7em; color: #565f89;">(단축키: 1~4)</span></strong>
@@ -3509,6 +4112,29 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                         <strong>미리보기:</strong>
                         <div class="log-exporter-modal-preview"><div style="text-align:center;color:#8a98c9;">로그 데이터 생성 중...</div></div>
                     </div>
+                </div>
+                
+                <!-- 데스크톱 전용 액션 바 -->
+                <div class="desktop-action-bar">
+                    <button class="desktop-btn desktop-btn-primary" id="desktop-copy-html" title="HTML 소스 코드 복사">
+                        📋 HTML 복사
+                    </button>
+                    <button class="desktop-btn desktop-btn-success" id="desktop-copy-formatted" title="서식 있는 텍스트로 복사">
+                        📄 서식 복사
+                    </button>
+                    <button class="desktop-btn desktop-btn-secondary" id="log-exporter-save-file" style="display: none;">
+                        💾 파일 저장
+                    </button>
+                    <button class="desktop-btn desktop-btn-warning" id="desktop-save-image">
+                        🖼️ 이미지 저장
+                    </button>
+                    <button class="desktop-btn desktop-btn-secondary" id="desktop-download-zip">
+                        📦 ZIP 다운로드
+                    </button>
+                    <div style="flex: 1;"></div>
+                    <button class="desktop-btn desktop-btn-secondary" id="arca-helper-toggle-btn" style="display: none; background-color: #bb9af7; color: #1a1b26;">
+                        🎨 아카라이브
+                    </button>
                 </div>
                 
                 <!-- 모바일 전용 하단 액션 바 -->
@@ -3721,6 +4347,10 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                 });
             });
             
+            // 테마 및 색상 선택자를 먼저 선언 (syncMobileSettings에서 사용)
+            const themeSelector = modal.querySelector('#theme-selector');
+            const themeSelectorMobile = modal.querySelector('#theme-selector-mobile');
+            
             // 모바일 설정 동기화: 데스크톱과 모바일 설정 연결
             const syncMobileSettings = () => {
                 // 형식 동기화
@@ -3756,8 +4386,6 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                 });
                 
                 // 테마 동기화
-                const themeSelector = modal.querySelector('#theme-selector');
-                const themeSelectorMobile = modal.querySelector('#theme-selector-mobile');
                 if (themeSelector && themeSelectorMobile) {
                     themeSelectorMobile.value = themeSelector.value;
                     themeSelector.addEventListener('change', () => {
@@ -3862,6 +4490,116 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
             
             syncMobileSettings();
             
+            // 데스크톱 라디오 버튼 스타일 핸들러
+            modal.querySelectorAll('.desktop-radio-label').forEach(label => {
+                label.addEventListener('click', () => {
+                    const input = label.querySelector('input[type="radio"]');
+                    if (input) {
+                        input.checked = true;
+                        // 같은 그룹의 다른 라벨에서 active 클래스 제거
+                        label.parentElement.querySelectorAll('.desktop-radio-label').forEach(l => l.classList.remove('active'));
+                        label.classList.add('active');
+                        // handleSettingChange와 updatePreview 모두 호출
+                        handleSettingChange({ target: input });
+                        updatePreview();
+                    }
+                });
+            });
+            
+            // 데스크톱 토글 버튼 핸들러
+            modal.querySelectorAll('.desktop-toggle').forEach(toggle => {
+                toggle.addEventListener('click', () => {
+                    const checkbox = toggle.querySelector('input[type="checkbox"]');
+                    if (checkbox) {
+                        checkbox.checked = !checkbox.checked;
+                        toggle.classList.toggle('active', checkbox.checked);
+                        // handleSettingChange와 updatePreview 모두 호출
+                        handleSettingChange({ target: checkbox });
+                        updatePreview();
+                    }
+                });
+            });
+            
+            // 데스크톱 접기/펼치기 버튼
+            const customFilterToggleBtn = modal.querySelector('#custom-filter-toggle');
+            const customFilterContent = modal.querySelector('#custom-filter-section');
+            if (customFilterToggleBtn && customFilterContent) {
+                customFilterToggleBtn.addEventListener('click', () => {
+                    const isOpen = customFilterContent.classList.contains('open');
+                    customFilterContent.classList.toggle('open');
+                    const icon = customFilterToggleBtn.querySelector('.toggle-icon');
+                    if (icon) {
+                        icon.textContent = isOpen ? '▼' : '▲';
+                    }
+                });
+            }
+            
+            // 데스크톱 액션 버튼 핸들러
+            const desktopCopyHtmlBtn = modal.querySelector('#desktop-copy-html');
+            const desktopCopyFormattedBtn = modal.querySelector('#desktop-copy-formatted');
+            const desktopSaveImageBtn = modal.querySelector('#desktop-save-image');
+            const desktopDownloadZipBtn = modal.querySelector('#desktop-download-zip');
+            
+            if (desktopCopyHtmlBtn) {
+                desktopCopyHtmlBtn.addEventListener('click', () => {
+                    modal.querySelector('#log-exporter-copy-html')?.click();
+                });
+            }
+            
+            if (desktopCopyFormattedBtn) {
+                desktopCopyFormattedBtn.addEventListener('click', () => {
+                    modal.querySelector('#log-exporter-copy-formatted')?.click();
+                });
+            }
+            
+            if (desktopSaveImageBtn) {
+                desktopSaveImageBtn.addEventListener('click', () => {
+                    modal.querySelector('#log-exporter-save-image')?.click();
+                });
+            }
+            
+            if (desktopDownloadZipBtn) {
+                desktopDownloadZipBtn.addEventListener('click', () => {
+                    modal.querySelector('#log-exporter-download-zip')?.click();
+                });
+            }
+            
+            // 데스크톱 형식 변경 시 옵션 표시/숨김
+            const handleDesktopFormatChange = () => {
+                const selectedFormat = modal.querySelector('input[name="log-format-desktop"]:checked')?.value || 'basic';
+                const basicOptions = modal.querySelector('#desktop-basic-options');
+                const imageScale = modal.querySelector('#image-scale-controls');
+                const htmlOptions = modal.querySelector('#html-options-group');
+                const filterSection = modal.querySelector('#filter-controls');
+                const saveFileBtn = modal.querySelector('#log-exporter-save-file');
+                
+                console.log('[Log Exporter] 데스크톱 형식 변경:', selectedFormat);
+                
+                if (basicOptions) basicOptions.style.display = selectedFormat === 'basic' ? 'block' : 'none';
+                if (imageScale) imageScale.style.display = (selectedFormat === 'html' || selectedFormat === 'basic') ? 'block' : 'none';
+                if (htmlOptions) htmlOptions.style.display = selectedFormat === 'html' ? 'block' : 'none';
+                if (filterSection) filterSection.style.display = (selectedFormat !== 'html') ? 'block' : 'none';
+                if (saveFileBtn) saveFileBtn.style.display = selectedFormat === 'html' ? 'inline-flex' : 'none';
+            };
+            
+            modal.querySelectorAll('input[name="log-format-desktop"]').forEach(input => {
+                input.addEventListener('change', handleDesktopFormatChange);
+            });
+            
+            // 데스크톱 select와 input에도 이벤트 연결
+            modal.querySelectorAll('.desktop-select, .desktop-input, .desktop-slider').forEach(el => {
+                const eventType = el.classList.contains('desktop-slider') ? 'input' : 'change';
+                el.addEventListener(eventType, () => {
+                    const key = el.dataset.settingKey;
+                    if (key) {
+                        handleSettingChange({ target: el });
+                    }
+                    updatePreview();
+                });
+            });
+            
+            handleDesktopFormatChange();
+            
             // 모바일 형식 변경 시 옵션 표시/숨김
             const handleMobileFormatChange = () => {
                 const selectedFormat = modal.querySelector('.mobile-settings-tab input[name="log-format"]:checked')?.value || 'basic';
@@ -3913,7 +4651,6 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                 }
             };
             
-            const themeSelectorMobile = modal.querySelector('#theme-selector-mobile');
             if (themeSelectorMobile) {
                 themeSelectorMobile.addEventListener('change', handleMobileThemeChange);
                 handleMobileThemeChange();
@@ -4204,8 +4941,9 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
 
             // 모바일과 데스크톱 미리보기를 모두 선택
             const mobilePreviewEl = modal.querySelector('.mobile-preview-tab .log-exporter-modal-preview');
-            const desktopPreviewEl = modal.querySelector('.log-exporter-right-panel .log-exporter-modal-preview');
+            const desktopPreviewEl = modal.querySelector('.desktop-preview-panel .log-exporter-modal-preview');
             const previewEl = desktopPreviewEl || mobilePreviewEl; // 데스크톱 우선, 없으면 모바일
+            console.log('[Log Exporter] 미리보기 요소:', { desktopPreviewEl, mobilePreviewEl });
             const imageScaleSlider = modal.querySelector('#image-scale-slider');
             const imageScaleValue = modal.querySelector('#image-scale-value');
             const saveFileBtn = modal.querySelector('#log-exporter-save-file');
@@ -4221,11 +4959,10 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
             const headerToggleCheckbox = modal.querySelector('#header-toggle-checkbox');
             const footerToggleCheckbox = modal.querySelector('#footer-toggle-checkbox');
             const bubbleToggleCheckbox = modal.querySelector('#bubble-toggle-checkbox');
-            // [수정] 옵션 그룹 컨테이너 변수 추가
-            const basicOptionsGroup = modal.querySelector('#basic-options-group');
+            // [수정] 옵션 그룹 컨테이너 변수 추가 - 데스크톱과 모바일 모두 선택
+            const basicOptionsGroup = modal.querySelector('#desktop-basic-options') || modal.querySelector('#basic-options-group');
             const imageScaleControls = modal.querySelector('#image-scale-controls');
             const htmlOptionsGroup = modal.querySelector('#html-options-group');
-
 
             const arcaHelperSection = modal.querySelector('#arca-helper-section');
             const arcaHelperToggleBtn = modal.querySelector('#arca-helper-toggle-btn');
@@ -4234,6 +4971,13 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
             const arcaSourceHtml = modal.querySelector('#arca-source-html');
             const arcaConvertBtn = modal.querySelector('#arca-convert-btn');
             const arcaFinalHtml = modal.querySelector('#arca-final-html');
+            
+            // 데스크톱 아카라이브 변환기 요소들
+            const desktopArcaSection = modal.querySelector('.desktop-settings-panel #arca-live-converter-section');
+            const desktopArcaTemplateHtml = desktopArcaSection?.querySelector('textarea[placeholder*="템플릿"]');
+            const desktopArcaSourceHtml = desktopArcaSection?.querySelector('textarea[placeholder*="아카라이브"]');
+            const desktopArcaConvertBtn = desktopArcaSection?.querySelector('.desktop-arca-convert-btn');
+            const desktopArcaFinalHtml = desktopArcaSection?.querySelector('textarea[placeholder*="최종"]');
 
             /**
              * 미리보기 내의 이미지 크기를 슬라이더 값에 따라 조절합니다.
@@ -4711,29 +5455,43 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
             });
 
             arcaHelperToggleBtn.addEventListener('click', async () => {
-                const isVisible = arcaHelperSection.style.display === 'flex';
+                // 데스크톱과 모바일 모두에서 아카라이브 섹션 찾기
+                const desktopArcaSection = modal.querySelector('.desktop-settings-panel #arca-live-converter-section');
+                const mobileArcaSection = arcaHelperSection;
+                
+                // 현재 화면에 맞는 섹션 선택
+                const isMobile = window.innerWidth <= 768;
+                const currentSection = isMobile ? mobileArcaSection : desktopArcaSection;
+                
+                if (!currentSection) return;
+                
+                const isVisible = currentSection.style.display === 'flex' || currentSection.style.display === 'block';
                 const footerControlsToToggle = [
                     modal.querySelector('#log-exporter-raw-toggle'),
                     modal.querySelector('#log-exporter-save-file'),
                     modal.querySelector('#log-exporter-copy-formatted'),
                     modal.querySelector('#log-exporter-copy-html'),
-                    modal.querySelector('#log-exporter-download-zip'), // 이 버튼은 아카라이브 섹션에 있으므로 중복될 수 있음
+                    modal.querySelector('#log-exporter-download-zip'),
                     ...modal.querySelectorAll('#image-export-controls button, #image-export-controls input')
-                ];
+                ].filter(el => el !== null);
+                
                 // 좌측 패널의 컨트롤 (아카라이브 변환기 제외)
-                const leftPanel = modal.querySelector('.log-exporter-left-panel');
-                const controlsInLeftPanel = leftPanel.querySelectorAll('input, select, button');
-                const leftPanelControlsToToggle = Array.from(controlsInLeftPanel).filter(el => !arcaHelperSection.contains(el));
+                const leftPanel = modal.querySelector('.desktop-settings-panel') || modal.querySelector('.log-exporter-left-panel');
+                const leftPanelControlsToToggle = leftPanel ? 
+                    Array.from(leftPanel.querySelectorAll('input, select, button')).filter(el => {
+                        return !currentSection.contains(el) && el !== arcaHelperToggleBtn;
+                    }) : 
+                    [];
 
                 const allControlsToToggle = [...footerControlsToToggle, ...leftPanelControlsToToggle];
 
                 if (isVisible) {
-                    arcaHelperSection.style.display = 'none';
+                    currentSection.style.display = 'none';
                     arcaHelperToggleBtn.textContent = '아카라이브 변환기';
                     arcaHelperToggleBtn.style.backgroundColor = '#bb9af7';
                     allControlsToToggle.forEach(el => el.disabled = false);
                 } else {
-                    arcaHelperSection.style.display = 'flex';
+                    currentSection.style.display = isMobile ? 'flex' : 'block';
                     arcaHelperToggleBtn.textContent = '변환기 닫기';
                     arcaHelperToggleBtn.style.backgroundColor = '#f7768e';
                     allControlsToToggle.forEach(el => el.disabled = true);
@@ -4752,7 +5510,15 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                     const selectedThemeKey = themeSelector.value;
                     const showAvatar = avatarToggleCheckbox.checked;
                     const template = await generateArcaLiveTemplate(nodesForTemplate, { name: charName, chatName: chatName, avatarUrl: charAvatarUrl }, selectedThemeKey, selectedColorKey, showAvatar);
-                    arcaTemplateHtml.value = template;
+                    
+                    // 데스크톱과 모바일 모두의 템플릿 textarea 업데이트
+                    if (desktopArcaSection) {
+                        const desktopTemplateTextarea = desktopArcaSection.querySelector('textarea[placeholder*="템플릿"]');
+                        if (desktopTemplateTextarea) desktopTemplateTextarea.value = template;
+                    }
+                    if (mobileArcaSection) {
+                        arcaTemplateHtml.value = template;
+                    }
                 }
             });
 
@@ -4865,6 +5631,105 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                 arcaFinalHtml.value = finalHtml;
                 alert(`변환 완료! ${usedUrlCount}개의 이미지 위치가 교체되었습니다. 최종 결과물을 복사하여 사용하세요.`, 'success');
             });
+            
+            // 데스크톱 아카라이브 변환 버튼 이벤트 리스너
+            if (desktopArcaConvertBtn) {
+                desktopArcaConvertBtn.addEventListener('click', () => {
+                    const template = desktopArcaTemplateHtml.value;
+                    const source = desktopArcaSourceHtml.value;
+
+                    if (!template || !source) {
+                        alert('템플릿 HTML과 아카라이브 소스 HTML을 모두 입력해주세요.', 'error');
+                        return;
+                    }
+
+                    const imageUrls = [...source.matchAll(/<img[^>]+src="([^"]+)"/g)].map(match => match[1]);
+
+                    if (imageUrls.length === 0) {
+                        alert('아카라이브 소스에서 이미지 URL을 찾을 수 없습니다. 이미지를 올바르게 업로드했는지 확인해주세요.', 'error');
+                        return;
+                    }
+
+                    let usedUrlCount = 0;
+
+                    let finalHtml = template.replace(/<!--\s*(ARCA_IMG_PLACEHOLDER_(\d+)|ARCA_AVATAR_PLACEHOLDER_(true|false)_(\d+))\s*-->/g, (match, fullMatch, imgNum, isUserStr, avatarNum) => {
+                        const imageNumber = imgNum || avatarNum;
+                        const index = parseInt(imageNumber, 10) - 1;
+
+                        if (index < imageUrls.length) {
+                            usedUrlCount++;
+                            const imageUrl = imageUrls[index];
+                            const selectedThemeKey = themeSelector.value;
+                            const themeInfo = THEMES[selectedThemeKey] || THEMES.basic;
+                            const color = (selectedThemeKey === 'basic') ? (COLORS[colorSelector.value] || COLORS.dark) : themeInfo.color;
+                    
+                            if (typeof isUserStr !== 'undefined' && isUserStr !== null) {
+                                const isUser = isUserStr === 'true';
+                                let style;
+
+                                switch(selectedThemeKey) {
+                                    case 'fantasy':
+                                        style = `width:52px;height:52px;min-width:52px;border-radius:50%;border:2px solid ${color.avatarBorder}; box-shadow: 0 0 12px rgba(255, 201, 120, 0.5);`;
+                                        break;
+                                    case 'fantasy2':
+                                        style = `width:50px;height:50px;min-width:50px;border-radius:50%;border:3px solid ${color.avatarBorder}; box-shadow: ${color.shadow}; position: relative; margin:${isUser ? '0 0 0 16px' : '0 16px 0 0'};`;
+                                        break;
+                                    case 'royal':
+                                        style = `width:55px;height:55px;min-width:55px;border-radius:50%;border:3px solid ${color.avatarBorder}; box-shadow: ${color.shadow}; position: relative;`;
+                                        break;
+                                    case 'ocean':
+                                        style = `width:48px;height:48px;min-width:48px;border-radius:50%;border:2px solid ${color.avatarBorder}; box-shadow: ${color.shadow}; position: relative; margin:${isUser ? '0 0 0 14px' : '0 14px 0 0'};`;
+                                        break;
+                                    case 'sakura':
+                                        style = `width:46px;height:46px;min-width:46px;border-radius:50%;border:2px solid ${color.avatarBorder}; box-shadow: ${color.shadow}; position: relative; margin:${isUser ? '0 0 0 12px' : '0 12px 0 0'};`;
+                                        break;
+                                    case 'matrix':
+                                        style = `width:44px;height:44px;min-width:44px;border-radius:4px;border:1px solid ${color.avatarBorder}; box-shadow: ${color.shadow}; font-family: 'Courier New', monospace; margin:${isUser ? '0 0 0 10px' : '0 10px 0 0'};`;
+                                        break;
+                                    default:
+                                        style = ARCA_IMG_STYLES.avatar(color, isUser);
+                                }
+
+                                const imgTag = `<img src="${imageUrl}" style="${style}">`;
+
+                                if (selectedThemeKey === 'fantasy' || selectedThemeKey === 'royal') {
+                                    return `<div style="text-align: center; margin: auto; padding: 0;">${imgTag}</div>`;
+                                } else {
+                                    return imgTag;
+                                }
+                            } else {
+                                return `<img src="${imageUrl}" style="${ARCA_IMG_STYLES.content}">`;
+                            }
+                        }
+                        return match;
+                    });
+
+                    try {
+                        const scale = (typeof imageScaleSlider !== 'undefined' && imageScaleSlider && imageScaleSlider.value) ? imageScaleSlider.value : '100';
+                        const tempContainer = document.createElement('div');
+                        tempContainer.innerHTML = finalHtml;
+
+                        tempContainer.querySelectorAll('title').forEach(el => el.remove());
+
+                        tempContainer.querySelectorAll('td').forEach(td => {
+                            td.style.border = '0px';
+                        });
+                        tempContainer.querySelectorAll('td').forEach(td => td.setAttribute('border', '0'));
+
+                        tempContainer.querySelectorAll('img').forEach(img => {
+                            img.style.setProperty('max-width', `${scale}%`, 'important');
+                            img.style.setProperty('height', 'auto', 'important');
+                        });
+
+                        finalHtml = tempContainer.innerHTML;
+                    } catch (e) {
+                        console.warn('[Arca Convert] post-process failed:', e);
+                    }
+
+                    desktopArcaFinalHtml.value = finalHtml;
+                    alert(`변환 완료! ${usedUrlCount}개의 이미지 위치가 교체되었습니다. 최종 결과물을 복사하여 사용하세요.`, 'success');
+                });
+            }
             
             const setupCopyButtons = () => {
                 let filteredNodes = getFilteredNodes();
