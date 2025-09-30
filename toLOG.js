@@ -953,7 +953,7 @@ const AVATAR_ATTR = 'data-avatar';
                 background-color: rgba(122, 162, 247, 0.1); box-shadow: 0 0 0 2px rgba(122, 162, 247, 0.4) inset; border-radius: 8px;
             }
             .log-exporter-msg-btn:hover { color: #7aa2f7; }
-            #filter-controls { display: none; margin-left: auto; align-items: center; gap: 12px; }
+            #filter-controls { margin-left: auto; align-items: center; gap: 12px; }
             #theme-selector { padding: 4px 8px; background: #1a1b26; color: #c0caf5; border: 1px solid #414868; border-radius: 4px; cursor: pointer; font-size: 0.9em; }
             #color-selector { padding: 4px 8px; background: #1a1b26; color: #c0caf5; border: 1px solid #414868; border-radius: 4px; cursor: pointer; font-size: 0.9em; }
             #theme-selector:hover, #color-selector:hover { border-color: #565f89; }
@@ -1021,7 +1021,8 @@ const AVATAR_ATTR = 'data-avatar';
                 }
                 #format-selection-group > strong { grid-column: 1 / -1; margin-bottom: 8px; }
                 #basic-options-group { display: flex; flex-direction: column; gap: 12px; }
-                #image-scale-controls, #filter-controls { display: flex; flex-direction: column; gap: 12px; }
+                #image-scale-controls { display: flex; flex-direction: column; gap: 12px; }
+                #filter-controls { flex-direction: column; gap: 12px; }
                 /* 슬라이더를 터치하기 쉽게 */
                 input[type="range"] {
                     height: 8px;
@@ -3060,28 +3061,29 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
 
             const uiClasses = collectUIClasses(messageNodes);
 
-            let customFilterHtml = '';
-            if (uiClasses.length > 0) {
-                customFilterHtml = `
-                <div id="custom-filter-section" style="display: none; border: 1px solid #414868; padding: 10px; border-radius: 5px; margin-top: 10px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                        <strong>RisuAI UI 요소 필터 (체크된 항목이 제거됩니다):</strong>
-                        <div>
-                            <button id="select-all-filters" class="log-exporter-modal-btn" style="padding: 2px 6px; font-size: 0.8em;">전체 선택</button>
-                            <button id="deselect-all-filters" class="log-exporter-modal-btn" style="padding: 2px 6px; font-size: 0.8em;">전체 해제</button>
+const customFilterHtml = `
+<div id="custom-filter-section-old" style="display: none; border: 1px solid #414868; padding: 10px; border-radius: 5px; margin-top: 10px;">
+                    ${uiClasses.length > 0 ? `
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <strong>RisuAI UI 요소 필터 (체크된 항목이 제거됩니다):</strong>
+                            <div>
+                                <button id="select-all-filters-old" class="log-exporter-modal-btn" style="padding: 2px 6px; font-size: 0.8em;">전체 선택</button>
+                                <button id="deselect-all-filters-old" class="log-exporter-modal-btn" style="padding: 2px 6px; font-size: 0.8em;">전체 해제</button>
+                            </div>
                         </div>
-                    </div>
-                    <div style="max-height: 150px; overflow-y: auto; border: 1px solid #2a2f41; padding: 8px; margin-top: 5px; background: #1a1b26;">
-                        ${uiClasses.map(classInfo => `
-                            <label style="display: block; margin-bottom: 4px; cursor: pointer;">
-                                <input type="checkbox" class="custom-filter-class" data-setting-key="customFilters" data-class="${classInfo.name}" 
-                                    ${(savedSettings.customFilters && savedSettings.customFilters[classInfo.name] !== undefined) ? (savedSettings.customFilters[classInfo.name] ? 'checked' : '') : (!classInfo.hasImage ? 'checked' : '')}>
-                                <span style="font-size: 0.85em; margin-left: 5px; font-family: monospace;">${classInfo.displayName}</span>
-                            </label>
-                        `).join('')}
-                    </div>
-                </div>`;
-            }
+                        <div style="max-height: 150px; overflow-y: auto; border: 1px solid #2a2f41; padding: 8px; margin-top: 5px; background: #1a1b26;">
+                            ${uiClasses.map(classInfo => `
+                                <label style="display: block; margin-bottom: 4px; cursor: pointer;">
+                                    <input type="checkbox" class="custom-filter-class" data-setting-key="customFilters" data-class="${classInfo.name}" 
+                                        ${(savedSettings.customFilters && savedSettings.customFilters[classInfo.name] !== undefined) ? (savedSettings.customFilters[classInfo.name] ? 'checked' : '') : (!classInfo.hasImage ? 'checked' : '')}>
+                                    <span style="font-size: 0.85em; margin-left: 5px; font-family: monospace;">${classInfo.displayName}</span>
+                                </label>
+                            `).join('')}
+                        </div>
+                    ` : `
+                        <div style="text-align: center; color: #8a98c9; padding: 20px 0;">필터링할 UI 요소가 없습니다.</div>
+                    `}
+</div>`;
 
             const modal = document.createElement('div');
             modal.className = 'log-exporter-modal-backdrop';
@@ -3126,7 +3128,6 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                     
                     .log-exporter-modal-close-btn {
                         position: static !important;
-                        background: rgba(255, 255, 255, 0.15) !important;
                         color: #ffffff !important;
                         border-radius: 50% !important;
                         width: 36px !important;
@@ -3191,6 +3192,7 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                     }
                     
                     .desktop-section {
+                        display: block;
                         margin-bottom: 24px;
                         background: #24283b;
                         border-radius: 12px;
@@ -3458,13 +3460,18 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                     .desktop-collapsible-content {
                         max-height: 0;
                         overflow: hidden;
-                        transition: max-height 0.3s ease-out;
+                        transition: max-height 0.3s ease-out, opacity 0.3s ease-out, padding 0.3s ease-out;
+                        opacity: 0;
+                        visibility: hidden;
+                        padding: 0;
                         background: #1a1b26;
                         border-radius: 6px;
                     }
                     
                     .desktop-collapsible-content.open {
-                        max-height: 400px;
+                        max-height: 2000px;
+                        opacity: 1;
+                        visibility: visible;
                         margin-top: 10px;
                         overflow-y: auto;
                         padding: 10px;
@@ -3491,13 +3498,16 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                     }
                     .log-exporter-modal {
                         width: 100vw !important;
-                        height: 100vh !important;
+                        height: 100dvh !important; /* 동적 뷰포트 높이 사용 */
                         max-width: 100vw !important;
-                        max-height: 100vh !important;
+                        max-height: 100dvh !important;
                         margin: 0 !important;
                         border-radius: 0 !important;
                         display: flex;
                         flex-direction: column;
+                        position: fixed;
+                        top: 0;
+                        left: 0;
                     }
                     .log-exporter-modal-header {
                         padding: 12px 16px !important;
@@ -3756,31 +3766,35 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                         </div>
                         
                         <div class="mobile-section" id="mobile-filter-section">
-                            <div class="mobile-section-title">🔍 UI 필터</div>
+                            <div class="mobile-section-title">🔍 필터링</div>
                             <label class="mobile-option-row">
-                                <span class="mobile-option-label">UI 필터링 적용</span>
+                                <span class="mobile-option-label">UI 필터링</span>
                                 <input type="checkbox" id="filter-toggle-mobile" data-setting-key="useUiFilter" ${savedSettings.useUiFilter !== false ? 'checked' : ''}>
                             </label>
-                            ${uiClasses.length > 0 ? `
-                                <button id="custom-filter-toggle-mobile" class="log-exporter-modal-btn" style="width: 100%; margin-top: 10px;">
-                                    커스텀 필터 설정 ▼
-                                </button>
-                                <div id="custom-filter-section-mobile" style="display: none; margin-top: 10px; padding: 10px; background: #1a1b26; border-radius: 6px;">
-                                    <div style="margin-bottom: 8px;">
-                                        <button id="select-all-filters-mobile" class="log-exporter-modal-btn" style="padding: 6px 12px; font-size: 0.85em; margin-right: 8px;">전체 선택</button>
-                                        <button id="deselect-all-filters-mobile" class="log-exporter-modal-btn" style="padding: 6px 12px; font-size: 0.85em;">전체 해제</button>
+                            <button id="custom-filter-toggle-mobile" class="log-exporter-modal-btn" style="width: 100%; margin-top: 12px; padding: 10px; background: #7aa2f7; color: #1a1b26; font-weight: 500;">
+                                커스텀 필터 설정 ▼
+                            </button>
+                            <div id="custom-filter-section-mobile" style="display: none; margin-top: 12px; padding: 12px; background: #1f2335; border-radius: 8px; border: 1px solid #414868;">
+                                ${uiClasses.length > 0 ? `
+                                    <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                                        <button id="select-all-filters-mobile" class="log-exporter-modal-btn" style="flex: 1; padding: 8px; font-size: 0.85em; background: #9ece6a; color: #1a1b26;">✓ 전체 선택</button>
+                                        <button id="deselect-all-filters-mobile" class="log-exporter-modal-btn" style="flex: 1; padding: 8px; font-size: 0.85em; background: #f7768e; color: #1a1b26;">✗ 전체 해제</button>
                                     </div>
-                                    <div style="max-height: 200px; overflow-y: auto;">
+                                    <div style="max-height: 250px; overflow-y: auto; -webkit-overflow-scrolling: touch;">
                                         ${uiClasses.map(classInfo => `
-                                            <label style="display: block; margin-bottom: 8px;">
+                                            <label style="display: flex; align-items: center; padding: 10px; margin-bottom: 6px; background: #24283b; border-radius: 6px; border: 1px solid #414868; cursor: pointer; transition: all 0.2s; -webkit-tap-highlight-color: transparent;">
                                                 <input type="checkbox" class="custom-filter-class" data-setting-key="customFilters" data-class="${classInfo.name}" 
-                                                    ${(savedSettings.customFilters && savedSettings.customFilters[classInfo.name] !== undefined) ? (savedSettings.customFilters[classInfo.name] ? 'checked' : '') : (!classInfo.hasImage ? 'checked' : '')}>
-                                                <span style="font-size: 0.85em; margin-left: 5px;">${classInfo.displayName}</span>
+                                                    ${(savedSettings.customFilters && savedSettings.customFilters[classInfo.name] !== undefined) ? (savedSettings.customFilters[classInfo.name] ? 'checked' : '') : (!classInfo.hasImage ? 'checked' : '')}
+                                                    style="width: 18px; height: 18px; margin-right: 12px; cursor: pointer; accent-color: #7aa2f7;">
+                                                <span style="font-size: 0.9em; flex: 1; color: #c0caf5;">${classInfo.displayName}</span>
+                                                ${classInfo.hasImage ? '<span style="font-size: 0.75em; color: #565f89; background: #1a1b26; padding: 3px 6px; border-radius: 4px;">🖼️</span>' : ''}
                                             </label>
                                         `).join('')}
                                     </div>
+                                ` : `
+                                    <div style="text-align: center; color: #8a98c9; padding: 20px 0;">필터링할 UI 요소가 없습니다.</div>
+                                `}
                                 </div>
-                            ` : ''}
                         </div>
                     </div>
                     
@@ -3939,39 +3953,42 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                         </div>
                         
                         <!-- 필터 설정 -->
-                        <div class="desktop-section" id="filter-controls">
+                        <div class="desktop-section" id="filter-controls" style="display: block !important; overflow: visible;">
                             <div class="desktop-section-header">
                                 <span class="desktop-section-icon">🔍</span>
                                 <span class="desktop-section-title">필터링</span>
                             </div>
                             <div class="desktop-option-row">
-                                <span class="desktop-option-label">UI 필터링 적용</span>
+                                <span class="desktop-option-label">UI 필터링</span>
                                 <div class="desktop-toggle ${savedSettings.useUiFilter !== false ? 'active' : ''}" id="filter-toggle-checkbox-wrapper" data-setting-key="useUiFilter">
                                     <input type="checkbox" id="filter-toggle-checkbox" data-setting-key="useUiFilter" ${savedSettings.useUiFilter !== false ? 'checked' : ''} style="display: none;">
                                 </div>
                             </div>
-                            ${uiClasses.length > 0 ? `
-                                <button id="custom-filter-toggle" class="desktop-collapsible-btn">
-                                    <span>커스텀 필터 설정</span>
-                                    <span class="toggle-icon">▼</span>
-                                </button>
-                                <div class="desktop-collapsible-content" id="custom-filter-section">
-                                    <div style="display: flex; gap: 8px; margin-bottom: 10px;">
-                                        <button id="select-all-filters" class="desktop-btn desktop-btn-secondary" style="flex: 1; padding: 6px 12px; font-size: 0.85em;">전체 선택</button>
-                                        <button id="deselect-all-filters" class="desktop-btn desktop-btn-secondary" style="flex: 1; padding: 6px 12px; font-size: 0.85em;">전체 해제</button>
+                            <button id="custom-filter-toggle" class="desktop-collapsible-btn">
+                                <span>커스텀 필터 설정</span>
+                                <span class="toggle-icon">▼</span>
+                            </button>
+                            <div class="desktop-collapsible-content" id="custom-filter-section">
+                                ${uiClasses.length > 0 ? `
+                                    <div style="display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap;">
+                                        <button id="select-all-filters" class="desktop-btn desktop-btn-secondary" style="flex: 1; padding: 8px 12px; font-size: 0.85em;">✓ 전체 선택</button>
+                                        <button id="deselect-all-filters" class="desktop-btn desktop-btn-secondary" style="flex: 1; padding: 8px 12px; font-size: 0.85em;">✗ 전체 해제</button>
                                     </div>
-                                    <div style="max-height: 250px; overflow-y: auto;">
+                                    <div style="max-height: 300px; overflow-y: auto; padding: 4px;">
                                         ${uiClasses.map(classInfo => `
-                                            <label style="display: flex; align-items: center; margin-bottom: 6px; cursor: pointer; padding: 6px 8px; border-radius: 4px; transition: background 0.2s; background: #24283b;" onmouseover="this.style.background='#414868'" onmouseout="this.style.background='#24283b'">
+                                            <label class="filter-checkbox-label" style="display: flex; align-items: center; cursor: pointer; padding: 8px 12px; margin-bottom: 6px; border-radius: 6px; transition: all 0.2s; background: #1a1b26; border: 1px solid #414868;" onmouseover="this.style.background='#24283b'; this.style.borderColor='#7aa2f7'" onmouseout="this.style.background='#1a1b26'; this.style.borderColor='#414868'">
                                                 <input type="checkbox" class="custom-filter-class" data-setting-key="customFilters" data-class="${classInfo.name}" 
                                                     ${(savedSettings.customFilters && savedSettings.customFilters[classInfo.name] !== undefined) ? (savedSettings.customFilters[classInfo.name] ? 'checked' : '') : (!classInfo.hasImage ? 'checked' : '')}
-                                                    style="margin-right: 8px;">
-                                                <span style="font-size: 0.85em; flex: 1;">${classInfo.displayName}</span>
+                                                    style="width: 16px; height: 16px; margin-right: 10px; cursor: pointer; accent-color: #7aa2f7;">
+                                                <span style="font-size: 0.9em; flex: 1; color: #c0caf5;">${classInfo.displayName}</span>
+                                                ${classInfo.hasImage ? '<span style="font-size: 0.75em; color: #565f89; background: #24283b; padding: 2px 6px; border-radius: 3px;">🖼️</span>' : ''}
                                             </label>
                                         `).join('')}
                                     </div>
+                                ` : `
+                                    <div style="text-align: center; color: #8a98c9; padding: 20px 0;">필터링할 UI 요소가 없습니다.</div>
+                                `}
                                 </div>
-                            ` : ''}
                         </div>
                         
                         <!-- 참가자 필터 -->
@@ -3992,18 +4009,21 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                                 <span class="desktop-section-title">아카라이브 HTML 변환기</span>
                             </div>
                             <ol style="font-size: 0.85em; padding-left: 20px; margin: 0 0 12px 0; line-height: 1.6; color: #a9b1d6;">
-                                <li><b>이미지 준비:</b> 하단 'ZIP 다운로드' 버튼으로 이미지를 다운로드하세요.</li>
+                                <li><b>이미지 준비:</b> 아래 <b>'1. 이미지 ZIP 다운로드'</b> 버튼으로 이미지를 다운로드하세요.</li>
                                 <li><b>이미지 업로드:</b> 아카라이브 에디터를 HTML 모드로 전환하고 이미지를 업로드하세요.</li>
                                 <li><b>소스 붙여넣기:</b> 에디터의 HTML 소스를 아래 '아카라이브 소스'에 붙여넣으세요.</li>
                                 <li><b>변환 완료:</b> '변환' 버튼을 누르고 '최종 결과물'을 복사하세요.</li>
                             </ol>
-                            <label style="display: block; margin: 8px 0 4px; font-weight: bold; font-size: 0.9em;">템플릿 HTML (자동 생성)</label>
-                            <textarea placeholder="변환기를 열면 자동으로 생성됩니다" readonly style="width: 100%; min-height: 80px; background: #1a1b26; color: #c0caf5; border: 1px solid #414868; border-radius: 6px; padding: 8px; font-family: monospace; font-size: 0.85em; resize: vertical;"></textarea>
-                            <label style="display: block; margin: 8px 0 4px; font-weight: bold; font-size: 0.9em;">아카라이브 소스 (붙여넣기)</label>
-                            <textarea placeholder="아카라이브 HTML 에디터의 전체 내용을 여기에 붙여넣으세요." style="width: 100%; min-height: 80px; background: #1a1b26; color: #c0caf5; border: 1px solid #414868; border-radius: 6px; padding: 8px; font-family: monospace; font-size: 0.85em; resize: vertical;"></textarea>
+                            <button class="desktop-btn desktop-btn-secondary" id="desktop-arca-download-zip-btn" style="width: 100%; margin-bottom: 12px; background-color: #e0af68; color: #1a1b26;">
+                                📦 1. 이미지 ZIP 다운로드
+                            </button>
+                            <label style="display: block; margin: 8px 0 4px; font-weight: bold; font-size: 0.9em;">2. 템플릿 HTML (자동 생성)</label>
+                            <textarea id="desktop-arca-template-html" placeholder="변환기를 열면 자동으로 생성됩니다" readonly style="width: 100%; min-height: 80px; background: #1a1b26; color: #c0caf5; border: 1px solid #414868; border-radius: 6px; padding: 8px; font-family: monospace; font-size: 0.85em; resize: vertical;"></textarea>
+                            <label style="display: block; margin: 8px 0 4px; font-weight: bold; font-size: 0.9em;">3. 아카라이브 소스 (붙여넣기)</label>
+                            <textarea id="desktop-arca-source-html" placeholder="아카라이브 HTML 에디터의 전체 내용을 여기에 붙여넣으세요." style="width: 100%; min-height: 80px; background: #1a1b26; color: #c0caf5; border: 1px solid #414868; border-radius: 6px; padding: 8px; font-family: monospace; font-size: 0.85em; resize: vertical;"></textarea>
                             <button class="desktop-btn desktop-btn-primary desktop-arca-convert-btn" style="width: 100%; margin: 8px 0;">변환</button>
-                            <label style="display: block; margin: 8px 0 4px; font-weight: bold; font-size: 0.9em;">최종 결과물 (복사하여 사용)</label>
-                            <textarea placeholder="변환 후 결과물이 여기에 표시됩니다" readonly style="width: 100%; min-height: 80px; background: #1a1b26; color: #c0caf5; border: 1px solid #414868; border-radius: 6px; padding: 8px; font-family: monospace; font-size: 0.85em; resize: vertical;"></textarea>
+                            <label style="display: block; margin: 8px 0 4px; font-weight: bold; font-size: 0.9em;">4. 최종 결과물 (복사하여 사용)</label>
+                            <textarea id="desktop-arca-final-html" placeholder="변환 후 결과물이 여기에 표시됩니다" readonly style="width: 100%; min-height: 80px; background: #1a1b26; color: #c0caf5; border: 1px solid #414868; border-radius: 6px; padding: 8px; font-family: monospace; font-size: 0.85em; resize: vertical;"></textarea>
                         </div>
                     </div>
                     
@@ -4076,11 +4096,9 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                             </div>
                             <div id="filter-controls">
                                 <label><input type="checkbox" id="filter-toggle-checkbox" data-setting-key="useUiFilter" ${savedSettings.useUiFilter !== false ? 'checked' : ''}> UI 필터링 적용</label>
-                                ${uiClasses.length > 0 ? `
-                                    <button id="custom-filter-toggle" class="log-exporter-modal-btn" style="margin-left: 10px; padding: 3px 8px; font-size: 0.85em;">
-                                        커스텀 필터 설정 ▼
-                                    </button>
-                                ` : ''}
+                                <button id="custom-filter-toggle-old" class="log-exporter-modal-btn" style="margin-left: 10px; padding: 3px 8px; font-size: 0.85em;">
+                                    커스텀 필터 설정 ▼
+                                </button>
                             </div>
                         </div>
                         ${customFilterHtml}
@@ -4520,19 +4538,19 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                 });
             });
             
-            // 데스크톱 접기/펼치기 버튼
-            const customFilterToggleBtn = modal.querySelector('#custom-filter-toggle');
-            const customFilterContent = modal.querySelector('#custom-filter-section');
-            if (customFilterToggleBtn && customFilterContent) {
-                customFilterToggleBtn.addEventListener('click', () => {
-                    const isOpen = customFilterContent.classList.contains('open');
-                    customFilterContent.classList.toggle('open');
-                    const icon = customFilterToggleBtn.querySelector('.toggle-icon');
-                    if (icon) {
-                        icon.textContent = isOpen ? '▼' : '▲';
-                    }
-                });
-            }
+            // 데스크톱 접기/펼치기 버튼 (아래에서 더 상세한 버전으로 처리됨 - 주석 처리)
+            // const customFilterToggleBtn = modal.querySelector('#custom-filter-toggle');
+            // const customFilterContent = modal.querySelector('#custom-filter-section');
+            // if (customFilterToggleBtn && customFilterContent) {
+            //     customFilterToggleBtn.addEventListener('click', () => {
+            //         const isOpen = customFilterContent.classList.contains('open');
+            //         customFilterContent.classList.toggle('open');
+            //         const icon = customFilterToggleBtn.querySelector('.toggle-icon');
+            //         if (icon) {
+            //             icon.textContent = isOpen ? '▼' : '▲';
+            //         }
+            //     });
+            // }
             
             // 데스크톱 액션 버튼 핸들러
             const desktopCopyHtmlBtn = modal.querySelector('#desktop-copy-html');
@@ -4568,10 +4586,10 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
             const handleDesktopFormatChange = () => {
                 const selectedFormat = modal.querySelector('input[name="log-format-desktop"]:checked')?.value || 'basic';
                 const basicOptions = modal.querySelector('#desktop-basic-options');
-                const imageScale = modal.querySelector('#image-scale-controls');
+                const imageScale = modal.querySelector('#image-scale-controls'); // 이 변수는 사용되지 않음
                 const htmlOptions = modal.querySelector('#html-options-group');
                 const filterSection = modal.querySelector('#filter-controls');
-                const saveFileBtn = modal.querySelector('#log-exporter-save-file');
+                const saveFileBtn = modal.querySelector('#log-exporter-save-file'); // 이 변수는 사용되지 않음
                 
                 console.log('[Log Exporter] 데스크톱 형식 변경:', selectedFormat);
                 
@@ -4579,7 +4597,7 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                 if (imageScale) imageScale.style.display = (selectedFormat === 'html' || selectedFormat === 'basic') ? 'block' : 'none';
                 if (htmlOptions) htmlOptions.style.display = selectedFormat === 'html' ? 'block' : 'none';
                 if (filterSection) filterSection.style.display = (selectedFormat !== 'html') ? 'block' : 'none';
-                if (saveFileBtn) saveFileBtn.style.display = selectedFormat === 'html' ? 'inline-flex' : 'none';
+                if (modal.querySelector('#log-exporter-save-file')) modal.querySelector('#log-exporter-save-file').style.display = selectedFormat === 'html' ? 'inline-flex' : 'none';
             };
             
             modal.querySelectorAll('input[name="log-format-desktop"]').forEach(input => {
@@ -4657,24 +4675,31 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
             }
             
             // 모바일 커스텀 필터 토글
-            const customFilterToggleMobile = modal.querySelector('#custom-filter-toggle-mobile');
-            const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mobile');
+const customFilterToggleMobile = modal.querySelector('#custom-filter-toggle-mobile');
+const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mobile');
             if (customFilterToggleMobile && customFilterSectionMobile) {
-                customFilterToggleMobile.addEventListener('click', () => {
-                    const isVisible = customFilterSectionMobile.style.display !== 'none';
-                    customFilterSectionMobile.style.display = isVisible ? 'none' : 'block';
-                    customFilterToggleMobile.textContent = isVisible ? '커스텀 필터 설정 ▼' : '커스텀 필터 설정 ▲';
-                });
+                if (uiClasses.length === 0) {
+                    customFilterToggleMobile.disabled = true;
+                    customFilterToggleMobile.style.opacity = '0.5';
+                    customFilterToggleMobile.style.cursor = 'not-allowed';
+                    customFilterToggleMobile.textContent = '커스텀 필터 항목 없음';
+                } else {
+                    customFilterToggleMobile.addEventListener('click', () => {
+                        const isVisible = customFilterSectionMobile.style.display !== 'none';
+                        customFilterSectionMobile.style.display = isVisible ? 'none' : 'block';
+                        customFilterToggleMobile.textContent = isVisible ? '커스텀 필터 설정 ▼' : '커스텀 필터 설정 ▲';
+                    });
+                }
                 
                 modal.querySelector('#select-all-filters-mobile')?.addEventListener('click', () => {
-                    modal.querySelectorAll('.custom-filter-class').forEach(cb => {
+                    modal.querySelectorAll('#custom-filter-section-mobile .custom-filter-class').forEach(cb => {
                         cb.checked = true;
                         cb.dispatchEvent(new Event('change', { bubbles: true }));
                     });
                 });
                 
                 modal.querySelector('#deselect-all-filters-mobile')?.addEventListener('click', () => {
-                    modal.querySelectorAll('.custom-filter-class').forEach(cb => {
+                    modal.querySelectorAll('#custom-filter-section-mobile .custom-filter-class').forEach(cb => {
                         cb.checked = false;
                         cb.dispatchEvent(new Event('change', { bubbles: true }));
                     });
@@ -4972,12 +4997,16 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
             const arcaConvertBtn = modal.querySelector('#arca-convert-btn');
             const arcaFinalHtml = modal.querySelector('#arca-final-html');
             
+            // [수정] customFilterSection 변수를 함수 스코프 상단으로 이동
+            const customFilterSection = modal.querySelector('#custom-filter-section');
+
             // 데스크톱 아카라이브 변환기 요소들
-            const desktopArcaSection = modal.querySelector('.desktop-settings-panel #arca-live-converter-section');
-            const desktopArcaTemplateHtml = desktopArcaSection?.querySelector('textarea[placeholder*="템플릿"]');
-            const desktopArcaSourceHtml = desktopArcaSection?.querySelector('textarea[placeholder*="아카라이브"]');
-            const desktopArcaConvertBtn = desktopArcaSection?.querySelector('.desktop-arca-convert-btn');
-            const desktopArcaFinalHtml = desktopArcaSection?.querySelector('textarea[placeholder*="최종"]');
+            const desktopArcaSection = modal.querySelector('#arca-live-converter-section');
+            const desktopArcaDownloadZipBtn = modal.querySelector('#desktop-arca-download-zip-btn');
+            const desktopArcaTemplateHtml = modal.querySelector('#desktop-arca-template-html');
+            const desktopArcaSourceHtml = modal.querySelector('#desktop-arca-source-html');
+            const desktopArcaConvertBtn = modal.querySelector('.desktop-arca-convert-btn');
+            const desktopArcaFinalHtml = modal.querySelector('#desktop-arca-final-html');
 
             /**
              * 미리보기 내의 이미지 크기를 슬라이더 값에 따라 조절합니다.
@@ -5240,7 +5269,7 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
 
                 } else if (selectedFormat === 'basic') {
                     // ... (이 부분은 수정 없음)
-                    filterControls.style.display = 'flex';
+                    filterControls.style.display = 'block';
                     saveFileBtn.style.display = 'none';
                     // [수정] 헤더에 필요한 캐릭터 정보를 객체로 묶음
                     const charInfo = { name: charName, chatName: chatName, avatarUrl: charAvatarUrl };
@@ -5266,7 +5295,7 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                     }
                 } else { // Text / Markdown
                     // ... (이 부분은 수정 없음)
-                    filterControls.style.display = 'flex';
+                    filterControls.style.display = 'block';
                     saveImageControls.style.display = 'none';
                     saveFileBtn.style.display = 'none';
                     const content = await generateFormattedLog(filteredNodes, selectedFormat);
@@ -5288,20 +5317,101 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                 updatePreview();
             });
 
-            const customFilterToggle = modal.querySelector('#custom-filter-toggle');
-            const customFilterSection = modal.querySelector('#custom-filter-section'); 
+            // --- 모든 UI 버전의 커스텀 필터 이벤트 핸들러 통합 ---
 
-            if (customFilterToggle && customFilterSection) {
-                customFilterToggle.addEventListener('click', (e) => {
-                    const isVisible = customFilterSection.style.display !== 'none';
-                    customFilterSection.style.display = isVisible ? 'none' : 'block';
-                    customFilterToggle.textContent = isVisible ? '커스텀 필터 설정 ▼' : '커스텀 필터 설정 ▲';
-                });                
-                modal.querySelector('#select-all-filters')?.addEventListener('click', () => { modal.querySelectorAll('.custom-filter-class').forEach(cb => { cb.checked = true; cb.dispatchEvent(new Event('change', { bubbles: true })); }); });
-                modal.querySelector('#deselect-all-filters')?.addEventListener('click', () => { modal.querySelectorAll('.custom-filter-class').forEach(cb => { cb.checked = false; cb.dispatchEvent(new Event('change', { bubbles: true })); }); });
+            // 신규 데스크톱 UI 핸들러
+            const newDesktopToggle = modal.querySelector('#custom-filter-toggle');
+            const newDesktopSection = modal.querySelector('#custom-filter-section');
+            console.log('[Log Exporter] 신규 데스크톱 커스텀 필터 버튼 찾기:', { newDesktopToggle, newDesktopSection, uiClassesLength: uiClasses.length });
+            
+            if (newDesktopToggle && newDesktopSection) {
+                if (uiClasses.length === 0) {
+                    console.log('[Log Exporter] UI 클래스가 없어 버튼 비활성화');
+                    newDesktopToggle.disabled = true;
+                    newDesktopToggle.style.opacity = '0.5';
+                    newDesktopToggle.style.cursor = 'not-allowed';
+                    const firstSpan = newDesktopToggle.querySelector('span:first-child');
+                    if (firstSpan) firstSpan.textContent = '커스텀 필터 항목 없음';
+                } else {
+                    console.log('[Log Exporter] 커스텀 필터 버튼 이벤트 리스너 등록');
+                    newDesktopToggle.addEventListener('click', (e) => {
+                        console.log('[Log Exporter] 커스텀 필터 버튼 클릭됨');
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const isOpen = newDesktopSection.classList.contains('open');
+                        console.log('[Log Exporter] 현재 상태:', { 
+                            isOpen, 
+                            classList: newDesktopSection.classList.toString(),
+                            display: newDesktopSection.style.display,
+                            currentMaxHeight: window.getComputedStyle(newDesktopSection).maxHeight,
+                            scrollHeight: newDesktopSection.scrollHeight
+                        });
+                        
+                        newDesktopSection.classList.toggle('open');
+                        
+                        const icon = newDesktopToggle.querySelector('.toggle-icon');
+                        if (icon) {
+                            // isOpen이 true면 현재 열려있는 상태이므로 닫힌 후 ▼로 변경
+                            // isOpen이 false면 현재 닫혀있는 상태이므로 열린 후 ▲로 변경
+                            const newIcon = isOpen ? '▼' : '▲';
+                            icon.textContent = newIcon;
+                            console.log('[Log Exporter] 토글 후 상태:', { 
+                                wasOpen: isOpen, 
+                                nowOpen: !isOpen, 
+                                icon: newIcon,
+                                newClassList: newDesktopSection.classList.toString(),
+                                computedMaxHeight: window.getComputedStyle(newDesktopSection).maxHeight,
+                                computedOpacity: window.getComputedStyle(newDesktopSection).opacity,
+                                computedVisibility: window.getComputedStyle(newDesktopSection).visibility
+                            });
+                        }
+                    });
+                    
+                    const selectAllBtn = modal.querySelector('#custom-filter-section #select-all-filters');
+                    const deselectAllBtn = modal.querySelector('#custom-filter-section #deselect-all-filters');
+                    
+                    if (selectAllBtn) {
+                        selectAllBtn.addEventListener('click', () => { 
+                            console.log('[Log Exporter] 전체 선택 클릭');
+                            modal.querySelectorAll('#custom-filter-section .custom-filter-class').forEach(cb => { 
+                                cb.checked = true; 
+                                cb.dispatchEvent(new Event('change', { bubbles: true })); 
+                            }); 
+                        });
+                    }
+                    
+                    if (deselectAllBtn) {
+                        deselectAllBtn.addEventListener('click', () => { 
+                            console.log('[Log Exporter] 전체 해제 클릭');
+                            modal.querySelectorAll('#custom-filter-section .custom-filter-class').forEach(cb => { 
+                                cb.checked = false; 
+                                cb.dispatchEvent(new Event('change', { bubbles: true })); 
+                            }); 
+                        });
+                    }
+                }
+            } else {
+                console.warn('[Log Exporter] 신규 데스크톱 커스텀 필터 요소를 찾을 수 없습니다');
             }
 
-  
+            // 구버전 데스크톱 UI 핸들러
+            const oldDesktopToggle = modal.querySelector('#custom-filter-toggle-old');
+            const oldDesktopSection = modal.querySelector('#custom-filter-section-old');
+            if (oldDesktopToggle && oldDesktopSection) {
+                if (uiClasses.length === 0) {
+                    oldDesktopToggle.disabled = true;
+                    oldDesktopToggle.style.opacity = '0.5';
+                    oldDesktopToggle.style.cursor = 'not-allowed';
+                } else {
+                    oldDesktopToggle.addEventListener('click', () => {
+                        const isVisible = oldDesktopSection.style.display !== 'none';
+                        oldDesktopSection.style.display = isVisible ? 'none' : 'block';
+                        oldDesktopToggle.textContent = isVisible ? '커스텀 필터 설정 ▼' : '커스텀 필터 설정 ▲';
+                    });
+                }
+                modal.querySelector('#select-all-filters-old')?.addEventListener('click', () => { modal.querySelectorAll('#custom-filter-section-old .custom-filter-class').forEach(cb => { cb.checked = true; cb.dispatchEvent(new Event('change', { bubbles: true })); }); });
+                modal.querySelector('#deselect-all-filters-old')?.addEventListener('click', () => { modal.querySelectorAll('#custom-filter-section-old .custom-filter-class').forEach(cb => { cb.checked = false; cb.dispatchEvent(new Event('change', { bubbles: true })); }); });
+            }
 
             
 
@@ -5440,7 +5550,7 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                 btn.disabled = false;
             });
 
-            // [추가] 아카라이브용 ZIP 다운로드 버튼 이벤트 리스너
+            // [추가] 아카라이브용 ZIP 다운로드 버튼 이벤트 리스너 (모바일)
             arcaDownloadZipBtn.addEventListener('click', async () => {
                 const filteredNodes = getFilteredNodes();
                 const btn = arcaDownloadZipBtn;
@@ -5453,10 +5563,26 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                 btn.textContent = originalText;
                 btn.disabled = false;
             });
+            
+            // [추가] 데스크톱 아카라이브용 ZIP 다운로드 버튼 이벤트 리스너
+            if (desktopArcaDownloadZipBtn) {
+                desktopArcaDownloadZipBtn.addEventListener('click', async () => {
+                    const filteredNodes = getFilteredNodes();
+                    const btn = desktopArcaDownloadZipBtn;
+                    const originalText = btn.textContent;
+                    btn.textContent = '처리 중...';
+                    btn.disabled = true;
+                    const showAvatar = avatarToggleCheckbox ? avatarToggleCheckbox.checked : true;
+                    // 아카라이브용으로 순차 이름(sequentialNaming=true)을 지정하여 ZIP 다운로드
+                    await downloadImagesAsZip(filteredNodes, charName, chatName, true, showAvatar);
+                    btn.textContent = originalText;
+                    btn.disabled = false;
+                });
+            }
 
             arcaHelperToggleBtn.addEventListener('click', async () => {
                 // 데스크톱과 모바일 모두에서 아카라이브 섹션 찾기
-                const desktopArcaSection = modal.querySelector('.desktop-settings-panel #arca-live-converter-section');
+                const desktopArcaSection = modal.querySelector('#arca-live-converter-section');
                 const mobileArcaSection = arcaHelperSection;
                 
                 // 현재 화면에 맞는 섹션 선택
@@ -5486,38 +5612,122 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                 const allControlsToToggle = [...footerControlsToToggle, ...leftPanelControlsToToggle];
 
                 if (isVisible) {
+                    // 닫을 때: 섹션 숨기고 다른 요소들 복구
                     currentSection.style.display = 'none';
                     arcaHelperToggleBtn.textContent = '아카라이브 변환기';
                     arcaHelperToggleBtn.style.backgroundColor = '#bb9af7';
                     allControlsToToggle.forEach(el => el.disabled = false);
+                    
+                    // 데스크톱 액션 바 버튼들 다시 표시
+                    const desktopActionButtons = modal.querySelectorAll('.desktop-action-bar > button:not(#arca-helper-toggle-btn)');
+                    desktopActionButtons.forEach(btn => btn.style.display = '');
+                    
+                    // 모바일에서 숨겼던 섹션들 다시 표시
+                    if (isMobile) {
+                        const mobileSections = modal.querySelectorAll('.mobile-section:not(#arca-helper-section)');
+                        mobileSections.forEach(section => {
+                            section.style.display = '';
+                        });
+                    } else {
+                        // 데스크톱에서 숨겼던 섹션들 다시 표시
+                        const desktopSections = modal.querySelectorAll('.desktop-section:not(#arca-live-converter-section)');
+                        desktopSections.forEach(section => {
+                            section.style.display = '';
+                        });
+                        // collapsible content는 원래 닫힌 상태로 복구
+                        const collapsibleContents = modal.querySelectorAll('.desktop-collapsible-content');
+                        collapsibleContents.forEach(content => {
+                            if (!content.classList.contains('open')) {
+                                content.style.maxHeight = '0';
+                                content.style.opacity = '0';
+                            }
+                        });
+                    }
                 } else {
+                    // 열 때: 섹션 표시하고 다른 요소들 비활성화
                     currentSection.style.display = isMobile ? 'flex' : 'block';
                     arcaHelperToggleBtn.textContent = '변환기 닫기';
                     arcaHelperToggleBtn.style.backgroundColor = '#f7768e';
                     allControlsToToggle.forEach(el => el.disabled = true);
+                    
+                    // 데스크톱 액션 바 버튼들 숨김 (아카라이브 토글 버튼 제외)
+                    const desktopActionButtons = modal.querySelectorAll('.desktop-action-bar > button:not(#arca-helper-toggle-btn)');
+                    desktopActionButtons.forEach(btn => btn.style.display = 'none');
+                    
+                    // 모바일에서 다른 섹션들 숨기기
+                    if (isMobile) {
+                        const mobileSections = modal.querySelectorAll('.mobile-section:not(#arca-helper-section)');
+                        mobileSections.forEach(section => {
+                            section.style.display = 'none';
+                        });
+                    } else {
+                        // 데스크톱에서 다른 섹션들 숨기기
+                        const desktopSections = modal.querySelectorAll('.desktop-section:not(#arca-live-converter-section)');
+                        desktopSections.forEach(section => {
+                            section.style.display = 'none';
+                        });
+                    }
 
+                    // 템플릿 생성
                     const filteredNodes = getFilteredNodes();
 
                     const customFilterSection = modal.querySelector('#custom-filter-section');
                     let nodesForTemplate = filteredNodes;
-                    if (filterToggleCheckbox.checked && customFilterSection) {
+                    if (filterToggleCheckbox && filterToggleCheckbox.checked && customFilterSection) {
                         const selectedClasses = Array.from(modal.querySelectorAll('.custom-filter-class:checked'))
                             .map(cb => cb.dataset.class);
                         if (selectedClasses.length > 0) nodesForTemplate = filteredNodes.map(node => filterWithCustomClasses(node, selectedClasses));
                     }
 
-                    const selectedColorKey = colorSelector.value;
-                    const selectedThemeKey = themeSelector.value;
-                    const showAvatar = avatarToggleCheckbox.checked;
-                    const template = await generateArcaLiveTemplate(nodesForTemplate, { name: charName, chatName: chatName, avatarUrl: charAvatarUrl }, selectedThemeKey, selectedColorKey, showAvatar);
+                    const selectedColorKey = colorSelector ? colorSelector.value : 'dark';
+                    const selectedThemeKey = themeSelector ? themeSelector.value : 'basic';
+                    const showAvatar = avatarToggleCheckbox ? avatarToggleCheckbox.checked : true;
                     
-                    // 데스크톱과 모바일 모두의 템플릿 textarea 업데이트
-                    if (desktopArcaSection) {
-                        const desktopTemplateTextarea = desktopArcaSection.querySelector('textarea[placeholder*="템플릿"]');
-                        if (desktopTemplateTextarea) desktopTemplateTextarea.value = template;
-                    }
-                    if (mobileArcaSection) {
-                        arcaTemplateHtml.value = template;
+                    console.log('[Arca] 템플릿 생성 시작:', { 
+                        selectedThemeKey, 
+                        selectedColorKey, 
+                        showAvatar, 
+                        nodesCount: nodesForTemplate.length,
+                        charInfo: { name: charName, chatName: chatName, avatarUrl: charAvatarUrl }
+                    });
+                    
+                    try {
+                        const template = await generateArcaLiveTemplate(
+                            nodesForTemplate, 
+                            { name: charName, chatName: chatName, avatarUrl: charAvatarUrl }, 
+                            selectedThemeKey, 
+                            selectedColorKey, 
+                            showAvatar
+                        );
+                        console.log('[Arca] 템플릿 생성 완료, 길이:', template?.length);
+                        console.log('[Arca] 템플릿 미리보기 (첫 200자):', template?.substring(0, 200));
+                        
+                        if (!template || template.length === 0) {
+                            console.error('[Arca] 템플릿이 비어있습니다!');
+                            alert('템플릿 생성에 실패했습니다. 콘솔을 확인해주세요.');
+                            return;
+                        }
+                        
+                        // 데스크톱과 모바일 모두의 템플릿 textarea 업데이트
+                        console.log('[Arca] desktopArcaTemplateHtml 요소:', desktopArcaTemplateHtml);
+                        console.log('[Arca] arcaTemplateHtml 요소:', arcaTemplateHtml);
+                        
+                        if (desktopArcaTemplateHtml) {
+                            desktopArcaTemplateHtml.value = template;
+                            console.log('[Arca] 데스크톱 템플릿 textarea 업데이트 완료, 실제 값 길이:', desktopArcaTemplateHtml.value.length);
+                        } else {
+                            console.warn('[Arca] desktopArcaTemplateHtml을 찾을 수 없습니다');
+                        }
+                        
+                        if (arcaTemplateHtml) {
+                            arcaTemplateHtml.value = template;
+                            console.log('[Arca] 모바일 템플릿 textarea 업데이트 완료, 실제 값 길이:', arcaTemplateHtml.value.length);
+                        } else {
+                            console.warn('[Arca] arcaTemplateHtml을 찾을 수 없습니다');
+                        }
+                    } catch (error) {
+                        console.error('[Arca] 템플릿 생성 중 오류:', error);
+                        alert('템플릿 생성 중 오류가 발생했습니다: ' + error.message);
                     }
                 }
             });
