@@ -1624,8 +1624,7 @@ const AVATAR_ATTR = 'data-avatar';
     // [추가] 아바타와 일반 이미지에 적용될 최종 스타일 정의
     const ARCA_IMG_STYLES = {
         avatar: (theme, isUser) => {
-            const margin = isUser ? 'margin-left:12px;' : 'margin-right:12px;';
-            return `width:48px; height:48px; min-width:48px; flex-shrink:0; border-radius:50%; object-fit:cover; border:2px solid ${theme.avatarBorder}; box-shadow:${theme.shadow}; ${margin}`;
+            return `width:48px; height:48px; min-width:48px; flex-shrink:0; border-radius:50%; object-fit:cover; border:2px solid ${theme.avatarBorder}; box-shadow:${theme.shadow}; margin:${isUser ? '0 0 0 12px' : '0 12px 0 0'};`;
         },
         content: `max-width: 100%; height: auto; border-radius: 8px; display: block; margin: 12px 0;`
     };
@@ -1804,7 +1803,15 @@ const AVATAR_ATTR = 'data-avatar';
                 const isUser = node.classList.contains('justify-end');
                 const avatarSrc = avatarMap.get(name);
                 let avatarHtml = '';
-    
+
+                // [수정] 아카라이브용 변환 시, 모든 아바타를 <img> 태그로 통일하여 생성합니다.
+                if (isForArca && showAvatar && avatarSrc) {
+                    // AVATAR_ATTR 속성과 data-user 속성을 <img> 태그에 추가하여 아바타와 유저 구분을 명시합니다.
+                    // style="" 속성을 추가하여 각 테마에서 스타일을 추가할 수 있도록 합니다.
+                    avatarHtml = `<img ${AVATAR_ATTR} data-user="${isUser}" style="" src="${avatarSrc}">`;
+                    // 아카라이브 변환 시에는 아래의 복잡한 div 생성 로직을 건너뜁니다.
+                } else 
+
                 if (showAvatar && selectedThemeKey !== 'log' && selectedThemeKey !== 'fantasy') {
                     const createAvatarDiv = (src, isUser) => {
                         const margin = isUser ? 'margin-left:12px;' : 'margin-right:12px;';
@@ -1836,12 +1843,23 @@ const AVATAR_ATTR = 'data-avatar';
                     case 'fantasy': { // 중괄호로 스코프를 만들어 변수 충돌 방지
                         let fantasyAvatarHtml = '';
                         if (showAvatar) {
-                            const baseStyle = `width:52px;height:52px;min-width:52px;border-radius:50%;border:2px solid ${color.avatarBorder}; box-shadow: 0 0 12px rgba(255, 201, 120, 0.5);`;
-                            if (avatarSrc) {
-                                fantasyAvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background:url('${avatarSrc}');background-size:cover;background-position:center;"></div>`;
+                            if (isForArca) {
+                                // 아카라이브용: <img> 태그 사용 (data-user 속성 포함)
+                                const avatarStyle = 'width:52px;height:52px;min-width:52px;border-radius:50%;border:2px solid ' + color.avatarBorder + '; box-shadow: 0 0 12px rgba(255, 201, 120, 0.5); margin-left: auto; margin-right: auto;';
+                                if (avatarHtml.includes('style="')) {
+                                    fantasyAvatarHtml = avatarHtml.replace('style="', `style="${avatarStyle}`);
+                                } else {
+                                    fantasyAvatarHtml = avatarHtml.replace('<img', `<img style="${avatarStyle}"`);
+                                }
                             } else {
-                                const letter = isUser ? 'U' : name.charAt(0).toUpperCase();
-                                fantasyAvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background: linear-gradient(135deg, #2c3e7a, #1a1e3a); display:flex;align-items:center;justify-content:center;"><span style="color:${color.nameColor};font-weight:bold;font-size:1.4em; font-family: 'Nanum Myeongjo', serif; text-shadow: 0 0 6px rgba(255,201,120,0.7);">${letter}</span></div>`;
+                                // 미리보기용: <div> 태그 사용
+                                const baseStyle = `width:52px;height:52px;min-width:52px;border-radius:50%;border:2px solid ${color.avatarBorder}; box-shadow: 0 0 12px rgba(255, 201, 120, 0.5); margin-left: auto; margin-right: auto;`;
+                                if (avatarSrc) {
+                                    fantasyAvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background:url('${avatarSrc}');background-size:cover;background-position:center;"></div>`;
+                                } else {
+                                    const letter = isUser ? 'U' : name.charAt(0).toUpperCase();
+                                    fantasyAvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background: linear-gradient(135deg, #2c3e7a, #1a1e3a); display:flex;align-items:center;justify-content:center;"><span style="color:${color.nameColor};font-weight:bold;font-size:1.4em; font-family: 'Nanum Myeongjo', serif; text-shadow: 0 0 6px rgba(255,201,120,0.7);">${letter}</span></div>`;
+                                }
                             }
                         }
                         if (index > 0) {
@@ -1855,7 +1873,7 @@ const AVATAR_ATTR = 'data-avatar';
                         logEntry += `<div class="chat-message-container" style="display:flex; flex-direction:column; align-items: center; ${!isForArca ? `font-family: ${fantasyFont};` : ''} text-align:center; margin-bottom:28px;">`;
                         logEntry += fantasyAvatarHtml;
                         logEntry += `<strong style="color:${color.nameColor}; font-weight:400; font-size:1.4em; margin-top: 0.6em; letter-spacing: 1.5px; text-shadow: 0 0 10px rgba(255, 201, 120, 0.6);">${name}</strong>`;
-                        logEntry += `<div style="color:${color.text}; line-height: 1.85; font-size: 1.1em; text-align: justify; margin-top: 1.2em; max-width: 85%; margin-left: auto; margin-right: auto; background-color: ${isUser ? color.cardBgUser : color.cardBg}; padding: 14px 18px; border-radius: 12px; border: 1px solid ${color.border}; box-shadow: ${color.shadow};">${messageHtml}</div>`;
+                        logEntry += `<div style="color:${color.text}; line-height: 1.85; font-size: 1.1em; text-align: justify; margin-top: 1.2em; max-width: 95%; margin-left: auto; margin-right: auto; background-color: ${isUser ? color.cardBgUser : color.cardBg}; padding: 14px 18px; border: 1px solid ${color.border}; box-shadow: ${color.shadow};">${messageHtml}</div>`;
                         logEntry += `</div>`;
                         break;
                     } // case 'fantasy' 종료
@@ -1863,12 +1881,18 @@ const AVATAR_ATTR = 'data-avatar';
                         const elfFont = `'Nanum Myeongjo', serif`;
                         let elfAvatarHtml = '';
                         if (showAvatar) {
-                            const baseStyle = `width:50px;height:50px;min-width:50px;border-radius:50%;border:3px solid ${color.avatarBorder}; box-shadow: ${color.shadow}; position: relative;`;
-                            if (avatarSrc) {
-                                elfAvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background:url('${avatarSrc}');background-size:cover;background-position:center; overflow: hidden;"><div style="position: absolute; inset: 0; background: radial-gradient(circle at center, transparent 60%, rgba(52, 211, 153, 0.3) 100%);"></div></div>`;
+                            if (isForArca) {
+                                // 아카라이브용: <img> 태그 사용 (data-user 속성 포함)
+                                elfAvatarHtml = avatarHtml;
                             } else {
-                                const letter = isUser ? '🌿' : name.charAt(0).toUpperCase();
-                                elfAvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background: linear-gradient(135deg, #059669, #10b981); display:flex;align-items:center;justify-content:center;"><span style="color: #d1fae5;font-weight:bold;font-size:1.3em; text-shadow: 0 0 8px rgba(52, 211, 153, 0.8);">${letter}</span></div>`;
+                                // 미리보기용: <div> 태그 사용
+                                const baseStyle = `width:50px;height:50px;min-width:50px;border-radius:50%;border:3px solid ${color.avatarBorder}; box-shadow: ${color.shadow}; position: relative;`;
+                                if (avatarSrc) {
+                                    elfAvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background:url('${avatarSrc}');background-size:cover;background-position:center; overflow: hidden;"><div style="position: absolute; inset: 0; background: radial-gradient(circle at center, transparent 60%, rgba(52, 211, 153, 0.3) 100%);"></div></div>`;
+                                } else {
+                                    const letter = isUser ? '🌿' : name.charAt(0).toUpperCase();
+                                    elfAvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background: linear-gradient(135deg, #059669, #10b981); display:flex;align-items:center;justify-content:center;"><span style="color: #d1fae5;font-weight:bold;font-size:1.3em; text-shadow: 0 0 8px rgba(52, 211, 153, 0.8);">${letter}</span></div>`;
+                                }
                             }
                         }
                         
@@ -1901,12 +1925,23 @@ const AVATAR_ATTR = 'data-avatar';
                         const royalFont = `'Nanum Myeongjo', serif`;
                         let royalAvatarHtml = '';
                         if (showAvatar) {
-                            const baseStyle = `width:55px;height:55px;min-width:55px;border-radius:50%;border:3px solid ${color.avatarBorder}; box-shadow: ${color.shadow}; position: relative;`;
-                            if (avatarSrc) {
-                                royalAvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background:url('${avatarSrc}');background-size:cover;background-position:center;"></div>`;
+                            if (isForArca) {
+                                // 아카라이브용: <img> 태그 사용 (data-user 속성 포함)
+                                const avatarStyle = 'width:55px;height:55px;min-width:55px;border-radius:50%;border:3px solid ' + color.avatarBorder + '; box-shadow: ' + color.shadow + '; position: relative; margin-left: auto; margin-right: auto;';
+                                if (avatarHtml.includes('style="')) {
+                                    royalAvatarHtml = avatarHtml.replace('style="', `style="${avatarStyle}`);
+                                } else {
+                                    royalAvatarHtml = avatarHtml.replace('<img', `<img style="${avatarStyle}"`);
+                                }
                             } else {
-                                const letter = isUser ? '👑' : name.charAt(0).toUpperCase();
-                                royalAvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background: linear-gradient(135deg, #7c3aed, #a855f7); display:flex;align-items:center;justify-content:center;"><span style="color: #fbbf24;font-weight:bold;font-size:1.4em; text-shadow: 0 0 10px rgba(251, 191, 36, 0.8);">${letter}</span></div>`;
+                                // 미리보기용: <div> 태그 사용
+                                const baseStyle = `width:55px;height:55px;min-width:55px;border-radius:50%;border:3px solid ${color.avatarBorder}; box-shadow: ${color.shadow}; position: relative;`;
+                                if (avatarSrc) {
+                                    royalAvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background:url('${avatarSrc}');background-size:cover;background-position:center;"></div>`;
+                                } else {
+                                    const letter = isUser ? '👑' : name.charAt(0).toUpperCase();
+                                    royalAvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background: linear-gradient(135deg, #7c3aed, #a855f7); display:flex;align-items:center;justify-content:center;"><span style="color: #fbbf24;font-weight:bold;font-size:1.4em; text-shadow: 0 0 10px rgba(251, 191, 36, 0.8);">${letter}</span></div>`;
+                                }
                             }
                         }
                         
@@ -1923,7 +1958,7 @@ const AVATAR_ATTR = 'data-avatar';
                         logEntry += `<div style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); width: 80%; height: 2px; background: linear-gradient(90deg, transparent, ${color.nameColor}, transparent); opacity: 0.6;"></div>`;
                         logEntry += royalAvatarHtml;
                         logEntry += `<strong style="color:${color.nameColor}; font-weight:500; font-size:1.5em; margin-top: 1em; letter-spacing: 2px; text-shadow: 0 0 12px rgba(251, 191, 36, 0.5);">${name}</strong>`;
-                        logEntry += `<div style="background: ${isUser ? color.cardBgUser : color.cardBg}; color:${color.text}; line-height: 1.8; font-size: 1.1em; text-align: justify; margin-top: 1.5em; max-width: 90%; padding: 20px 25px; border-radius: 15px; border: 2px solid transparent; background-clip: padding-box; box-shadow: ${color.shadow}; position: relative; overflow: hidden;">`;
+                        logEntry += `<div style="background: ${isUser ? color.cardBgUser : color.cardBg}; color:${color.text}; line-height: 1.8; font-size: 1.1em; text-align: justify; margin-top: 1.5em; max-width: 95%; padding: 20px 25px; border-radius: 15px; border: 2px solid transparent; background-clip: padding-box; box-shadow: ${color.shadow}; position: relative; overflow: hidden;">`;
                         logEntry += `<div style="position: absolute; inset: -2px; background: linear-gradient(45deg, #7c3aed, #fbbf24, #7c3aed); border-radius: 17px; z-index: -1;"></div>`;
                         logEntry += `${messageHtml}</div>`;
                         logEntry += `</div>`;
@@ -1932,15 +1967,26 @@ const AVATAR_ATTR = 'data-avatar';
                     case 'ocean': // 심해 테마
                         let oceanAvatarHtml = '';
                         if (showAvatar) {
-                            const baseStyle = `width:48px;height:48px;min-width:48px;border-radius:50%;border:2px solid ${color.avatarBorder}; box-shadow: ${color.shadow}; position: relative;`;
-                            if (avatarSrc) {
-                                oceanAvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background:url('${avatarSrc}');background-size:cover;background-position:center;"></div>`;
+                            if (isForArca) {
+                                // 아카라이브용: <img> 태그 사용 (data-user 속성 포함)
+                                const margin = isUser ? 'margin-left:14px;' : 'margin-right:14px;';
+                                if (avatarHtml.includes('style="')) {
+                                    oceanAvatarHtml = avatarHtml.replace('style="', `style="${margin}`);
+                                } else {
+                                    oceanAvatarHtml = avatarHtml.replace('<img', `<img style="${margin}"`);
+                                }
                             } else {
-                                const letter = isUser ? '🌊' : name.charAt(0).toUpperCase();
-                                oceanAvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background: radial-gradient(circle, #0891b2, #0c4a6e); display:flex;align-items:center;justify-content:center;"><span style="color: #22d3ee;font-weight:bold;font-size:1.2em; text-shadow: 0 0 8px rgba(34, 211, 238, 0.8);">${letter}</span></div>`;
+                                // 미리보기용: <div> 태그 사용
+                                const baseStyle = `width:48px;height:48px;min-width:48px;border-radius:50%;border:2px solid ${color.avatarBorder}; box-shadow: ${color.shadow}; position: relative;`;
+                                if (avatarSrc) {
+                                    oceanAvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background:url('${avatarSrc}');background-size:cover;background-position:center;"></div>`;
+                                } else {
+                                    const letter = isUser ? '🌊' : name.charAt(0).toUpperCase();
+                                    oceanAvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background: radial-gradient(circle, #0891b2, #0c4a6e); display:flex;align-items:center;justify-content:center;"><span style="color: #22d3ee;font-weight:bold;font-size:1.2em; text-shadow: 0 0 8px rgba(34, 211, 238, 0.8);">${letter}</span></div>`;
+                                }
+                                const margin = isUser ? 'margin-left:14px;' : 'margin-right:14px;';
+                                oceanAvatarHtml = oceanAvatarHtml.replace('style="', `style="${margin}`);
                             }
-                            const margin = isUser ? 'margin-left:14px;' : 'margin-right:14px;';
-                            oceanAvatarHtml = oceanAvatarHtml.replace('style="', `style="${margin}`);
                         }
 
                         logEntry += `<div class="chat-message-container" style="display:flex; align-items:flex-start; margin-bottom:2em; position: relative; ${isUser ? 'flex-direction:row-reverse;' : ''}">`;
@@ -1957,15 +2003,26 @@ const AVATAR_ATTR = 'data-avatar';
                     case 'sakura': // 벚꽃 테마
                         let sakuraAvatarHtml = '';
                         if (showAvatar) {
-                            const baseStyle = `width:46px;height:46px;min-width:46px;border-radius:50%;border:2px solid ${color.avatarBorder}; box-shadow: ${color.shadow}; position: relative;`;
-                            if (avatarSrc) {
-                                sakuraAvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background:url('${avatarSrc}');background-size:cover;background-position:center;"></div>`;
+                            if (isForArca) {
+                                // 아카라이브용: <img> 태그 사용 (data-user 속성 포함)
+                                const margin = isUser ? 'margin-left:12px;' : 'margin-right:12px;';
+                                if (avatarHtml.includes('style="')) {
+                                    sakuraAvatarHtml = avatarHtml.replace('style="', `style="${margin}`);
+                                } else {
+                                    sakuraAvatarHtml = avatarHtml.replace('<img', `<img style="${margin}"`);
+                                }
                             } else {
-                                const letter = isUser ? '🌸' : name.charAt(0).toUpperCase();
-                                sakuraAvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background: linear-gradient(135deg, #f472b6, #ec4899); display:flex;align-items:center;justify-content:center;"><span style="color: #fdf2f8;font-weight:bold;font-size:1.2em; text-shadow: 0 0 6px rgba(244, 114, 182, 0.6);">${letter}</span></div>`;
+                                // 미리보기용: <div> 태그 사용
+                                const baseStyle = `width:46px;height:46px;min-width:46px;border-radius:50%;border:2px solid ${color.avatarBorder}; box-shadow: ${color.shadow}; position: relative;`;
+                                if (avatarSrc) {
+                                    sakuraAvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background:url('${avatarSrc}');background-size:cover;background-position:center;"></div>`;
+                                } else {
+                                    const letter = isUser ? '🌸' : name.charAt(0).toUpperCase();
+                                    sakuraAvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background: linear-gradient(135deg, #f472b6, #ec4899); display:flex;align-items:center;justify-content:center;"><span style="color: #fdf2f8;font-weight:bold;font-size:1.2em; text-shadow: 0 0 6px rgba(244, 114, 182, 0.6);">${letter}</span></div>`;
+                                }
+                                const margin = isUser ? 'margin-left:12px;' : 'margin-right:12px;';
+                                sakuraAvatarHtml = sakuraAvatarHtml.replace('style="', `style="${margin}`);
                             }
-                            const margin = isUser ? 'margin-left:12px;' : 'margin-right:12px;';
-                            sakuraAvatarHtml = sakuraAvatarHtml.replace('style="', `style="${margin}`);
                         }
 
                         if (index > 0) {
@@ -1990,15 +2047,26 @@ const AVATAR_ATTR = 'data-avatar';
                     case 'matrix': // 매트릭스 테마
                         let matrixAvatarHtml = '';
                         if (showAvatar) {
-                            const baseStyle = `width:44px;height:44px;min-width:44px;border-radius:4px;border:1px solid ${color.avatarBorder}; box-shadow: ${color.shadow}; font-family: 'Courier New', monospace;`;
-                            if (avatarSrc) {
-                                matrixAvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background:url('${avatarSrc}');background-size:cover;background-position:center; filter: hue-rotate(120deg) saturate(0.8);"></div>`;
+                            if (isForArca) {
+                                // 아카라이브용: <img> 태그 사용 (data-user 속성 포함)
+                                const margin = isUser ? 'margin-left:10px;' : 'margin-right:10px;';
+                                if (avatarHtml.includes('style="')) {
+                                    matrixAvatarHtml = avatarHtml.replace('style="', `style="${margin}`);
+                                } else {
+                                    matrixAvatarHtml = avatarHtml.replace('<img', `<img style="${margin}"`);
+                                }
                             } else {
-                                const letter = isUser ? '[U]' : `[${name.charAt(0).toUpperCase()}]`;
-                                matrixAvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background: #000000; display:flex;align-items:center;justify-content:center;"><span style="color: ${color.nameColor};font-weight:bold;font-size:0.8em; text-shadow: 0 0 8px ${color.nameColor};">${letter}</span></div>`;
+                                // 미리보기용: <div> 태그 사용
+                                const baseStyle = `width:44px;height:44px;min-width:44px;border-radius:4px;border:1px solid ${color.avatarBorder}; box-shadow: ${color.shadow}; font-family: 'Courier New', monospace;`;
+                                if (avatarSrc) {
+                                    matrixAvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background:url('${avatarSrc}');background-size:cover;background-position:center; filter: hue-rotate(120deg) saturate(0.8);"></div>`;
+                                } else {
+                                    const letter = isUser ? '[U]' : `[${name.charAt(0).toUpperCase()}]`;
+                                    matrixAvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background: #000000; display:flex;align-items:center;justify-content:center;"><span style="color: ${color.nameColor};font-weight:bold;font-size:0.8em; text-shadow: 0 0 8px ${color.nameColor};">${letter}</span></div>`;
+                                }
+                                const margin = isUser ? 'margin-left:10px;' : 'margin-right:10px;';
+                                matrixAvatarHtml = matrixAvatarHtml.replace('style="', `style="${margin}`);
                             }
-                            const margin = isUser ? 'margin-left:10px;' : 'margin-right:10px;';
-                            matrixAvatarHtml = matrixAvatarHtml.replace('style="', `style="${margin}`);
                         }
 
                         logEntry += `<div class="chat-message-container" style="display:flex; align-items:flex-start; margin-bottom:1.5em; font-family: 'Courier New', monospace; ${isUser ? 'flex-direction:row-reverse;' : ''}">`;
@@ -2129,6 +2197,11 @@ const AVATAR_ATTR = 'data-avatar';
             let extraStyles = '';
             if (selectedThemeKey === 'modern') {
                 containerStyle += `background-image: linear-gradient(145deg, ${color.background}, #2c2f33);`;
+            }
+            // [수정] 아카라이브용으로 변환 시, 가상요소 대신 인라인 배경 이미지로 그라데이션을 직접 적용합니다.
+            if (isForArca && selectedThemeKey === 'fantasy') {
+                const gradient = `radial-gradient(ellipse at top, rgba(74, 85, 140, 0.3), transparent 60%), radial-gradient(ellipse at bottom, rgba(74, 85, 140, 0.2), transparent 70%)`;
+                containerStyle += ` background-image: ${gradient};`;
             }
             if (selectedThemeKey === 'fantasy') {
                 containerStyle += `
@@ -2741,33 +2814,87 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
     /**
      * 아카라이브용 HTML 템플릿을 생성합니다.
      * <img> 태그를 고유한 자리표시자 주석으로 교체합니다.
+     * [수정] innerHTML 재파싱으로 인한 스타일 손실을 방지하기 위해 문자열 기반 처리로 변경
+     * [핵심 수정] 아바타와 일반 이미지를 구분하여 순차적으로 교체
      */
     async function generateArcaLiveTemplate(nodes, charInfo, themeKey = 'basic', colorKey = 'dark', showAvatar = true) {
         console.log('[Log Exporter] generateArcaLiveTemplate: 아카라이브용 템플릿 생성 시작');
         let imageCounter = 0;
 
         // 헤더/푸터/말풍선은 아카라이브 템플릿에 포함시키지 않음 (false, false, false)
-        const baseHtml = await generateBasicFormatLog(nodes, charInfo, themeKey, colorKey, showAvatar, false, false, true, true);
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = baseHtml;
+        let baseHtml = await generateBasicFormatLog(nodes, charInfo, themeKey, colorKey, showAvatar, false, false, true, true);
 
-        // 모든 이미지 요소(<img> 및 배경 이미지)를 문서 순서대로 찾아 자리표시자로 교체합니다.
-        // 이렇게 하면 이미지와 자리표시자의 순서가 정확히 일치하게 됩니다.
-        tempDiv.querySelectorAll('img, [style*="url("]').forEach(el => {
-            // el.parentNode 체크는 중첩된 구조에서 안전성을 더해주지만, 현재 구조에서는 필수는 아닙니다.
-            if (el.parentNode) {
-                imageCounter++;
-                // [수정] 아바타 여부를 확인하고, 그에 맞는 자리표시자 생성
-                const isAvatar = el.hasAttribute(AVATAR_ATTR);
-                const isUser = isAvatar && el.parentElement.style.flexDirection === 'row-reverse';
-                const placeholderType = isAvatar ? `ARCA_AVATAR_PLACEHOLDER_${isUser}` : 'ARCA_IMG_PLACEHOLDER';
-                const placeholder = document.createComment(` ${placeholderType}_${imageCounter} `);
-                el.replaceWith(placeholder);
-            }
+        // [핵심 수정] 이미지를 순서대로 찾아서 교체하되, 정확한 패턴 매칭 사용
+        // 1. 먼저 모든 이미지의 위치와 타입을 파악
+        const imageMatches = [];
+        
+        // 1-1. data-tolog-avatar 속성을 가진 아바타 이미지 찾기 (data-user 속성도 추출)
+        const avatarRegex = /<img\s+[^>]*data-tolog-avatar[^>]*data-user="(true|false)"[^>]*>/gi;
+        let match;
+        while ((match = avatarRegex.exec(baseHtml)) !== null) {
+            const isUser = match[1] === 'true';
+            imageMatches.push({ index: match.index, length: match[0].length, type: 'avatar', isUser, content: match[0] });
+        }
+        
+        // 1-2. 배경 이미지를 가진 div 찾기 (아바타용) - 주변 컨텍스트에서 isUser 판단
+        const bgImageRegex = /<div\s+[^>]*style="[^"]*background-image:\s*url\([^)]+\)[^"]*"[^>]*>/gi;
+        while ((match = bgImageRegex.exec(baseHtml)) !== null) {
+            // 해당 div를 포함하는 부모 컨테이너를 찾아 flex-direction을 확인
+            // flex-direction:row-reverse가 있으면 사용자 메시지
+            const contextStart = Math.max(0, match.index - 200);
+            const contextEnd = Math.min(baseHtml.length, match.index + match[0].length + 200);
+            const context = baseHtml.substring(contextStart, contextEnd);
+            
+            // 주변 200자 내에서 flex-direction:row-reverse를 찾음
+            const isUser = context.includes('flex-direction:row-reverse');
+            
+            imageMatches.push({ index: match.index, length: match[0].length, type: 'avatar-bg', isUser, content: match[0] });
+        }
+        
+        // 1-3. 일반 이미지 찾기 (data-tolog-avatar가 없는 img)
+        const imgRegex = /<img\s+(?![^>]*data-tolog-avatar)[^>]*>/gi;
+        while ((match = imgRegex.exec(baseHtml)) !== null) {
+            imageMatches.push({ index: match.index, length: match[0].length, type: 'content', content: match[0] });
+        }
+        
+        // 2. 인덱스 순으로 정렬 (문서 순서대로)
+        imageMatches.sort((a, b) => a.index - b.index);
+        
+        console.log(`[Log Exporter] generateArcaLiveTemplate: 발견된 이미지 타입별 개수:`, {
+            avatar: imageMatches.filter(m => m.type === 'avatar').length,
+            avatarBg: imageMatches.filter(m => m.type === 'avatar-bg').length,
+            content: imageMatches.filter(m => m.type === 'content').length,
+            total: imageMatches.length
         });
+        
+        // 3. 먼저 정방향으로 번호를 매기고, 뒤에서부터 치환 (인덱스 변화 방지)
+        for (let i = 0; i < imageMatches.length; i++) {
+            imageMatches[i].imageNumber = i + 1;  // 정방향으로 번호 매기기
+        }
+        
+        // 4. 뒤에서부터 치환 (인덱스 변화 방지하면서 실제 HTML 수정)
+        for (let i = imageMatches.length - 1; i >= 0; i--) {
+            const img = imageMatches[i];
+            const imageNumber = img.imageNumber;  // 미리 매겨진 번호 사용
+            
+            let placeholder;
+            if (img.type === 'avatar' || img.type === 'avatar-bg') {
+                // 아바타인 경우 isUser 정보를 자리표시자에 포함
+                const isUserValue = img.isUser !== undefined ? img.isUser : false;
+                placeholder = `<!-- ARCA_AVATAR_PLACEHOLDER_${isUserValue ? 'true' : 'false'}_${imageNumber} -->`;
+                console.log(`[Log Exporter] 아바타 #${imageNumber}: type=${img.type}, isUser=${isUserValue}`);
+            } else {
+                placeholder = `<!-- ARCA_IMG_PLACEHOLDER_${imageNumber} -->`;
+                console.log(`[Log Exporter] 일반 이미지 #${imageNumber}`);
+            }
+            
+            baseHtml = baseHtml.substring(0, img.index) + placeholder + baseHtml.substring(img.index + img.length);
+        }
+        
+        imageCounter = imageMatches.length;
 
         console.log(`[Log Exporter] generateArcaLiveTemplate: 템플릿 생성 완료. 이미지 개수: ${imageCounter}`);
-        return tempDiv.innerHTML;
+        return baseHtml;
     }
 
     /**
@@ -3627,25 +3754,68 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                     return;
                 }
 
-                let finalHtml = template;
                 let usedUrlCount = 0;
 
-                // [수정] 아바타와 일반 이미지를 구분하여 처리하는 정규식으로 변경
-                finalHtml = finalHtml.replace(/<!--\s*(ARCA_IMG_PLACEHOLDER|ARCA_AVATAR_PLACEHOLDER_(true|false))_(\d+)\s*-->/g, (match, type, isUserStr, p3) => {
-                    const index = parseInt(p3, 10) - 1;
+                // ▼▼▼ [최종 수정 코드] 이 코드로 전체를 교체하세요 ▼▼▼
+                let finalHtml = template.replace(/<!--\s*(ARCA_IMG_PLACEHOLDER_(\d+)|ARCA_AVATAR_PLACEHOLDER_(true|false)_(\d+))\s*-->/g, (match, fullMatch, imgNum, isUserStr, avatarNum) => {
+                    // 이미지 번호 결정: 일반 이미지는 imgNum, 아바타는 avatarNum 사용
+                    const imageNumber = imgNum || avatarNum;
+                    const index = parseInt(imageNumber, 10) - 1;
+
                     if (index < imageUrls.length) {
                         usedUrlCount++;
-                        const imageUrl = imageUrls[index];
-                        if (type.startsWith('ARCA_AVATAR_PLACEHOLDER')) {
+                        const imageUrl = imageUrls[index]; // 이미지 URL 추출
+                        const selectedThemeKey = themeSelector.value;
+                        const themeInfo = THEMES[selectedThemeKey] || THEMES.basic;
+                        const color = (selectedThemeKey === 'basic') ? (COLORS[colorSelector.value] || COLORS.dark) : themeInfo.color;
+                
+                        // 아바타인지 확인 (isUserStr이 정의되어 있으면 아바타)
+                        if (typeof isUserStr !== 'undefined' && isUserStr !== null) {
                             const isUser = isUserStr === 'true';
-                            const theme = COLORS[colorSelector.value] || COLORS.dark;
-                            return `<img src="${imageUrl}" style="${ARCA_IMG_STYLES.avatar(theme, isUser)}">`;
+                            let style;
+
+                            // 테마별 아바타 스타일 적용 (이제 margin, display는 여기서 정의하지 않음)
+                            switch(selectedThemeKey) {
+                                case 'fantasy':
+                                    style = `width:52px;height:52px;min-width:52px;border-radius:50%;border:2px solid ${color.avatarBorder}; box-shadow: 0 0 12px rgba(255, 201, 120, 0.5);`;
+                                    break;
+                                case 'fantasy2':
+                                    style = `width:50px;height:50px;min-width:50px;border-radius:50%;border:3px solid ${color.avatarBorder}; box-shadow: ${color.shadow}; position: relative; margin:${isUser ? '0 0 0 16px' : '0 16px 0 0'};`;
+                                    break;
+                                case 'royal':
+                                    style = `width:55px;height:55px;min-width:55px;border-radius:50%;border:3px solid ${color.avatarBorder}; box-shadow: ${color.shadow}; position: relative;`;
+                                    break;
+                                case 'ocean':
+                                    style = `width:48px;height:48px;min-width:48px;border-radius:50%;border:2px solid ${color.avatarBorder}; box-shadow: ${color.shadow}; position: relative; margin:${isUser ? '0 0 0 14px' : '0 14px 0 0'};`;
+                                    break;
+                                case 'sakura':
+                                    style = `width:46px;height:46px;min-width:46px;border-radius:50%;border:2px solid ${color.avatarBorder}; box-shadow: ${color.shadow}; position: relative; margin:${isUser ? '0 0 0 12px' : '0 12px 0 0'};`;
+                                    break;
+                                case 'matrix':
+                                    style = `width:44px;height:44px;min-width:44px;border-radius:4px;border:1px solid ${color.avatarBorder}; box-shadow: ${color.shadow}; font-family: 'Courier New', monospace; margin:${isUser ? '0 0 0 10px' : '0 10px 0 0'};`;
+                                    break;
+                                default:
+                                    style = ARCA_IMG_STYLES.avatar(color, isUser);
+                            }
+
+                            const imgTag = `<img src="${imageUrl}" style="${style}">`;
+
+                            // [핵심 수정] 중앙 정렬이 필요한 테마(fantasy, royal)인 경우, <div>로 감싸서 반환
+                            if (selectedThemeKey === 'fantasy' || selectedThemeKey === 'royal') {
+                                // <p> 태그의 text-align: center 스타일은 거의 모든 웹 에디터에서 허용하는 표준 기능입니다.
+                                // <p> 태그의 기본 여백(margin)을 제거하여 불필요한 공간이 생기지 않도록 합니다.
+                                return `<div style="text-align: center; margin: auto; padding: 0;">${imgTag}</div>`;
+                            }else {
+                                return imgTag; // 나머지 테마는 기존처럼 <img> 태그만 반환
+                            }
                         } else {
+                            // 일반 콘텐츠 이미지
                             return `<img src="${imageUrl}" style="${ARCA_IMG_STYLES.content}">`;
                         }
                     }
                     return match;
                 });
+                // ▲▲▲ [최종 수정 코드] 여기까지 ▲▲▲
 
                 // 후처리: td border=0, 이미지 max-width 슬라이더 값 반영, title 태그 제거
                 try {
@@ -3660,11 +3830,13 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                     tempContainer.querySelectorAll('td').forEach(td => {
                         td.style.border = '0px';
                     });
+                    tempContainer.querySelectorAll('td').forEach(td => td.setAttribute('border', '0'));
 
                     // 이미지 max-width를 슬라이더 값으로 통일, 높이는 auto 유지
+                    // 이미지에 max-width와 height:auto를 강제로 추가하여 스타일을 통일합니다.
                     tempContainer.querySelectorAll('img').forEach(img => {
-                        img.style.maxWidth = `${scale}%`;
-                        img.style.height = 'auto';
+                        img.style.setProperty('max-width', `${scale}%`, 'important');
+                        img.style.setProperty('height', 'auto', 'important');
                     });
 
                     finalHtml = tempContainer.innerHTML;
