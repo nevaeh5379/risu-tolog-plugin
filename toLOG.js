@@ -2981,27 +2981,30 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
 
             const modal = document.createElement('div');
             modal.className = 'log-exporter-modal-backdrop';
+            modal.setAttribute('role', 'dialog');
+            modal.setAttribute('aria-modal', 'true');
+            modal.setAttribute('aria-labelledby', 'modal-header');
             modal.innerHTML = `
             <div class="log-exporter-modal">
-                <button id="log-exporter-close" class="log-exporter-modal-close-btn" title="닫기 (Esc)">
+                <button id="log-exporter-close" class="log-exporter-modal-close-btn" title="닫기 (Esc)" aria-label="모달 닫기" style="min-width: 44px; min-height: 44px;">
                     &times;
                 </button>
-                <div class="log-exporter-modal-header">로그 내보내기 옵션</div>
+                <div class="log-exporter-modal-header" id="modal-header">로그 내보내기 옵션 <span style="font-size: 0.75em; color: #7aa2f7; margin-left: 8px;">(Ctrl+/ 도움말)</span></div>
                 <div class="log-exporter-modal-content">
                     <div class="log-exporter-left-panel">
                         <div class="log-exporter-modal-options">
-                            <div id="format-selection-group">
-                                <strong>형식:</strong>
-                                <label><input type="radio" name="log-format" value="html"> HTML</label>
-                                <label><input type="radio" name="log-format" value="basic" checked> 기본</label>
-                                <label><input type="radio" name="log-format" value="markdown"> 마크다운</label>
-                                <label><input type="radio" name="log-format" value="text"> 일반 텍스트</label>
+                            <div id="format-selection-group" role="radiogroup" aria-label="로그 형식 선택">
+                                <strong>형식: <span style="font-size: 0.7em; color: #565f89;">(단축키: 1~4)</span></strong>
+                                <label style="cursor: pointer; padding: 4px;"><input type="radio" name="log-format" value="html" accesskey="1"> <u>H</u>TML</label>
+                                <label style="cursor: pointer; padding: 4px;"><input type="radio" name="log-format" value="basic" checked accesskey="2"> <u>기</u>본</label>
+                                <label style="cursor: pointer; padding: 4px;"><input type="radio" name="log-format" value="markdown" accesskey="3"> <u>마</u>크다운</label>
+                                <label style="cursor: pointer; padding: 4px;"><input type="radio" name="log-format" value="text" accesskey="4"> <u>일</u>반 텍스트</label>
                             </div>
                             <div id="basic-options-group" style="display: none;">
                                 <div id="theme-selection-group" style="display: flex; flex-direction: column; gap: 8px;">
                                     <div style="display: flex; justify-content: space-between; align-items: center;">
-                                        <label for="theme-selector" style="font-size: 0.9em;">테마:</label>
-                                        <select id="theme-selector" name="log-theme">
+                                        <label for="theme-selector" style="font-size: 0.9em;">테마: <span style="font-size: 0.8em; color: #565f89;">(↑↓로 선택)</span></label>
+                                        <select id="theme-selector" name="log-theme" aria-label="테마 선택">
                                         ${Object.entries(THEMES).map(([key, theme]) =>
                                             `<option value="${key}" title="${theme.description}" ${key === 'basic' ? 'selected' : ''}>${theme.name}</option>`
                                         ).join('')}
@@ -3033,10 +3036,10 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                             </div>
                             <div id="image-scale-controls" style="display: none;">
                                 <div style="display: flex; align-items: center; justify-content: space-between;">
-                                    <label for="image-scale-slider" title="미리보기의 모든 이미지 크기를 조절합니다." style="font-size:0.9em;">이미지 크기:</label>
-                                    <span id="image-scale-value" style="font-size: 0.9em; width: 40px; text-align: right;">100%</span>
+                                    <label for="image-scale-slider" title="미리보기의 모든 이미지 크기를 조절합니다. 키보드 화살표로 조정 가능" style="font-size:0.9em;">이미지 크기: <span style="font-size: 0.8em; color: #565f89;">(←→)</span></label>
+                                    <span id="image-scale-value" style="font-size: 0.9em; width: 50px; text-align: right; font-weight: bold; color: #7aa2f7;">100%</span>
                                 </div>
-                                <input type="range" id="image-scale-slider" min="10" max="100" value="100" step="5" style="width: 100%;">
+                                <input type="range" id="image-scale-slider" min="10" max="100" value="100" step="5" style="width: 100%; cursor: pointer;" aria-label="이미지 크기 조절" aria-valuemin="10" aria-valuemax="100" aria-valuenow="100" aria-valuetext="100%">
                             </div>
                             <div id="html-options-group" style="display:none; flex-direction: column; gap: 8px;">
                                 <label><input type="checkbox" id="style-toggle-checkbox"> 스타일 인라인 적용</label>
@@ -3081,10 +3084,10 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                         <div class="log-exporter-modal-preview"><div style="text-align:center;color:#8a98c9;">로그 데이터 생성 중...</div></div>
                     </div>
                 </div>
-                <div class="log-exporter-modal-footer" id="log-exporter-footer">
-                    <button class="log-exporter-modal-btn" id="log-exporter-raw-toggle" style="display: none;">HTML Raw 보기</button>
-                    <button class="log-exporter-modal-btn" id="log-exporter-save-file">HTML 파일로 저장</button>
-                    <button class="log-exporter-modal-btn" id="arca-helper-toggle-btn" style="background-color: #bb9af7; color: #1a1b26; display: none;">아카라이브 변환기</button>
+                <div class="log-exporter-modal-footer" id="log-exporter-footer" role="toolbar" aria-label="내보내기 도구">
+                    <button class="log-exporter-modal-btn" id="log-exporter-raw-toggle" style="display: none;" aria-label="HTML Raw 보기 전환" accesskey="r">HTML <u>R</u>aw 보기</button>
+                    <button class="log-exporter-modal-btn" id="log-exporter-save-file" aria-label="HTML 파일로 저장" accesskey="s"><u>S</u>ave HTML 파일</button>
+                    <button class="log-exporter-modal-btn" id="arca-helper-toggle-btn" style="background-color: #bb9af7; color: #1a1b26; display: none;" aria-label="아카라이브 변환기 열기">아카라이브 변환기</button>
                     
                     <!-- [복원] 이미지 저장 옵션 UI -->
                     <div id="image-export-controls" style="display: flex; align-items: center; gap: 8px; margin-left: auto; flex-wrap: wrap; font-size: 0.9em;">
@@ -3096,27 +3099,27 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                             </select></label>
                         <label>폰트:<input type="number" id="image-font-size-input" value="26" min="12" max="40" style="width: 45px; margin-left: 4px; background: #1a1b26; color: #c0caf5; border: 1px solid #414868; border-radius: 4px; text-align: center;"></label>
                         <label>너비:<input type="number" id="image-width-input" value="700" min="600" max="1200" step="50" style="width: 60px; margin-left: 4px; background: #1a1b26; color: #c0caf5; border: 1px solid #414868; border-radius: 4px; text-align: center;"></label>
-                        <button class="log-exporter-modal-btn image-save" id="log-exporter-save-image">이미지로 저장</button>    
+                        <button class="log-exporter-modal-btn image-save" id="log-exporter-save-image" aria-label="이미지로 저장" accesskey="i" style="min-height: 36px;"><u>I</u>mage 저장</button>    
                     </div>
                     
-                    <button class="log-exporter-modal-btn" id="log-exporter-download-zip" style="background-color: #e0af68; color: #1a1b26;">이미지 ZIP 다운로드</button>
-                    <button class="log-exporter-modal-btn" id="log-exporter-copy-formatted" title="메일, 노션 등에 사용해볼 수 있지만, 대상 프로그램에 따라 서식이 깨질 수 있습니다.">
-                        서식 복사 (제한적)
+                    <button class="log-exporter-modal-btn" id="log-exporter-download-zip" style="background-color: #e0af68; color: #1a1b26; min-height: 36px;" aria-label="이미지 ZIP 다운로드" accesskey="z"><u>Z</u>IP 다운로드</button>
+                    <button class="log-exporter-modal-btn" id="log-exporter-copy-formatted" title="메일, 노션 등에 사용해볼 수 있지만, 대상 프로그램에 따라 서식이 깨질 수 있습니다." aria-label="서식 있는 텍스트로 복사" accesskey="f" style="min-height: 36px;">
+                        서식 복사 (<u>F</u>ormatted)
                     </button>
-                    <button class="log-exporter-modal-btn primary" id="log-exporter-copy-html" title="웹페이지, 블로그, 아카라이브 HTML 모드 등 HTML을 직접 편집할 수 있는 환경에 최적화되어 있습니다. 모든 서식과 이미지가 포함된 완전한 코드를 복사합니다.">
-                        HTML 소스 복사 (권장)
+                    <button class="log-exporter-modal-btn primary" id="log-exporter-copy-html" title="웹페이지, 블로그, 아카라이브 HTML 모드 등 HTML을 직접 편집할 수 있는 환경에 최적화되어 있습니다. 모든 서식과 이미지가 포함된 완전한 코드를 복사합니다." aria-label="HTML 소스 코드 복사" accesskey="c" style="min-height: 36px;">
+                        HTML 소스 <u>C</u>opy (권장)
                     </button>
                     <button class="log-exporter-modal-btn mobile-more-menu-btn" id="mobile-more-menu" title="추가 기능 보기">
                         더보기 ⋯
                     </button>
                 </div>
-                <div class="log-exporter-modal-footer" id="log-exporter-progress-footer" style="display: none; flex-direction: column; align-items: stretch; gap: 10px;">
+                <div class="log-exporter-modal-footer" id="log-exporter-progress-footer" style="display: none; flex-direction: column; align-items: stretch; gap: 10px;" role="status" aria-live="polite">
                     <div style="display: flex; justify-content: space-between; font-size: 0.9em;">
-                        <span id="progress-status-text">이미지 처리 중...</span>
-                        <span id="progress-percentage-text">0%</span>
+                        <span id="progress-status-text" aria-live="polite">이미지 처리 중...</span>
+                        <span id="progress-percentage-text" aria-live="polite" style="font-weight: bold; color: #7aa2f7;">0%</span>
                     </div>
-                    <progress id="export-progress-bar" value="0" max="100" style="width: 100%; height: 10px;"></progress>
-                    <button class="log-exporter-modal-btn" id="log-exporter-cancel-image" style="background-color: #f7768e; color: #1a1b26;">취소</button>
+                    <progress id="export-progress-bar" value="0" max="100" style="width: 100%; height: 12px;" aria-label="내보내기 진행 상황"></progress>
+                    <button class="log-exporter-modal-btn" id="log-exporter-cancel-image" style="background-color: #f7768e; color: #1a1b26; min-height: 40px;" aria-label="내보내기 취소" accesskey="x">취소 (<u>X</u>)</button>
                 </div>
             </div>`;
             document.body.appendChild(modal);
@@ -3170,8 +3173,91 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                 }
             };
 
+            // 키보드 단축키 핸들러
+            const handleKeyboardShortcuts = (e) => {
+                // Ctrl+/ 또는 Cmd+/: 도움말 표시
+                if ((e.ctrlKey || e.metaKey) && e.key === '/') {
+                    e.preventDefault();
+                    showKeyboardHelp();
+                    return;
+                }
+                
+                // Ctrl+S: HTML 파일 저장 (기본 저장 동작 방지)
+                if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                    e.preventDefault();
+                    const saveBtn = modal.querySelector('#log-exporter-save-file');
+                    if (saveBtn && saveBtn.style.display !== 'none') saveBtn.click();
+                    return;
+                }
+                
+                // Ctrl+Enter: HTML 복사
+                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                    e.preventDefault();
+                    modal.querySelector('#log-exporter-copy-html')?.click();
+                    return;
+                }
+                
+                // 숫자 키 1-4: 형식 선택
+                if (e.key >= '1' && e.key <= '4' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                    const formats = ['html', 'basic', 'markdown', 'text'];
+                    const formatInput = modal.querySelector(`input[name="log-format"][value="${formats[parseInt(e.key) - 1]}"]`);
+                    if (formatInput && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+                        formatInput.checked = true;
+                        formatInput.dispatchEvent(new Event('change', { bubbles: true }));
+                        e.preventDefault();
+                    }
+                }
+            };
+
+            // 도움말 모달 표시 함수
+            const showKeyboardHelp = () => {
+                const helpModal = document.createElement('div');
+                helpModal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 100001;';
+                helpModal.innerHTML = `
+                    <div style="background: #1a1b26; color: #c0caf5; padding: 24px; border-radius: 12px; max-width: 500px; max-height: 80vh; overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,0.4);">
+                        <h3 style="margin: 0 0 16px 0; color: #7aa2f7; font-size: 1.3em;">⌨️ 키보드 단축키</h3>
+                        <div style="display: grid; gap: 10px; font-size: 0.95em;">
+                            <div style="display: flex; justify-content: space-between; padding: 8px; background: #24283b; border-radius: 6px;">
+                                <span><kbd style="background: #414868; padding: 2px 8px; border-radius: 4px; font-family: monospace;">Esc</kbd></span>
+                                <span style="color: #a9b1d6;">모달 닫기</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; padding: 8px; background: #24283b; border-radius: 6px;">
+                                <span><kbd style="background: #414868; padding: 2px 8px; border-radius: 4px; font-family: monospace;">Ctrl + /</kbd></span>
+                                <span style="color: #a9b1d6;">도움말 보기</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; padding: 8px; background: #24283b; border-radius: 6px;">
+                                <span><kbd style="background: #414868; padding: 2px 8px; border-radius: 4px; font-family: monospace;">Ctrl + S</kbd></span>
+                                <span style="color: #a9b1d6;">파일 저장</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; padding: 8px; background: #24283b; border-radius: 6px;">
+                                <span><kbd style="background: #414868; padding: 2px 8px; border-radius: 4px; font-family: monospace;">Ctrl + Enter</kbd></span>
+                                <span style="color: #a9b1d6;">HTML 복사</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; padding: 8px; background: #24283b; border-radius: 6px;">
+                                <span><kbd style="background: #414868; padding: 2px 8px; border-radius: 4px; font-family: monospace;">1 ~ 4</kbd></span>
+                                <span style="color: #a9b1d6;">형식 선택</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; padding: 8px; background: #24283b; border-radius: 6px;">
+                                <span><kbd style="background: #414868; padding: 2px 8px; border-radius: 4px; font-family: monospace;">Tab</kbd></span>
+                                <span style="color: #a9b1d6;">다음 요소로 이동</span>
+                            </div>
+                        </div>
+                        <button onclick="this.parentElement.parentElement.remove()" style="margin-top: 20px; width: 100%; padding: 10px; background: #7aa2f7; color: #1a1b26; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 1em;">닫기 (Esc)</button>
+                    </div>
+                `;
+                helpModal.addEventListener('click', (e) => {
+                    if (e.target === helpModal) helpModal.remove();
+                });
+                helpModal.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape') helpModal.remove();
+                });
+                document.body.appendChild(helpModal);
+                helpModal.querySelector('button')?.focus();
+            };
+
             document.addEventListener('keydown', handleTabKey);
             document.addEventListener('keydown', handleEscapeKey);
+            document.addEventListener('keydown', handleKeyboardShortcuts);
 
             // 터치 제스처 지원: 스와이프로 모달 닫기
             let touchStartY = 0;
@@ -3348,6 +3434,11 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
             const applyImageScaling = () => {
                 const scale = imageScaleSlider.value;
                 imageScaleValue.textContent = `${scale}%`;
+                
+                // 접근성: aria 속성 업데이트
+                imageScaleSlider.setAttribute('aria-valuenow', scale);
+                imageScaleSlider.setAttribute('aria-valuetext', `${scale}%`);
+                
                 previewEl.querySelectorAll('img').forEach(img => {
                     img.style.maxWidth = `${scale}%`;
                     img.style.height = 'auto';
@@ -3657,6 +3748,7 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                 // 이벤트 리스너 정리
                 document.removeEventListener('keydown', handleTabKey);
                 document.removeEventListener('keydown', handleEscapeKey);
+                document.removeEventListener('keydown', handleKeyboardShortcuts);
                 modal.removeEventListener('touchstart', handleTouchStart);
                 modal.removeEventListener('touchend', handleTouchEnd);
 
