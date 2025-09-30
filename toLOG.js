@@ -849,11 +849,23 @@ const AVATAR_ATTR = 'data-avatar';
                 user-select: text;
                 /* 모바일에서 부드러운 애니메이션 */
                 transition: transform 0.3s ease-out;
+                position: relative; /* 닫기 버튼을 위한 기준점 */
             }
-            .log-exporter-modal-header { padding: 12px 18px; font-size: 1.15em; font-weight: bold; border-bottom: 1px solid #414868; }
+            .log-exporter-modal-header { padding: 12px 18px; font-size: 1.15em; font-weight: bold; border-bottom: 1px solid #414868; padding-right: 48px; /* 닫기 버튼 공간 확보 */ }
             .log-exporter-modal-content { padding: 15px; display: flex; flex-direction: row; gap: 15px; overflow-y: hidden; flex-grow: 1; }
             .log-exporter-left-panel { flex: 1; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; max-height: 100%; }
             .log-exporter-right-panel { flex: 1; display: flex; flex-direction: column; gap: 12px; overflow-y: hidden; max-height: 100%; }
+            .log-exporter-modal-close-btn {
+                position: absolute;
+                top: 8px; right: 8px;
+                width: 36px; height: 36px;
+                background: transparent;
+                border: none; color: #a9b1d6;
+                font-size: 24px; line-height: 36px; text-align: center;
+                cursor: pointer; transition: all 0.2s ease;
+                border-radius: 50%;
+            }
+            .log-exporter-modal-close-btn:hover { background-color: #414868; color: #fff; transform: rotate(90deg); }
             .log-exporter-modal-options { display: flex; gap: 8px; align-items: center; background: #1f2335; padding: 8px 10px; border-radius: 5px; flex-wrap: wrap; }
             .log-exporter-modal-options label { cursor: pointer; user-select: none; display: inline-flex; align-items: center; }
             .log-exporter-modal-preview { flex-grow: 1; background-color: #1a1b26; border: 1px solid #414868; border-radius: 5px; padding: 12px; overflow-y: auto; min-height: 150px; max-height: none; }
@@ -873,6 +885,9 @@ const AVATAR_ATTR = 'data-avatar';
             .log-exporter-modal-btn.primary { background-color: #7aa2f7; color: #1a1b26; }
             .log-exporter-modal-btn.primary:hover { background-color: #9eceff; }
             @media (max-width: 992px) { /* Tablet breakpoint: revert to column layout */
+                .log-exporter-modal-header {
+                    padding-right: 44px; /* 모바일에서 닫기 버튼 공간 */
+                }
                 .log-exporter-modal-content { flex-direction: column; overflow-y: auto; } /* 컨텐츠 영역 스크롤 */
                 .log-exporter-left-panel, .log-exporter-right-panel { max-height: none; overflow-y: visible; flex: none; width: 100%; } /* 패널 높이 제한 해제 */
                 .log-exporter-modal-preview { max-height: 40vh; } /* 세로 모드에서 미리보기 높이 제한 */
@@ -880,6 +895,9 @@ const AVATAR_ATTR = 'data-avatar';
             .log-exporter-modal-btn.image-save { background-color: #9ece6a; color: #1a1b26; }
             .log-exporter-modal-btn.image-save:hover { background-color: #b8e090; }
             .log-exporter-modal-btn:disabled { background-color: #565f89; cursor: not-allowed; }
+            .mobile-more-menu-btn {
+                display: none; /* 기본적으로 더보기 버튼 숨김 */
+            }
             .log-exporter-msg-btn { margin-left: 8px; cursor: pointer; color: #a0a0a0; transition: color 0.2s; font-size: 20px; line-height: 1; background: none; border: none; padding: 0;}
             .log-exporter-msg-btn.range-active { color: #ff9e64; }
             .log-exporter-msg-btn.range-endpoint { color: #9ece6a; }
@@ -1006,15 +1024,13 @@ const AVATAR_ATTR = 'data-avatar';
                 #log-exporter-copy-html {
                     order: 1; background-color: #7aa2f7 !important; color: #1a1b26 !important;
                 }
-                #log-exporter-close { 
-                    order: 3; background-color: #565f89; 
-                    border: 1px solid #7aa2f7;
-                }
                 /* 더보기 메뉴 버튼 추가 */
                 .mobile-more-menu-btn {
+                    display: block; /* 모바일에서만 보임 */
                     order: 2; background-color: #9ece6a !important; color: #1a1b26 !important;
                     position: relative; transition: all 0.3s ease;
                 }
+                .log-exporter-modal-footer .log-exporter-modal-btn { flex-basis: calc(50% - 3px); }
                 /* 더보기 메뉴가 펼쳐졌을 때 버튼들 스타일 */
                 .log-exporter-modal-footer[data-expanded="true"] {
                     max-height: 50vh !important;
@@ -1022,7 +1038,7 @@ const AVATAR_ATTR = 'data-avatar';
                     -webkit-overflow-scrolling: touch;
                 }
                 .log-exporter-modal-footer[data-expanded="true"] > button {
-                    min-width: calc(33.33% - 4px);
+                    flex-basis: calc(33.33% - 4px);
                     margin-bottom: 4px;
                 }
                 /* 텍스트 입력 요소들 개선 */
@@ -1047,6 +1063,7 @@ const AVATAR_ATTR = 'data-avatar';
                 .log-exporter-modal-header {
                     padding: 12px 8px;
                     font-size: 1.05em;
+                    padding-right: 40px;
                     text-align: center;
                 }
                 .log-exporter-modal-btn {
@@ -1062,7 +1079,7 @@ const AVATAR_ATTR = 'data-avatar';
                     max-height: 12vh; /* 작은 화면에서는 12%로 더 제한 */
                 }
                 .log-exporter-modal-footer .log-exporter-modal-btn {
-                    padding: 6px 4px;
+                    padding: 6px 4px; flex-basis: calc(50% - 2px);
                     font-size: 0.75em;
                     min-height: 32px;
                     line-height: 1.1;
@@ -1103,6 +1120,11 @@ const AVATAR_ATTR = 'data-avatar';
             
             /* 가로 모드 최적화 */
             @media (max-width: 768px) and (orientation: landscape) {
+                .log-exporter-modal-header {
+                    padding-right: 44px;
+                }
+                .log-exporter-modal-footer .log-exporter-modal-btn { flex-basis: auto; flex-grow: 1; }
+                .log-exporter-modal-footer[data-expanded="true"] > button { flex-basis: calc(33.33% - 4px); }
                 .log-exporter-modal-content {
                     flex-direction: row;
                     gap: 12px;
@@ -2961,6 +2983,9 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
             modal.className = 'log-exporter-modal-backdrop';
             modal.innerHTML = `
             <div class="log-exporter-modal">
+                <button id="log-exporter-close" class="log-exporter-modal-close-btn" title="닫기 (Esc)">
+                    &times;
+                </button>
                 <div class="log-exporter-modal-header">로그 내보내기 옵션</div>
                 <div class="log-exporter-modal-content">
                     <div class="log-exporter-left-panel">
@@ -3057,7 +3082,6 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                     </div>
                 </div>
                 <div class="log-exporter-modal-footer" id="log-exporter-footer">
-                    <button class="log-exporter-modal-btn" id="log-exporter-close">닫기</button>
                     <button class="log-exporter-modal-btn" id="log-exporter-raw-toggle" style="display: none;">HTML Raw 보기</button>
                     <button class="log-exporter-modal-btn" id="log-exporter-save-file">HTML 파일로 저장</button>
                     <button class="log-exporter-modal-btn" id="arca-helper-toggle-btn" style="background-color: #bb9af7; color: #1a1b26; display: none;">아카라이브 변환기</button>
@@ -3200,6 +3224,7 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
             const hiddenButtons = [
                 '#log-exporter-save-file',
                 '#log-exporter-copy-formatted', 
+                '#log-exporter-copy-html',
                 '#log-exporter-download-zip',
                 '#arca-helper-toggle-btn'
             ];
@@ -3215,7 +3240,7 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                         }
                     });
                     
-                    // 이미지 익스포트 컨트롤도 토글
+                    // 이미지 익스포트 컨트롤도 토글 (내부 버튼들은 개별 처리 안 함)
                     const imageControls = modal.querySelector('#image-export-controls');
                     if (imageControls) {
                         imageControls.style.setProperty('display', moreMenuExpanded ? 'flex' : 'none', 'important');
@@ -3242,6 +3267,45 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                     }
                 });
             }
+
+            // [추가] 화면 크기 변경 감지 및 스타일 초기화 로직
+            const mediaQuery = window.matchMedia('(max-width: 768px)');
+            
+            const handleViewportChange = (e) => {
+                const isMobile = e.matches;
+                console.log(`[Log Exporter] 뷰포트 변경 감지: ${isMobile ? '모바일' : '데스크톱'}`);
+
+                // 데스크톱 뷰로 전환될 때
+                if (!isMobile) {
+                    // '더보기' 메뉴가 열려있던 상태를 초기화
+                    moreMenuExpanded = false;
+                    const footer = modal.querySelector('.log-exporter-modal-footer');
+                    if (footer) {
+                        footer.removeAttribute('data-expanded');
+                        // 푸터의 모든 인라인 스타일 제거 (maxHeight, overflow 등)
+                        footer.style.maxHeight = '';
+                        footer.style.overflow = '';
+                        footer.style.flexWrap = '';
+                        footer.style.alignContent = '';
+                    }
+
+                    // 모든 버튼의 인라인 display 스타일을 제거하여 CSS 규칙이 적용되도록 함
+                    const allFooterButtons = modal.querySelectorAll('.log-exporter-modal-footer > button');
+                    allFooterButtons.forEach(btn => {
+                        btn.style.display = ''; // 인라인 스타일 제거
+                    });
+                    
+                    // 이미지 익스포트 컨트롤은 별도로 처리 (데스크톱에서는 항상 표시)
+                    const imageControls = modal.querySelector('#image-export-controls');
+                    if (imageControls) {
+                        imageControls.style.display = ''; // 인라인 스타일 제거하여 CSS 적용
+                    }
+                }
+                // 모바일 뷰로 전환될 때는 CSS가 알아서 처리하므로 별도 작업 불필요
+            };
+
+            // 리스너 등록
+            mediaQuery.addEventListener('change', handleViewportChange);
 
             // [추가] 아바타 토글 컨트롤 변수 정의 (ReferenceError 방지)
             const avatarToggleControls = modal.querySelector('#avatar-toggle-controls');
@@ -3595,6 +3659,9 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                 document.removeEventListener('keydown', handleEscapeKey);
                 modal.removeEventListener('touchstart', handleTouchStart);
                 modal.removeEventListener('touchend', handleTouchEnd);
+
+                // [추가] 뷰포트 변경 리스너 제거
+                mediaQuery.removeEventListener('change', handleViewportChange);
                 
                 // 모달 제거
                 modal.remove();
