@@ -379,6 +379,54 @@ const THEMES = {
     }
 };
 
+// --- 캐릭터별 설정 관리 기능 추가 ---
+const SETTINGS_STORAGE_KEY = 'logExporterCharacterSettings';
+
+/**
+ * 모든 캐릭터의 설정을 불러옵니다.
+ * @returns {object} 모든 캐릭터의 설정이 담긴 객체.
+ */
+function loadAllCharSettings() {
+    try {
+        const settings = localStorage.getItem(SETTINGS_STORAGE_KEY);
+        return settings ? JSON.parse(settings) : {};
+    } catch (e) {
+        console.error('[Log Exporter] 설정을 불러오는 데 실패했습니다:', e);
+        return {};
+    }
+}
+
+/**
+ * 특정 캐릭터의 설정을 저장합니다.
+ * @param {string} charId - 캐릭터 ID.
+ * @param {object} newSettings - 저장할 설정 객체.
+ */
+function saveCharSettings(charId, newSettings) {
+    if (!charId) {
+        console.warn('[Log Exporter] saveCharSettings: charId가 없어 저장을 건너뜁니다.');
+        return;
+    }
+    try {
+        const allSettings = loadAllCharSettings();
+        const existingSettings = allSettings[charId] || {};
+        allSettings[charId] = { ...existingSettings, ...newSettings };
+        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(allSettings));
+        console.log(`[Log Exporter] 설정 저장 완료:`, { charId, newSettings, allSettings: allSettings[charId] });
+    } catch (e) {
+        console.error('[Log Exporter] 설정을 저장하는 데 실패했습니다:', e);
+    }
+}
+
+/**
+ * 특정 캐릭터의 설정을 불러옵니다.
+ * @param {string} charId - 캐릭터 ID.
+ * @returns {object} 해당 캐릭터의 설정 객체.
+ */
+function getCharSettings(charId) {
+    const allSettings = loadAllCharSettings();
+    return allSettings[charId] || {};
+}
+
 const CHAT_ITEM_SELECTOR = 'button[data-risu-chat-idx]';
 const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
 const AVATAR_ATTR = 'data-avatar';
@@ -1240,7 +1288,7 @@ const AVATAR_ATTR = 'data-avatar';
             }
         }
 
-        return { charName: character.name, chatName: finalChatName, charAvatarUrl, messageNodes: finalNodes };
+        return { charName: character.name, chatName: finalChatName, charAvatarUrl, messageNodes: finalNodes, character };
     }
 
     /**
@@ -2929,7 +2977,63 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
         console.log(`[Log Exporter] showCopyPreviewModal: 미리보기 모달 표시 시작. 채팅 인덱스: ${chatIndex}, 옵션:`, options);
         try {
             // processChatLog에 옵션을 바로 전달하여 필터링된 노드와 채팅 이름을 가져옴
-            let { charName, chatName, charAvatarUrl, messageNodes } = await processChatLog(chatIndex, options);
+            let { charName, chatName, charAvatarUrl, messageNodes, character } = await processChatLog(chatIndex, options);
+
+            // [추가] 캐릭터 ID 가져오기 (고유 식별자로 사용)
+            // RisuAI에서는 character.chaId를 사용함
+            if (!character || !character.chaId) {
+                console.error('[Log Exporter] 캐릭터 정보를 가져올 수 없습니다:', character);
+                alert('캐릭터 정보를 불러오는데 실패했습니다.', 'error');
+                return;
+            }
+            
+            const charId = String(character.chaId); // 문자열로 명시적 변환
+            console.log(`[Log Exporter] 캐릭터 정보:`, { charId, charName, chaId: character.chaId });
+            const savedSettings = getCharSettings(charId);
+            console.log(`[Log Exporter] 불러온 설정 (charId: ${charId}):`, savedSettings);
+
+            /**
+             * 모든 설정 변경을 감지하고, 설정을 저장한 뒤 미리보기를 업데이트하는 통합 핸들러입니다.
+             * @param {Event} event - 'change' 또는 'input' 이벤트 객체.
+             */
+            const handleSettingChange = ((currentCharId) => {
+                // 클로저로 charId를 명시적으로 캡처
+                return (event) => {
+                    const target = event.target;
+                    const key = target.dataset.settingKey;
+                    if (!key) return;
+
+                    console.log(`[Log Exporter] 설정 변경 감지: charId=${currentCharId}, key=${key}, value=${target.type === 'checkbox' ? target.checked : target.value}`);
+
+                    if (!currentCharId) {
+                        console.error('[Log Exporter] charId가 정의되지 않아 설정을 저장할 수 없습니다.');
+                        return;
+                    }
+
+                    // 커스텀 필터는 객체 형태로 특별 관리
+                    if (key === 'customFilters') {
+                        const className = target.dataset.class;
+                        const isChecked = target.checked;
+                        const allSettings = loadAllCharSettings();
+                        const charSettings = allSettings[currentCharId] || {};
+                        const customFilters = charSettings.customFilters || {};
+                        customFilters[className] = isChecked;
+                        saveCharSettings(currentCharId, { customFilters: customFilters });
+                        console.log(`[Log Exporter] customFilters 저장됨:`, { charId: currentCharId, className, isChecked });
+                    } else {
+                        const value = target.type === 'checkbox' ? target.checked : target.value;
+                        saveCharSettings(currentCharId, { [key]: value });
+                        console.log(`[Log Exporter] 설정 저장됨:`, { charId: currentCharId, key, value });
+                    }
+                    
+                    // 저장 직후 설정이 제대로 저장되었는지 확인
+                    const savedSettings = getCharSettings(currentCharId);
+                    console.log(`[Log Exporter] 저장 후 확인된 설정:`, savedSettings);
+                    
+                    // 모든 설정 변경 후에는 항상 미리보기를 다시 렌더링
+                    updatePreview();
+                };
+            })(charId); // IIFE로 charId를 즉시 캡처
 
             const participants = new Set();
             const getNameFromNode = (node) => {
@@ -2970,8 +3074,8 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                     <div style="max-height: 150px; overflow-y: auto; border: 1px solid #2a2f41; padding: 8px; margin-top: 5px; background: #1a1b26;">
                         ${uiClasses.map(classInfo => `
                             <label style="display: block; margin-bottom: 4px; cursor: pointer;">
-                                <input type="checkbox" class="custom-filter-class" data-class="${classInfo.name}" 
-                                    ${!classInfo.hasImage ? 'checked' : ''}>
+                                <input type="checkbox" class="custom-filter-class" data-setting-key="customFilters" data-class="${classInfo.name}" 
+                                    ${(savedSettings.customFilters && savedSettings.customFilters[classInfo.name] !== undefined) ? (savedSettings.customFilters[classInfo.name] ? 'checked' : '') : (!classInfo.hasImage ? 'checked' : '')}>
                                 <span style="font-size: 0.85em; margin-left: 5px; font-family: monospace;">${classInfo.displayName}</span>
                             </label>
                         `).join('')}
@@ -2985,52 +3089,374 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
             modal.setAttribute('aria-modal', 'true');
             modal.setAttribute('aria-labelledby', 'modal-header');
             modal.innerHTML = `
+            <style>
+                @media (max-width: 768px) {
+                    .log-exporter-modal-backdrop {
+                        padding: 0 !important;
+                    }
+                    .log-exporter-modal {
+                        width: 100vw !important;
+                        height: 100vh !important;
+                        max-width: 100vw !important;
+                        max-height: 100vh !important;
+                        margin: 0 !important;
+                        border-radius: 0 !important;
+                        display: flex;
+                        flex-direction: column;
+                    }
+                    .log-exporter-modal-header {
+                        padding: 12px 16px !important;
+                        font-size: 1.1em !important;
+                        border-bottom: 1px solid #414868 !important;
+                        flex-shrink: 0;
+                    }
+                    .log-exporter-modal-content {
+                        flex: 1 !important;
+                        overflow: hidden !important;
+                        padding: 0 !important;
+                        display: flex;
+                        flex-direction: column;
+                    }
+                    .mobile-tab-navigation {
+                        display: flex;
+                        background: #1a1b26;
+                        border-bottom: 2px solid #414868;
+                        flex-shrink: 0;
+                    }
+                    .mobile-tab-btn {
+                        flex: 1;
+                        padding: 12px 8px;
+                        background: transparent;
+                        border: none;
+                        color: #a9b1d6;
+                        font-size: 0.9em;
+                        cursor: pointer;
+                        position: relative;
+                        transition: all 0.2s;
+                    }
+                    .mobile-tab-btn.active {
+                        color: #7aa2f7;
+                        font-weight: bold;
+                    }
+                    .mobile-tab-btn.active::after {
+                        content: '';
+                        position: absolute;
+                        bottom: -2px;
+                        left: 0;
+                        right: 0;
+                        height: 2px;
+                        background: #7aa2f7;
+                    }
+                    .mobile-tab-content {
+                        display: none;
+                        flex: 1;
+                        overflow-y: auto;
+                        -webkit-overflow-scrolling: touch;
+                    }
+                    .mobile-tab-content.active {
+                        display: block;
+                    }
+                    .mobile-preview-tab {
+                        padding: 0;
+                    }
+                    .mobile-preview-tab .log-exporter-modal-preview {
+                        min-height: 100%;
+                        margin: 0;
+                        border-radius: 0;
+                    }
+                    .mobile-settings-tab {
+                        padding: 16px;
+                    }
+                    .mobile-tools-tab {
+                        padding: 16px;
+                    }
+                    .mobile-action-bar {
+                        position: sticky;
+                        bottom: 0;
+                        left: 0;
+                        right: 0;
+                        background: #1a1b26;
+                        border-top: 1px solid #414868;
+                        padding: 12px 16px;
+                        display: flex;
+                        gap: 8px;
+                        flex-shrink: 0;
+                        z-index: 10;
+                        box-shadow: 0 -2px 10px rgba(0,0,0,0.3);
+                    }
+                    .mobile-action-bar button {
+                        flex: 1;
+                        padding: 12px 8px;
+                        font-size: 0.85em;
+                        min-height: 44px;
+                        border-radius: 8px;
+                    }
+                    .log-exporter-left-panel,
+                    .log-exporter-right-panel {
+                        display: none !important;
+                    }
+                    .log-exporter-modal-footer {
+                        display: none !important;
+                    }
+                    .mobile-section {
+                        margin-bottom: 20px;
+                        background: #24283b;
+                        padding: 12px;
+                        border-radius: 8px;
+                    }
+                    .mobile-section-title {
+                        font-weight: bold;
+                        margin-bottom: 10px;
+                        color: #7aa2f7;
+                        font-size: 0.95em;
+                    }
+                    .mobile-option-row {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        padding: 10px 0;
+                        border-bottom: 1px solid #414868;
+                    }
+                    .mobile-option-row:last-child {
+                        border-bottom: none;
+                    }
+                    .mobile-option-label {
+                        font-size: 0.9em;
+                        color: #c0caf5;
+                    }
+                    .mobile-option-control select,
+                    .mobile-option-control input[type="number"] {
+                        background: #1a1b26;
+                        color: #c0caf5;
+                        border: 1px solid #414868;
+                        border-radius: 6px;
+                        padding: 6px 10px;
+                        font-size: 0.9em;
+                    }
+                }
+                @media (min-width: 769px) {
+                    .mobile-tab-navigation,
+                    .mobile-tab-content,
+                    .mobile-action-bar {
+                        display: none !important;
+                    }
+                    .log-exporter-left-panel,
+                    .log-exporter-right-panel {
+                        display: block !important;
+                    }
+                    .log-exporter-modal-content {
+                        display: flex !important;
+                        flex-direction: row !important;
+                    }
+                }
+            </style>
             <div class="log-exporter-modal">
                 <button id="log-exporter-close" class="log-exporter-modal-close-btn" title="닫기 (Esc)" aria-label="모달 닫기" style="min-width: 44px; min-height: 44px;">
                     &times;
                 </button>
                 <div class="log-exporter-modal-header" id="modal-header">로그 내보내기 옵션 <span style="font-size: 0.75em; color: #7aa2f7; margin-left: 8px;">(Ctrl+/ 도움말)</span></div>
+                
+                <!-- 모바일 전용 탭 네비게이션 -->
+                <div class="mobile-tab-navigation">
+                    <button class="mobile-tab-btn active" data-tab="preview">📱 미리보기</button>
+                    <button class="mobile-tab-btn" data-tab="settings">⚙️ 설정</button>
+                    <button class="mobile-tab-btn" data-tab="tools">🔧 도구</button>
+                </div>
+                
                 <div class="log-exporter-modal-content">
+                    <!-- 모바일 전용 탭 컨텐츠 -->
+                    <div class="mobile-tab-content mobile-preview-tab active" data-tab="preview">
+                        <div class="log-exporter-modal-preview"><div style="text-align:center;color:#8a98c9;">로그 데이터 생성 중...</div></div>
+                    </div>
+                    
+                    <div class="mobile-tab-content mobile-settings-tab" data-tab="settings">
+                        <div class="mobile-section">
+                            <div class="mobile-section-title">📄 형식</div>
+                            <div id="format-selection-group-mobile">
+                                <label class="mobile-option-row"><input type="radio" name="log-format" value="html" data-setting-key="format" ${savedSettings.format === 'html' ? 'checked' : ''}> <span class="mobile-option-label">HTML</span></label>
+                                <label class="mobile-option-row"><input type="radio" name="log-format" value="basic" ${!savedSettings.format || savedSettings.format === 'basic' ? 'checked' : ''} data-setting-key="format"> <span class="mobile-option-label">기본</span></label>
+                                <label class="mobile-option-row"><input type="radio" name="log-format" value="markdown" data-setting-key="format" ${savedSettings.format === 'markdown' ? 'checked' : ''}> <span class="mobile-option-label">마크다운</span></label>
+                                <label class="mobile-option-row"><input type="radio" name="log-format" value="text" data-setting-key="format" ${savedSettings.format === 'text' ? 'checked' : ''}> <span class="mobile-option-label">일반 텍스트</span></label>
+                            </div>
+                        </div>
+                        
+                        <div class="mobile-section" id="mobile-basic-options" style="display: none;">
+                            <div class="mobile-section-title">🎨 테마 & 스타일</div>
+                            <div class="mobile-option-row">
+                                <span class="mobile-option-label">테마</span>
+                                <select id="theme-selector-mobile" name="log-theme" class="mobile-option-control" data-setting-key="theme">
+                                ${Object.entries(THEMES).map(([key, theme]) => 
+                                    `<option value="${key}" ${key === (savedSettings.theme || 'basic') ? 'selected' : ''}>${theme.name}</option>`
+                                ).join('')}
+                                </select>
+                            </div>
+                            <div class="mobile-option-row" id="mobile-color-row">
+                                <span class="mobile-option-label">색상</span>
+                                <select id="color-selector-mobile" name="log-color" class="mobile-option-control" data-setting-key="color">
+                                    ${Object.entries(COLORS).map(([key, color]) => 
+                                        `<option value="${key}" ${key === (savedSettings.color || 'dark') ? 'selected' : ''}>${color.name}</option>`
+                                    ).join('')}
+                                </select>
+                            </div>
+                            <label class="mobile-option-row">
+                                <span class="mobile-option-label">아바타 표시</span>
+                                <input type="checkbox" id="avatar-toggle-mobile" data-setting-key="showAvatar" ${savedSettings.showAvatar !== false ? 'checked' : ''}>
+                            </label>
+                            <label class="mobile-option-row">
+                                <span class="mobile-option-label">말풍선 표시</span>
+                                <input type="checkbox" id="bubble-toggle-mobile" data-setting-key="showBubble" ${savedSettings.showBubble !== false ? 'checked' : ''}>
+                            </label>
+                            <label class="mobile-option-row">
+                                <span class="mobile-option-label">헤더 표시</span>
+                                <input type="checkbox" id="header-toggle-mobile" data-setting-key="showHeader" ${savedSettings.showHeader !== false ? 'checked' : ''}>
+                            </label>
+                            <label class="mobile-option-row">
+                                <span class="mobile-option-label">푸터 표시</span>
+                                <input type="checkbox" id="footer-toggle-mobile" data-setting-key="showFooter" ${savedSettings.showFooter !== false ? 'checked' : ''}>
+                            </label>
+                        </div>
+                        
+                        <div class="mobile-section" id="mobile-image-scale" style="display: none;">
+                            <div class="mobile-section-title">🖼️ 이미지 크기</div>
+                            <div class="mobile-option-row">
+                                <span class="mobile-option-label">크기 조절</span>
+                                <span id="image-scale-value-mobile" style="font-weight: bold; color: #7aa2f7;">100%</span>
+                            </div>
+                            <input type="range" id="image-scale-slider-mobile" min="10" max="100" value="${savedSettings.imageScale || 100}" step="5" style="width: 100%;" data-setting-key="imageScale">
+                        </div>
+                        
+                        <div class="mobile-section" id="mobile-html-options" style="display:none;">
+                            <div class="mobile-section-title">🌐 HTML 옵션</div>
+                            <label class="mobile-option-row">
+                                <span class="mobile-option-label">스타일 인라인 적용</span>
+                                <input type="checkbox" id="style-toggle-mobile" data-setting-key="applyStyles" ${savedSettings.applyStyles ? 'checked' : ''}>
+                            </label>
+                            <label class="mobile-option-row">
+                                <span class="mobile-option-label">호버 요소 펼치기</span>
+                                <input type="checkbox" id="expand-hover-mobile" data-setting-key="expandHover" ${savedSettings.expandHover ? 'checked' : ''}>
+                            </label>
+                        </div>
+                        
+                        <div class="mobile-section">
+                            <div class="mobile-section-title">👥 참가자 필터</div>
+                            <div id="participant-filter-mobile">
+                                ${participantCheckboxesHtml}
+                            </div>
+                        </div>
+                        
+                        <div class="mobile-section" id="mobile-filter-section">
+                            <div class="mobile-section-title">🔍 UI 필터</div>
+                            <label class="mobile-option-row">
+                                <span class="mobile-option-label">UI 필터링 적용</span>
+                                <input type="checkbox" id="filter-toggle-mobile" data-setting-key="useUiFilter" ${savedSettings.useUiFilter !== false ? 'checked' : ''}>
+                            </label>
+                            ${uiClasses.length > 0 ? `
+                                <button id="custom-filter-toggle-mobile" class="log-exporter-modal-btn" style="width: 100%; margin-top: 10px;">
+                                    커스텀 필터 설정 ▼
+                                </button>
+                                <div id="custom-filter-section-mobile" style="display: none; margin-top: 10px; padding: 10px; background: #1a1b26; border-radius: 6px;">
+                                    <div style="margin-bottom: 8px;">
+                                        <button id="select-all-filters-mobile" class="log-exporter-modal-btn" style="padding: 6px 12px; font-size: 0.85em; margin-right: 8px;">전체 선택</button>
+                                        <button id="deselect-all-filters-mobile" class="log-exporter-modal-btn" style="padding: 6px 12px; font-size: 0.85em;">전체 해제</button>
+                                    </div>
+                                    <div style="max-height: 200px; overflow-y: auto;">
+                                        ${uiClasses.map(classInfo => `
+                                            <label style="display: block; margin-bottom: 8px;">
+                                                <input type="checkbox" class="custom-filter-class" data-setting-key="customFilters" data-class="${classInfo.name}" 
+                                                    ${(savedSettings.customFilters && savedSettings.customFilters[classInfo.name] !== undefined) ? (savedSettings.customFilters[classInfo.name] ? 'checked' : '') : (!classInfo.hasImage ? 'checked' : '')}>
+                                                <span style="font-size: 0.85em; margin-left: 5px;">${classInfo.displayName}</span>
+                                            </label>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                    
+                    <div class="mobile-tab-content mobile-tools-tab" data-tab="tools">
+                        <div class="mobile-section">
+                            <div class="mobile-section-title">💾 이미지 저장 옵션</div>
+                            <label class="mobile-option-row">
+                                <span class="mobile-option-label">고해상도</span>
+                                <input type="checkbox" id="image-high-res-mobile" data-setting-key="imageHighRes" ${savedSettings.imageHighRes !== false ? 'checked' : ''}>
+                            </label>
+                            <div class="mobile-option-row">
+                                <span class="mobile-option-label">엔진</span>
+                                <select id="image-library-mobile" data-setting-key="imageLibrary" class="mobile-option-control">
+                                    <option value="html-to-image" ${(savedSettings.imageLibrary || 'html-to-image') === 'html-to-image' ? 'selected' : ''}>html-to-image</option>
+                                    <option value="dom-to-image" ${savedSettings.imageLibrary === 'dom-to-image' ? 'selected' : ''}>dom-to-image</option>
+                                </select>
+                            </div>
+                            <div class="mobile-option-row">
+                                <span class="mobile-option-label">폰트 크기</span>
+                                <input type="number" id="image-font-size-mobile" data-setting-key="imageFontSize" value="${savedSettings.imageFontSize || 26}" min="12" max="40" class="mobile-option-control" style="width: 60px;">
+                            </div>
+                            <div class="mobile-option-row">
+                                <span class="mobile-option-label">너비</span>
+                                <input type="number" id="image-width-mobile" data-setting-key="imageWidth" value="${savedSettings.imageWidth || 700}" min="600" max="1200" step="50" class="mobile-option-control" style="width: 80px;">
+                            </div>
+                        </div>
+                        
+                        <div class="arca-helper-section" id="arca-helper-section-mobile" style="display: none;">
+                            <h4>아카라이브 HTML 변환기</h4>
+                            <ol style="font-size: 0.9em; padding-left: 20px; margin: 0 0 8px 0; line-height: 1.6;">
+                                <li><b>이미지 준비:</b> 아래 <b>'1. 이미지 ZIP 다운로드'</b> 버튼을 눌러 로그에 포함된 이미지들을 모두 다운로드하세요.</li>
+                                <li><b>이미지 업로드:</b> 아카라이브 글쓰기 에디터를 <b>'HTML 모드'</b>로 변경하고, 다운로드한 이미지들을 모두 업로드하세요.</li>
+                                <li><b>소스 붙여넣기:</b> 이미지 업로드 후, 에디터의 <b>HTML 소스 전체</b>를 복사하여 아래 <b>'3. 아카라이브 소스'</b> 칸에 붙여넣으세요.</li>
+                                <li><b>변환 및 완료:</b> <b>'변환'</b> 버튼을 누르세요. 생성된 <b>'4. 최종 결과물'</b>을 복사하여 아카라이브 에디터에 붙여넣으면 완료됩니다.</li>
+                            </ol>
+                            <button class="log-exporter-modal-btn image-save" id="arca-download-zip-btn-mobile" style="width: 100%; margin-bottom: 10px;">1. 이미지 ZIP 다운로드</button>
+                            <label style="display: block; margin: 10px 0 5px;"><b>2. 템플릿 HTML</b></label>
+                            <textarea id="arca-template-html-mobile" readonly style="width: 100%; min-height: 100px;"></textarea>
+                            <label style="display: block; margin: 10px 0 5px;"><b>3. 아카라이브 소스</b></label>
+                            <textarea id="arca-source-html-mobile" placeholder="아카라이브 HTML 에디터의 전체 내용을 여기에 붙여넣으세요." style="width: 100%; min-height: 100px;"></textarea>
+                            <button class="log-exporter-modal-btn primary" id="arca-convert-btn-mobile" style="width: 100%; margin: 10px 0;">변환</button>
+                            <label style="display: block; margin: 10px 0 5px;"><b>4. 최종 결과물</b></label>
+                            <textarea id="arca-final-html-mobile" readonly style="width: 100%; min-height: 100px;"></textarea>
+                        </div>
+                    </div>
+                    
+                    <!-- 데스크톱 전용 기존 레이아웃 -->
                     <div class="log-exporter-left-panel">
                         <div class="log-exporter-modal-options">
                             <div id="format-selection-group" role="radiogroup" aria-label="로그 형식 선택">
                                 <strong>형식: <span style="font-size: 0.7em; color: #565f89;">(단축키: 1~4)</span></strong>
-                                <label style="cursor: pointer; padding: 4px;"><input type="radio" name="log-format" value="html" accesskey="1"> <u>H</u>TML</label>
-                                <label style="cursor: pointer; padding: 4px;"><input type="radio" name="log-format" value="basic" checked accesskey="2"> <u>기</u>본</label>
-                                <label style="cursor: pointer; padding: 4px;"><input type="radio" name="log-format" value="markdown" accesskey="3"> <u>마</u>크다운</label>
-                                <label style="cursor: pointer; padding: 4px;"><input type="radio" name="log-format" value="text" accesskey="4"> <u>일</u>반 텍스트</label>
+                                <label style="cursor: pointer; padding: 4px;"><input type="radio" name="log-format-desktop" value="html" accesskey="1" data-setting-key="format" ${savedSettings.format === 'html' ? 'checked' : ''}> <u>H</u>TML</label>
+                                <label style="cursor: pointer; padding: 4px;"><input type="radio" name="log-format-desktop" value="basic" ${!savedSettings.format || savedSettings.format === 'basic' ? 'checked' : ''} accesskey="2" data-setting-key="format"> <u>기</u>본</label>
+                                <label style="cursor: pointer; padding: 4px;"><input type="radio" name="log-format-desktop" value="markdown" accesskey="3" data-setting-key="format" ${savedSettings.format === 'markdown' ? 'checked' : ''}> <u>마</u>크다운</label>
+                                <label style="cursor: pointer; padding: 4px;"><input type="radio" name="log-format-desktop" value="text" accesskey="4" data-setting-key="format" ${savedSettings.format === 'text' ? 'checked' : ''}> <u>일</u>반 텍스트</label>
                             </div>
                             <div id="basic-options-group" style="display: none;">
                                 <div id="theme-selection-group" style="display: flex; flex-direction: column; gap: 8px;">
                                     <div style="display: flex; justify-content: space-between; align-items: center;">
                                         <label for="theme-selector" style="font-size: 0.9em;">테마: <span style="font-size: 0.8em; color: #565f89;">(↑↓로 선택)</span></label>
-                                        <select id="theme-selector" name="log-theme" aria-label="테마 선택">
-                                        ${Object.entries(THEMES).map(([key, theme]) =>
-                                            `<option value="${key}" title="${theme.description}" ${key === 'basic' ? 'selected' : ''}>${theme.name}</option>`
+                                        <select id="theme-selector" name="log-theme" aria-label="테마 선택" data-setting-key="theme">
+                                        ${Object.entries(THEMES).map(([key, theme]) => 
+                                            `<option value="${key}" title="${theme.description}" ${key === (savedSettings.theme || 'basic') ? 'selected' : ''}>${theme.name}</option>`
                                         ).join('')}
                                         </select>
                                     </div>
                                 </div>
                                 <div id="color-selector-container" style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; transition: opacity 0.3s;">
                                     <label for="color-selector" style="font-size: 0.9em;">색상 (기본 테마 전용):</label>
-                                    <select id="color-selector">
-                                        ${Object.entries(COLORS).map(([key, color]) =>
-                                            `<option value="${key}" ${key === 'dark' ? 'selected' : ''}>${color.name}</option>`
+                                    <select id="color-selector" name="log-color" data-setting-key="color">
+                                        ${Object.entries(COLORS).map(([key, color]) => 
+                                            `<option value="${key}" ${key === (savedSettings.color || 'dark') ? 'selected' : ''}>${color.name}</option>`
                                         ).join('')}
                                     </select>
                                 </div>
                                  <div id="avatar-toggle-controls" style="display: flex; align-items: center; justify-content: space-between; margin-top: 8px;">
-                                    <label style="font-size:0.9em;"><input type="checkbox" id="avatar-toggle-checkbox" checked> 아바타 표시</label>
+                                    <label style="font-size:0.9em;"><input type="checkbox" id="avatar-toggle-checkbox" data-setting-key="showAvatar" ${savedSettings.showAvatar !== false ? 'checked' : ''}> 아바타 표시</label>
                                     <label style="font-size:0.9em;" title="말풍선 배경과 테두리를 표시합니다. 해제 시 텍스트만 나옵니다.">
-                                        <input type="checkbox" id="bubble-toggle-checkbox" checked> 말풍선 표시
+                                        <input type="checkbox" id="bubble-toggle-checkbox" data-setting-key="showBubble" ${savedSettings.showBubble !== false ? 'checked' : ''}> 말풍선 표시
                                     </label>
                                 </div>
                                 <div id="extra-elements-controls" style="display: flex; align-items: center; justify-content: space-between; margin-top: 8px; padding-top: 8px; border-top: 1px solid #414868;">
                                     <label style="font-size:0.9em;" title="캐릭터 이름과 채팅 제목을 표시합니다.">
-                                        <input type="checkbox" id="header-toggle-checkbox" checked> 헤더 표시
+                                        <input type="checkbox" id="header-toggle-checkbox" data-setting-key="showHeader" ${savedSettings.showHeader !== false ? 'checked' : ''}> 헤더 표시
                                     </label>
                                     <label style="font-size:0.9em;" title="플러그인 크레딧을 표시합니다.">
-                                        <input type="checkbox" id="footer-toggle-checkbox" checked> 푸터 표시
+                                        <input type="checkbox" id="footer-toggle-checkbox" data-setting-key="showFooter" ${savedSettings.showFooter !== false ? 'checked' : ''}> 푸터 표시
                                     </label>
                                 </div>
                             </div>
@@ -3039,14 +3465,14 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                                     <label for="image-scale-slider" title="미리보기의 모든 이미지 크기를 조절합니다. 키보드 화살표로 조정 가능" style="font-size:0.9em;">이미지 크기: <span style="font-size: 0.8em; color: #565f89;">(←→)</span></label>
                                     <span id="image-scale-value" style="font-size: 0.9em; width: 50px; text-align: right; font-weight: bold; color: #7aa2f7;">100%</span>
                                 </div>
-                                <input type="range" id="image-scale-slider" min="10" max="100" value="100" step="5" style="width: 100%; cursor: pointer;" aria-label="이미지 크기 조절" aria-valuemin="10" aria-valuemax="100" aria-valuenow="100" aria-valuetext="100%">
+                                <input type="range" id="image-scale-slider" min="10" max="100" value="${savedSettings.imageScale || 100}" step="5" style="width: 100%; cursor: pointer;" aria-label="이미지 크기 조절" aria-valuemin="10" aria-valuemax="100" aria-valuenow="100" aria-valuetext="100%" data-setting-key="imageScale">
                             </div>
                             <div id="html-options-group" style="display:none; flex-direction: column; gap: 8px;">
-                                <label><input type="checkbox" id="style-toggle-checkbox"> 스타일 인라인 적용</label>
-                                <label><input type="checkbox" id="expand-hover-elements-checkbox"> 호버 요소 항상 펼치기</label>
+                                <label><input type="checkbox" id="style-toggle-checkbox" data-setting-key="applyStyles" ${savedSettings.applyStyles ? 'checked' : ''}> 스타일 인라인 적용</label>
+                                <label><input type="checkbox" id="expand-hover-elements-checkbox" data-setting-key="expandHover" ${savedSettings.expandHover ? 'checked' : ''}> 호버 요소 항상 펼치기</label>
                             </div>
                             <div id="filter-controls">
-                                <label><input type="checkbox" id="filter-toggle-checkbox" checked> UI 필터링 적용</label>
+                                <label><input type="checkbox" id="filter-toggle-checkbox" data-setting-key="useUiFilter" ${savedSettings.useUiFilter !== false ? 'checked' : ''}> UI 필터링 적용</label>
                                 ${uiClasses.length > 0 ? `
                                     <button id="custom-filter-toggle" class="log-exporter-modal-btn" style="margin-left: 10px; padding: 3px 8px; font-size: 0.85em;">
                                         커스텀 필터 설정 ▼
@@ -3084,6 +3510,14 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                         <div class="log-exporter-modal-preview"><div style="text-align:center;color:#8a98c9;">로그 데이터 생성 중...</div></div>
                     </div>
                 </div>
+                
+                <!-- 모바일 전용 하단 액션 바 -->
+                <div class="mobile-action-bar">
+                    <button class="log-exporter-modal-btn primary" id="mobile-copy-html" title="HTML 소스 복사">복사</button>
+                    <button class="log-exporter-modal-btn" id="mobile-save-image" title="이미지로 저장" style="background-color: #e0af68; color: #1a1b26;">이미지</button>
+                    <button class="log-exporter-modal-btn" id="mobile-more-menu" title="더 많은 옵션">더보기</button>
+                </div>
+                
                 <div class="log-exporter-modal-footer" id="log-exporter-footer" role="toolbar" aria-label="내보내기 도구">
                     <button class="log-exporter-modal-btn" id="log-exporter-raw-toggle" style="display: none;" aria-label="HTML Raw 보기 전환" accesskey="r">HTML <u>R</u>aw 보기</button>
                     <button class="log-exporter-modal-btn" id="log-exporter-save-file" aria-label="HTML 파일로 저장" accesskey="s"><u>S</u>ave HTML 파일</button>
@@ -3091,14 +3525,14 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                     
                     <!-- [복원] 이미지 저장 옵션 UI -->
                     <div id="image-export-controls" style="display: flex; align-items: center; gap: 8px; margin-left: auto; flex-wrap: wrap; font-size: 0.9em;">
-                        <label><input type="checkbox" id="image-high-res-checkbox" checked>고해상도</label>
+                        <label><input type="checkbox" id="image-high-res-checkbox" data-setting-key="imageHighRes" ${savedSettings.imageHighRes !== false ? 'checked' : ''}>고해상도</label>
                         <label>엔진:
-                            <select id="image-library-selector" style="width: auto; margin-left: 4px; background: #1a1b26; color: #c0caf5; border: 1px solid #414868; border-radius: 4px; text-align: center;">
-                                <option value="html-to-image" selected>html-to-image</option>
-                                <option value="dom-to-image">dom-to-image</option>
+                            <select id="image-library-selector" data-setting-key="imageLibrary" style="width: auto; margin-left: 4px; background: #1a1b26; color: #c0caf5; border: 1px solid #414868; border-radius: 4px; text-align: center;">
+                                <option value="html-to-image" ${ (savedSettings.imageLibrary || 'html-to-image') === 'html-to-image' ? 'selected' : ''}>html-to-image</option>
+                                <option value="dom-to-image" ${savedSettings.imageLibrary === 'dom-to-image' ? 'selected' : ''}>dom-to-image</option>
                             </select></label>
-                        <label>폰트:<input type="number" id="image-font-size-input" value="26" min="12" max="40" style="width: 45px; margin-left: 4px; background: #1a1b26; color: #c0caf5; border: 1px solid #414868; border-radius: 4px; text-align: center;"></label>
-                        <label>너비:<input type="number" id="image-width-input" value="700" min="600" max="1200" step="50" style="width: 60px; margin-left: 4px; background: #1a1b26; color: #c0caf5; border: 1px solid #414868; border-radius: 4px; text-align: center;"></label>
+                        <label>폰트:<input type="number" id="image-font-size-input" data-setting-key="imageFontSize" value="${savedSettings.imageFontSize || 26}" min="12" max="40" style="width: 45px; margin-left: 4px; background: #1a1b26; color: #c0caf5; border: 1px solid #414868; border-radius: 4px; text-align: center;"></label>
+                        <label>너비:<input type="number" id="image-width-input" data-setting-key="imageWidth" value="${savedSettings.imageWidth || 700}" min="600" max="1200" step="50" style="width: 60px; margin-left: 4px; background: #1a1b26; color: #c0caf5; border: 1px solid #414868; border-radius: 4px; text-align: center;"></label>
                         <button class="log-exporter-modal-btn image-save" id="log-exporter-save-image" aria-label="이미지로 저장" accesskey="i" style="min-height: 36px;"><u>I</u>mage 저장</button>    
                     </div>
                     
@@ -3259,7 +3693,378 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
             document.addEventListener('keydown', handleEscapeKey);
             document.addEventListener('keydown', handleKeyboardShortcuts);
 
-            // 터치 제스처 지원: 스와이프로 모달 닫기
+            // 모바일 탭 전환 핸들러
+            const mobileTabButtons = modal.querySelectorAll('.mobile-tab-btn');
+            const mobileTabContents = modal.querySelectorAll('.mobile-tab-content');
+            
+            mobileTabButtons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const targetTab = btn.dataset.tab;
+                    
+                    // 탭 버튼 활성화 상태 변경
+                    mobileTabButtons.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    
+                    // 탭 컨텐츠 표시 변경
+                    mobileTabContents.forEach(content => {
+                        if (content.dataset.tab === targetTab) {
+                            content.classList.add('active');
+                        } else {
+                            content.classList.remove('active');
+                        }
+                    });
+                    
+                    // 햅틱 피드백
+                    if (navigator.vibrate) {
+                        navigator.vibrate(10);
+                    }
+                });
+            });
+            
+            // 모바일 설정 동기화: 데스크톱과 모바일 설정 연결
+            const syncMobileSettings = () => {
+                // 형식 동기화
+                const desktopFormat = modal.querySelector('input[name="log-format-desktop"]:checked');
+                const mobileFormats = modal.querySelectorAll('.mobile-settings-tab input[name="log-format"]');
+                mobileFormats.forEach(input => {
+                    if (input.value === desktopFormat?.value) {
+                        input.checked = true;
+                    }
+                });
+                
+                // 데스크톱 형식 변경 시 모바일도 동기화
+                modal.querySelectorAll('input[name="log-format-desktop"]').forEach(input => {
+                    input.addEventListener('change', () => {
+                        mobileFormats.forEach(mInput => {
+                            if (mInput.value === input.value) {
+                                mInput.checked = true;
+                            }
+                        });
+                    });
+                });
+                
+                // 모바일 형식 변경 시 데스크톱도 동기화
+                mobileFormats.forEach(input => {
+                    input.addEventListener('change', () => {
+                        modal.querySelectorAll('input[name="log-format-desktop"]').forEach(dInput => {
+                            if (dInput.value === input.value) {
+                                dInput.checked = true;
+                                dInput.dispatchEvent(new Event('change', { bubbles: true }));
+                            }
+                        });
+                    });
+                });
+                
+                // 테마 동기화
+                const themeSelector = modal.querySelector('#theme-selector');
+                const themeSelectorMobile = modal.querySelector('#theme-selector-mobile');
+                if (themeSelector && themeSelectorMobile) {
+                    themeSelectorMobile.value = themeSelector.value;
+                    themeSelector.addEventListener('change', () => {
+                        themeSelectorMobile.value = themeSelector.value;
+                    });
+                    themeSelectorMobile.addEventListener('change', () => {
+                        themeSelector.value = themeSelectorMobile.value;
+                        themeSelector.dispatchEvent(new Event('change', { bubbles: true }));
+                    });
+                }
+                
+                // 색상 동기화
+                const colorSelectorDesktop = modal.querySelector('#color-selector');
+                const colorSelectorMobile = modal.querySelector('#color-selector-mobile');
+                if (colorSelectorDesktop && colorSelectorMobile) {
+                    colorSelectorMobile.value = colorSelectorDesktop.value;
+                    colorSelectorDesktop.addEventListener('change', () => {
+                        colorSelectorMobile.value = colorSelectorDesktop.value;
+                    });
+                    colorSelectorMobile.addEventListener('change', () => {
+                        colorSelectorDesktop.value = colorSelectorMobile.value;
+                        colorSelectorDesktop.dispatchEvent(new Event('change', { bubbles: true }));
+                    });
+                }
+                
+                // 체크박스 동기화
+                const syncCheckbox = (desktopId, mobileId) => {
+                    const desktop = modal.querySelector(`#${desktopId}`);
+                    const mobile = modal.querySelector(`#${mobileId}`);
+                    if (desktop && mobile) {
+                        mobile.checked = desktop.checked;
+                        desktop.addEventListener('change', () => {
+                            mobile.checked = desktop.checked;
+                        });
+                        mobile.addEventListener('change', () => {
+                            desktop.checked = mobile.checked;
+                            desktop.dispatchEvent(new Event('change', { bubbles: true }));
+                        });
+                    }
+                };
+                
+                syncCheckbox('avatar-toggle-checkbox', 'avatar-toggle-mobile');
+                syncCheckbox('bubble-toggle-checkbox', 'bubble-toggle-mobile');
+                syncCheckbox('header-toggle-checkbox', 'header-toggle-mobile');
+                syncCheckbox('footer-toggle-checkbox', 'footer-toggle-mobile');
+                syncCheckbox('style-toggle-checkbox', 'style-toggle-mobile');
+                syncCheckbox('expand-hover-elements-checkbox', 'expand-hover-mobile');
+                syncCheckbox('filter-toggle-checkbox', 'filter-toggle-mobile');
+                syncCheckbox('image-high-res-checkbox', 'image-high-res-mobile');
+                
+                // 슬라이더 동기화
+                const imageScaleDesktop = modal.querySelector('#image-scale-slider');
+                const imageScaleMobile = modal.querySelector('#image-scale-slider-mobile');
+                const imageScaleValueMobile = modal.querySelector('#image-scale-value-mobile');
+                if (imageScaleDesktop && imageScaleMobile) {
+                    imageScaleMobile.value = imageScaleDesktop.value;
+                    imageScaleValueMobile.textContent = `${imageScaleDesktop.value}%`;
+                    imageScaleDesktop.addEventListener('input', () => {
+                        imageScaleMobile.value = imageScaleDesktop.value;
+                        imageScaleValueMobile.textContent = `${imageScaleDesktop.value}%`;
+                    });
+                    imageScaleMobile.addEventListener('input', () => {
+                        imageScaleDesktop.value = imageScaleMobile.value;
+                        imageScaleDesktop.dispatchEvent(new Event('input', { bubbles: true }));
+                        imageScaleValueMobile.textContent = `${imageScaleMobile.value}%`;
+                    });
+                }
+                
+                // 숫자 입력 동기화
+                const syncNumberInput = (desktopId, mobileId) => {
+                    const desktop = modal.querySelector(`#${desktopId}`);
+                    const mobile = modal.querySelector(`#${mobileId}`);
+                    if (desktop && mobile) {
+                        mobile.value = desktop.value;
+                        desktop.addEventListener('input', () => {
+                            mobile.value = desktop.value;
+                        });
+                        mobile.addEventListener('input', () => {
+                            desktop.value = mobile.value;
+                            desktop.dispatchEvent(new Event('input', { bubbles: true }));
+                        });
+                    }
+                };
+                
+                syncNumberInput('image-font-size-input', 'image-font-size-mobile');
+                syncNumberInput('image-width-input', 'image-width-mobile');
+                
+                // 라이브러리 셀렉터 동기화
+                const libraryDesktop = modal.querySelector('#image-library-selector');
+                const libraryMobile = modal.querySelector('#image-library-mobile');
+                if (libraryDesktop && libraryMobile) {
+                    libraryMobile.value = libraryDesktop.value;
+                    libraryDesktop.addEventListener('change', () => {
+                        libraryMobile.value = libraryDesktop.value;
+                    });
+                    libraryMobile.addEventListener('change', () => {
+                        libraryDesktop.value = libraryMobile.value;
+                        libraryDesktop.dispatchEvent(new Event('change', { bubbles: true }));
+                    });
+                }
+            };
+            
+            syncMobileSettings();
+            
+            // 모바일 형식 변경 시 옵션 표시/숨김
+            const handleMobileFormatChange = () => {
+                const selectedFormat = modal.querySelector('.mobile-settings-tab input[name="log-format"]:checked')?.value || 'basic';
+                const basicOptions = modal.querySelector('#mobile-basic-options');
+                const imageScale = modal.querySelector('#mobile-image-scale');
+                const htmlOptions = modal.querySelector('#mobile-html-options');
+                const filterSection = modal.querySelector('#mobile-filter-section');
+                
+                if (basicOptions) basicOptions.style.display = selectedFormat === 'basic' ? 'block' : 'none';
+                if (imageScale) imageScale.style.display = (selectedFormat === 'html' || selectedFormat === 'basic') ? 'block' : 'none';
+                if (htmlOptions) htmlOptions.style.display = selectedFormat === 'html' ? 'block' : 'none';
+                if (filterSection) filterSection.style.display = (selectedFormat !== 'html') ? 'block' : 'none';
+                
+                // 데스크톱 형식도 동기화
+                const desktopFormats = modal.querySelectorAll('.log-exporter-left-panel input[name="log-format-desktop"]');
+                desktopFormats.forEach(input => {
+                    if (input.value === selectedFormat) {
+                        input.checked = true;
+                        input.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                });
+            };
+            
+            modal.querySelectorAll('.mobile-settings-tab input[name="log-format"]').forEach(input => {
+                input.addEventListener('change', handleMobileFormatChange);
+            });
+            
+            // 초기 상태 설정
+            handleMobileFormatChange();
+            
+            // 테마 변경 시 색상 옵션 활성화/비활성화
+            const handleMobileThemeChange = () => {
+                const themeSelectorMobile = modal.querySelector('#theme-selector-mobile');
+                const colorRowMobile = modal.querySelector('#mobile-color-row');
+                const bubbleToggleMobile = modal.querySelector('#bubble-toggle-mobile');
+                
+                if (themeSelectorMobile && colorRowMobile) {
+                    const isBasicTheme = themeSelectorMobile.value === 'basic';
+                    colorRowMobile.style.opacity = isBasicTheme ? '1' : '0.5';
+                    const colorSelectMobile = colorRowMobile.querySelector('select');
+                    if (colorSelectMobile) {
+                        colorSelectMobile.disabled = !isBasicTheme;
+                    }
+                    
+                    if (bubbleToggleMobile) {
+                        bubbleToggleMobile.disabled = !isBasicTheme;
+                        bubbleToggleMobile.parentElement.style.opacity = isBasicTheme ? '1' : '0.5';
+                    }
+                }
+            };
+            
+            const themeSelectorMobile = modal.querySelector('#theme-selector-mobile');
+            if (themeSelectorMobile) {
+                themeSelectorMobile.addEventListener('change', handleMobileThemeChange);
+                handleMobileThemeChange();
+            }
+            
+            // 모바일 커스텀 필터 토글
+            const customFilterToggleMobile = modal.querySelector('#custom-filter-toggle-mobile');
+            const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mobile');
+            if (customFilterToggleMobile && customFilterSectionMobile) {
+                customFilterToggleMobile.addEventListener('click', () => {
+                    const isVisible = customFilterSectionMobile.style.display !== 'none';
+                    customFilterSectionMobile.style.display = isVisible ? 'none' : 'block';
+                    customFilterToggleMobile.textContent = isVisible ? '커스텀 필터 설정 ▼' : '커스텀 필터 설정 ▲';
+                });
+                
+                modal.querySelector('#select-all-filters-mobile')?.addEventListener('click', () => {
+                    modal.querySelectorAll('.custom-filter-class').forEach(cb => {
+                        cb.checked = true;
+                        cb.dispatchEvent(new Event('change', { bubbles: true }));
+                    });
+                });
+                
+                modal.querySelector('#deselect-all-filters-mobile')?.addEventListener('click', () => {
+                    modal.querySelectorAll('.custom-filter-class').forEach(cb => {
+                        cb.checked = false;
+                        cb.dispatchEvent(new Event('change', { bubbles: true }));
+                    });
+                });
+            }
+            
+            // 모바일 액션 바 버튼 핸들러
+            const mobileCopyBtn = modal.querySelector('#mobile-copy-html');
+            const mobileSaveImageBtn = modal.querySelector('#mobile-save-image');
+            const mobileMoreMenuBtn = modal.querySelector('#mobile-more-menu');
+            
+            if (mobileCopyBtn) {
+                mobileCopyBtn.addEventListener('click', () => {
+                    modal.querySelector('#log-exporter-copy-html')?.click();
+                });
+            }
+            
+            // 모바일 이미지 저장 버튼은 나중에 handleImageSave가 정의된 후 연결됩니다
+            // (saveImageBtn 이벤트 리스너 설정 부근에서 처리)
+            
+            if (mobileMoreMenuBtn) {
+                mobileMoreMenuBtn.addEventListener('click', () => {
+                    // 더보기 메뉴 시트 표시
+                    const actionSheet = document.createElement('div');
+                    actionSheet.style.cssText = `
+                        position: fixed;
+                        bottom: 0;
+                        left: 0;
+                        right: 0;
+                        background: #1a1b26;
+                        border-top-left-radius: 16px;
+                        border-top-right-radius: 16px;
+                        padding: 20px;
+                        z-index: 100001;
+                        box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
+                        animation: slideUp 0.3s ease-out;
+                    `;
+                    actionSheet.innerHTML = `
+                        <style>
+                            @keyframes slideUp {
+                                from { transform: translateY(100%); }
+                                to { transform: translateY(0); }
+                            }
+                            .action-sheet-btn {
+                                display: block;
+                                width: 100%;
+                                padding: 16px;
+                                margin: 8px 0;
+                                background: #24283b;
+                                border: none;
+                                border-radius: 8px;
+                                color: #c0caf5;
+                                font-size: 1em;
+                                cursor: pointer;
+                                text-align: left;
+                            }
+                            .action-sheet-btn:active {
+                                background: #414868;
+                            }
+                        </style>
+                        <div style="text-align: center; margin-bottom: 16px; color: #7aa2f7; font-weight: bold;">더 많은 옵션</div>
+                        <button class="action-sheet-btn" data-action="save-file">💾 HTML 파일로 저장</button>
+                        <button class="action-sheet-btn" data-action="copy-formatted">📋 서식 있는 텍스트 복사</button>
+                        <button class="action-sheet-btn" data-action="download-zip">📦 이미지 ZIP 다운로드</button>
+                        <button class="action-sheet-btn" data-action="arca-helper" style="background-color: #bb9af7; color: #1a1b26;">🎨 아카라이브 변환기</button>
+                        <button class="action-sheet-btn" data-action="cancel" style="background-color: #f7768e; color: #1a1b26; margin-top: 16px;">취소</button>
+                    `;
+                    
+                    const backdrop = document.createElement('div');
+                    backdrop.style.cssText = `
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        right: 0;
+                        bottom: 0;
+                        background: rgba(0,0,0,0.5);
+                        z-index: 100000;
+                    `;
+                    
+                    document.body.appendChild(backdrop);
+                    document.body.appendChild(actionSheet);
+                    
+                    const closeSheet = () => {
+                        actionSheet.remove();
+                        backdrop.remove();
+                    };
+                    
+                    backdrop.addEventListener('click', closeSheet);
+                    
+                    actionSheet.querySelectorAll('.action-sheet-btn').forEach(btn => {
+                        btn.addEventListener('click', () => {
+                            const action = btn.dataset.action;
+                            closeSheet();
+                            
+                            switch(action) {
+                                case 'save-file':
+                                    modal.querySelector('#log-exporter-save-file')?.click();
+                                    break;
+                                case 'copy-formatted':
+                                    modal.querySelector('#log-exporter-copy-formatted')?.click();
+                                    break;
+                                case 'download-zip':
+                                    modal.querySelector('#log-exporter-download-zip')?.click();
+                                    break;
+                                case 'arca-helper':
+                                    // 도구 탭으로 전환하고 아카라이브 섹션 표시
+                                    mobileTabButtons.forEach(b => {
+                                        if (b.dataset.tab === 'tools') {
+                                            b.click();
+                                        }
+                                    });
+                                    const arcaSection = modal.querySelector('#arca-helper-section-mobile');
+                                    if (arcaSection) {
+                                        arcaSection.style.display = 'block';
+                                    }
+                                    break;
+                            }
+                        });
+                    });
+                    
+                    if (navigator.vibrate) {
+                        navigator.vibrate(10);
+                    }
+                });
+            }
+
+            // 터치 제스처 지원: 스와이프로 탭 전환 및 모달 닫기
             let touchStartY = 0;
             let touchStartX = 0;
             let touchStartTime = 0;
@@ -3397,7 +4202,10 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
             const avatarToggleControls = modal.querySelector('#avatar-toggle-controls');
             const avatarToggleCheckbox = modal.querySelector('#avatar-toggle-checkbox');
 
-            const previewEl = modal.querySelector('.log-exporter-modal-preview');
+            // 모바일과 데스크톱 미리보기를 모두 선택
+            const mobilePreviewEl = modal.querySelector('.mobile-preview-tab .log-exporter-modal-preview');
+            const desktopPreviewEl = modal.querySelector('.log-exporter-right-panel .log-exporter-modal-preview');
+            const previewEl = desktopPreviewEl || mobilePreviewEl; // 데스크톱 우선, 없으면 모바일
             const imageScaleSlider = modal.querySelector('#image-scale-slider');
             const imageScaleValue = modal.querySelector('#image-scale-value');
             const saveFileBtn = modal.querySelector('#log-exporter-save-file');
@@ -3439,12 +4247,19 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                 imageScaleSlider.setAttribute('aria-valuenow', scale);
                 imageScaleSlider.setAttribute('aria-valuetext', `${scale}%`);
                 
-                previewEl.querySelectorAll('img').forEach(img => {
-                    img.style.maxWidth = `${scale}%`;
-                    img.style.height = 'auto';
-                    // 모바일에서 이미지 터치 시 확대 방지
-                    img.style.touchAction = 'manipulation';
-                });
+                // 모바일과 데스크톱 미리보기 모두에 적용
+                const applyToImages = (container) => {
+                    if (!container) return;
+                    container.querySelectorAll('img').forEach(img => {
+                        img.style.maxWidth = `${scale}%`;
+                        img.style.height = 'auto';
+                        // 모바일에서 이미지 터치 시 확대 방지
+                        img.style.touchAction = 'manipulation';
+                    });
+                };
+                
+                applyToImages(desktopPreviewEl);
+                applyToImages(mobilePreviewEl);
                 
                 // 슬라이더 값 변경 시 햅틱 피드백 (지원하는 기기에서)
                 if (navigator.vibrate && window.innerWidth <= 768) {
@@ -3548,21 +4363,34 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
             let isRawMode = false;
             let lastGeneratedHtml = '';
             /**
-                 * 페이지에 로드된 모든 스타일시트의 CSS 규칙을 문자열로 추출합니다.
-                 * @async
-                 * @returns {Promise<string>} 모든 CSS 규칙을 포함하는 문자열.
-                 */
-
-            /**
              * 사용자의 선택(포맷, 테마, 필터 등)이 변경될 때마다 미리보기 영역을 업데이트합니다.
              * @async
+             * @param {boolean} [isInitialLoad=false] - 초기 로드 여부. true이면 설정을 저장하지 않습니다.
              */
-// ▼▼▼ [교체] 기존 updatePreview 함수를 아래 내용으로 덮어쓰세요 ▼▼▼
             async function updatePreview() {
-                console.log('[Log Exporter] updatePreview: 미리보기 업데이트 시작 (Shadow DOM 방식)');
-                arcaHelperSection.style.display = 'none';
-                const selectedFormat = modal.querySelector('input[name="log-format"]:checked').value;
                 const selectedThemeKey = modal.querySelector('select[name="log-theme"]').value;
+                const isBasicTheme = selectedThemeKey === 'basic';
+                const colorSelector = modal.querySelector('#color-selector');
+                const colorSelectorContainer = modal.querySelector('#color-selector-container');
+                const bubbleToggleCheckbox = modal.querySelector('#bubble-toggle-checkbox');
+
+                colorSelector.disabled = !isBasicTheme;
+                colorSelectorContainer.style.opacity = isBasicTheme ? '1' : '0.5';
+
+                const bubbleToggleLabel = bubbleToggleCheckbox.parentElement;
+                bubbleToggleCheckbox.disabled = !isBasicTheme;
+                if (bubbleToggleLabel) {
+                    bubbleToggleLabel.style.opacity = isBasicTheme ? '1' : '0.5';
+                    bubbleToggleLabel.style.cursor = isBasicTheme ? 'pointer' : 'not-allowed';
+                }
+
+                console.log('[Log Exporter] updatePreview: 미리보기 업데이트 시작');
+                arcaHelperSection.style.display = 'none';
+                // 데스크톱과 모바일 모두 확인
+                const selectedFormat = modal.querySelector('input[name="log-format-desktop"]:checked')?.value || 
+                                      modal.querySelector('input[name="log-format"]:checked')?.value || 
+                                      'basic';
+                // const selectedThemeKey = modal.querySelector('select[name="log-theme"]').value;
                 const selectedColorKey = colorSelector.value;
 
                 arcaHelperToggleBtn.style.display = (selectedFormat === 'basic') ? 'inline-block' : 'none';
@@ -3573,7 +4401,28 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                 basicOptionsGroup.style.display = selectedFormat === 'basic' ? 'block' : 'none';
                 htmlOptionsGroup.style.display = selectedFormat === 'html' ? 'flex' : 'none';
 
-                previewEl.innerHTML = `<div style="text-align:center;color:#8a98c9;">미리보기 생성 중...</div>`;
+                // 모바일과 데스크톱 미리보기 동시 업데이트를 위한 헬퍼
+                const syncedPreview = {
+                    get innerHTML() {
+                        return desktopPreviewEl ? desktopPreviewEl.innerHTML : (mobilePreviewEl ? mobilePreviewEl.innerHTML : '');
+                    },
+                    set innerHTML(value) {
+                        if (desktopPreviewEl) desktopPreviewEl.innerHTML = value;
+                        if (mobilePreviewEl) mobilePreviewEl.innerHTML = value;
+                    },
+                    get style() {
+                        return desktopPreviewEl ? desktopPreviewEl.style : (mobilePreviewEl ? mobilePreviewEl.style : {});
+                    },
+                    appendChild(child) {
+                        if (desktopPreviewEl) desktopPreviewEl.appendChild(child.cloneNode(true));
+                        if (mobilePreviewEl) mobilePreviewEl.appendChild(child);
+                    },
+                    querySelectorAll(selector) {
+                        return desktopPreviewEl ? desktopPreviewEl.querySelectorAll(selector) : (mobilePreviewEl ? mobilePreviewEl.querySelectorAll(selector) : []);
+                    }
+                };
+                
+                syncedPreview.innerHTML = `<div style="text-align:center;color:#8a98c9;">미리보기 생성 중...</div>`;
                 let filteredNodes = getFilteredNodes();
 
                 const customFilterSection = modal.querySelector('#custom-filter-section');
@@ -3587,7 +4436,7 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                 const rawBtn = modal.querySelector('#log-exporter-raw-toggle');
                 rawBtn.style.display = (selectedFormat === 'html' || selectedFormat === 'basic') ? 'inline-block' : 'none';
 
-                previewEl.style.backgroundColor = COLORS.dark.background;
+                syncedPreview.style.backgroundColor = COLORS.dark.background;
 
                 if (selectedFormat === 'html') {
                     filterControls.style.display = 'none';
@@ -3610,29 +4459,37 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                     lastGeneratedHtml = `<!DOCTYPE html><html lang="ko" style="${htmlTagStyle}"><head><meta charset="UTF-8"><title>Chat Log</title><style>${fullCss} ${extraCss}</style></head><body ${expandHoverCheckbox.checked ? 'class="expand-hover-globally"' : ''}><div class="chat-log-wrapper">${headerHtml}${messagesHtml}</div></body></html>`;
 
                     if (isRawMode) {
-                        previewEl.innerHTML = `<pre style="white-space: pre-wrap; word-wrap: break-word; font-family: monospace; font-size: 0.85em;">${lastGeneratedHtml.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre>`;
+                        syncedPreview.innerHTML = `<pre style="white-space: pre-wrap; word-wrap: break-word; font-family: monospace; font-size: 0.85em;">${lastGeneratedHtml.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre>`;
                     } else {
-                        previewEl.innerHTML = '';
+                        syncedPreview.innerHTML = '';
 
-                        const shadowHost = document.createElement('div');
-                        const shadowRoot = shadowHost.attachShadow({ mode: 'open' });
+                        // Shadow DOM을 각 미리보기에 개별적으로 생성
+                        const createShadowPreview = (container) => {
+                            if (!container) return;
+                            
+                            const shadowHost = document.createElement('div');
+                            const shadowRoot = shadowHost.attachShadow({ mode: 'open' });
 
-                        shadowRoot.innerHTML = `
-                            <style>
-                                ${fullCss}
-                                ${extraCss}
-                                .preview-wrapper {
-                                    background-color: ${themeBgColor};
-                                    padding: 20px;
-                                }
-                                .chat-log-wrapper { max-width: 900px; margin: 0 auto; }
-                                .log-exporter-msg-btn-group { display: none !important; }
-                            </style>
-                            <div class="preview-wrapper ${expandHoverCheckbox.checked ? 'expand-hover-globally' : ''}">
-                                <div class="chat-log-wrapper">${headerHtml}${messagesHtml}</div>
-                            </div>
-                        `;
-                        previewEl.appendChild(shadowHost);
+                            shadowRoot.innerHTML = `
+                                <style>
+                                    ${fullCss}
+                                    ${extraCss}
+                                    .preview-wrapper {
+                                        background-color: ${themeBgColor};
+                                        padding: 20px;
+                                    }
+                                    .chat-log-wrapper { max-width: 900px; margin: 0 auto; }
+                                    .log-exporter-msg-btn-group { display: none !important; }
+                                </style>
+                                <div class="preview-wrapper ${expandHoverCheckbox.checked ? 'expand-hover-globally' : ''}">
+                                    <div class="chat-log-wrapper">${headerHtml}${messagesHtml}</div>
+                                </div>
+                            `;
+                            container.appendChild(shadowHost);
+                        };
+                        
+                        createShadowPreview(desktopPreviewEl);
+                        createShadowPreview(mobilePreviewEl);
                     }
                     const addedStyle = document.getElementById('tolog-temp-hover-disable');
                     if (addedStyle) addedStyle.remove();
@@ -3656,12 +4513,12 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                     lastGeneratedHtml = content;
                     const themeInfo = THEMES[selectedThemeKey] || THEMES.basic;
                     const color = (selectedThemeKey === 'basic') ? (COLORS[selectedColorKey] || COLORS.dark) : themeInfo.color;
-                    previewEl.style.backgroundColor = color.background;
+                    syncedPreview.style.backgroundColor = color.background;
 
                     if (isRawMode) {
-                        previewEl.innerHTML = `<pre style="white-space: pre-wrap; word-wrap: break-word; font-family: monospace; font-size: 0.85em;">${content.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre>`;
+                        syncedPreview.innerHTML = `<pre style="white-space: pre-wrap; word-wrap: break-word; font-family: monospace; font-size: 0.85em;">${content.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre>`;
                     } else {
-                        previewEl.innerHTML = content;
+                        syncedPreview.innerHTML = content;
                     }
                 } else { // Text / Markdown
                     // ... (이 부분은 수정 없음)
@@ -3669,7 +4526,7 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                     saveImageControls.style.display = 'none';
                     saveFileBtn.style.display = 'none';
                     const content = await generateFormattedLog(filteredNodes, selectedFormat);
-                    previewEl.innerHTML = `<pre>${content.replace(/</g, "&lt;")}</pre>`;
+                    syncedPreview.innerHTML = `<pre>${content.replace(/</g, "&lt;")}</pre>`;
                 }
 
                 if (!isRawMode && selectedFormat === 'basic') {
@@ -3688,54 +4545,43 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
             });
 
             const customFilterToggle = modal.querySelector('#custom-filter-toggle');
-            const customFilterSection = modal.querySelector('#custom-filter-section');
+            const customFilterSection = modal.querySelector('#custom-filter-section'); 
 
             if (customFilterToggle && customFilterSection) {
-                customFilterToggle.addEventListener('click', () => {
+                customFilterToggle.addEventListener('click', (e) => {
                     const isVisible = customFilterSection.style.display !== 'none';
                     customFilterSection.style.display = isVisible ? 'none' : 'block';
                     customFilterToggle.textContent = isVisible ? '커스텀 필터 설정 ▼' : '커스텀 필터 설정 ▲';
-                });
-                modal.querySelectorAll('.custom-filter-class').forEach(cb => cb.addEventListener('change', updatePreview));
-                modal.querySelector('#select-all-filters')?.addEventListener('click', () => {
-                    modal.querySelectorAll('.custom-filter-class').forEach(cb => cb.checked = true); updatePreview();
-                });
-                modal.querySelector('#deselect-all-filters')?.addEventListener('click', () => {
-                    modal.querySelectorAll('.custom-filter-class').forEach(cb => cb.checked = false); updatePreview();
-                });
+                });                
+                modal.querySelector('#select-all-filters')?.addEventListener('click', () => { modal.querySelectorAll('.custom-filter-class').forEach(cb => { cb.checked = true; cb.dispatchEvent(new Event('change', { bubbles: true })); }); });
+                modal.querySelector('#deselect-all-filters')?.addEventListener('click', () => { modal.querySelectorAll('.custom-filter-class').forEach(cb => { cb.checked = false; cb.dispatchEvent(new Event('change', { bubbles: true })); }); });
             }
 
-            // 테마 변경 시 색상 선택 활성화/비활성화 로직을 추가합니다.
-            const themeSelector = modal.querySelector('select[name="log-theme"]');
-            // ▼▼▼ [수정] handleThemeChange 함수 ▼▼▼
-            const handleThemeChange = () => {
-                const selectedTheme = themeSelector.value;
-                const isBasicTheme = selectedTheme === 'basic';
-                
-                // 색상 선택기 활성화/비활성화
-                colorSelector.style.opacity = isBasicTheme ? '1' : '0.5';
-                colorSelector.disabled = !isBasicTheme;
-                colorSelectorContainer.style.opacity = isBasicTheme ? '1' : '0.5';
+  
 
-                // '말풍선 표시' 체크박스 활성화/비활성화
-                const bubbleToggleLabel = bubbleToggleCheckbox.parentElement;
-                bubbleToggleCheckbox.disabled = !isBasicTheme;
-                if (bubbleToggleLabel) {
-                    bubbleToggleLabel.style.opacity = isBasicTheme ? '1' : '0.5';
-                    bubbleToggleLabel.style.cursor = isBasicTheme ? 'pointer' : 'not-allowed';
-                }
+            
 
-                updatePreview();
-            };
-            // ▲▲▲ [수정] 여기까지 ▲▲▲
-            themeSelector.addEventListener('change', handleThemeChange);
-
-
-            modal.querySelectorAll('input[name="log-format"], #style-toggle-checkbox, #filter-toggle-checkbox, .participant-filter-checkbox, #avatar-toggle-checkbox, #header-toggle-checkbox, #footer-toggle-checkbox, #bubble-toggle-checkbox, #expand-hover-elements-checkbox').forEach(el => {
+            // [수정] 각 컨트롤에 data-setting-key 속성 추가 및 이벤트 리스너 통합
+            modal.querySelectorAll('[data-setting-key]').forEach(el => {
+                el.addEventListener('change', handleSettingChange);
+            });
+            
+            // [수정] 최초 로드 시, 라디오 버튼 상태에 따라 UI를 먼저 갱신
+            const initialFormat = modal.querySelector('input[name="log-format"]:checked').value;
+            basicOptionsGroup.style.display = initialFormat === 'basic' ? 'block' : 'none';
+            htmlOptionsGroup.style.display = initialFormat === 'html' ? 'flex' : 'none';
+            modal.querySelectorAll('[data-setting-key]').forEach(el => {
+                // 슬라이더는 'input' 이벤트에 반응해야 실시간으로 반영됩니다.
+                const eventType = el.type === 'range' ? 'input' : 'change';
+                el.addEventListener(eventType, handleSettingChange);
+            });
+            
+            // 참가자 필터와 같이 data-setting-key가 없는 UI 요소는 개별적으로 updatePreview만 호출
+            modal.querySelectorAll('.participant-filter-checkbox').forEach(el => {
                 el.addEventListener('change', updatePreview);
             });
-            colorSelector.addEventListener('change', updatePreview);
-            handleThemeChange();
+            // [수정] 모든 설정이 완료된 후, 미리보기 최초 호출
+             updatePreview();
 
             const closeModal = () => {
                 // 모바일 환경: 스크롤 복원
@@ -3796,7 +4642,7 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
             };
 
             // [수정] 이미지 저장 버튼 클릭 시 옵션 값들 읽어서 전달
-            saveImageBtn.addEventListener('click', async () => {
+            const handleImageSave = async () => {
                 cancellationToken.cancelled = false;
                 footer.style.display = 'none';
                 progressFooter.style.display = 'flex';
@@ -3806,7 +4652,13 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                 const baseFontSize = parseInt(fontSizeInput.value) || 16;
                 const imageWidth = parseInt(imageWidthInput.value) || 900;
 
-                const success = await savePreviewAsImage(previewEl, updateProgress, cancellationToken, charName, chatName, {
+                // 현재 화면 크기에 따라 올바른 미리보기 선택
+                const isMobile = window.innerWidth <= 768;
+                const targetPreview = isMobile ? mobilePreviewEl : desktopPreviewEl;
+                
+                console.log(`[Log Exporter] 이미지 저장 시작: ${isMobile ? '모바일' : '데스크톱'} 미리보기 사용`);
+
+                const success = await savePreviewAsImage(targetPreview, updateProgress, cancellationToken, charName, chatName, {
                     useHighRes,
                     baseFontSize,
                     imageWidth,
@@ -3817,7 +4669,14 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                 progressFooter.style.display = 'none';
                 if (success) closeModal();
                 else if (!cancellationToken.cancelled) alert("이미지 저장이 실패했거나 중단되었습니다.", "error");
-            });
+            };
+            
+            saveImageBtn.addEventListener('click', handleImageSave);
+            
+            // 모바일 이미지 저장 버튼도 같은 핸들러 사용
+            if (mobileSaveImageBtn) {
+                mobileSaveImageBtn.addEventListener('click', handleImageSave);
+            }
 
             cancelBtn.addEventListener('click', () => {
                 cancellationToken.cancelled = true;
