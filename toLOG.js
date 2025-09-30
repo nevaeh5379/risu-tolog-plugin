@@ -1847,9 +1847,9 @@ const AVATAR_ATTR = 'data-avatar';
                         if (index > 0) {
                             logEntry += `
         <div style="display:flex; align-items: center; text-align: center; margin: 2.2em auto; max-width: 50%;">
-            <div style="flex-grow: 1; height: 1px; background: linear-gradient(to right, transparent, ${color.separator}, transparent);"></div>
-            <span style="padding: 0 0.8em; color: ${color.separator}; font-size: 1.3em; font-family: 'Nanum Myeongjo', serif; text-shadow: 0 0 8px rgba(175,192,255,0.4);">✦</span>
-            <div style="flex-grow: 1; height: 1px; background: linear-gradient(to left, transparent, ${color.separator}, transparent);"></div>
+            <div style="flex-grow: 1; height: 1px; background: linear-gradient(to right, transparent, ${color.separator}, transparent);width:100%;margin: auto;"></div>
+            <span style="padding: 0 0.8em; color: ${color.separator}; font-size: 1.3em; font-family: 'Nanum Myeongjo', serif; text-shadow: 0 0 8px rgba(175,192,255,0.4); margin-left: auto; margin-right: auto;">✦</span>
+            <div style="flex-grow: 1; height: 1px; background: linear-gradient(to left, transparent, ${color.separator}, transparent);width:100%;margin: auto;"></div>
         </div>`;
                         }
                         logEntry += `<div class="chat-message-container" style="display:flex; flex-direction:column; align-items: center; ${!isForArca ? `font-family: ${fantasyFont};` : ''} text-align:center; margin-bottom:28px;">`;
