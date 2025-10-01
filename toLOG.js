@@ -771,9 +771,8 @@ const AVATAR_ATTR = 'data-avatar';
                 }
 
                 imageCounter++;
-                const filename = sequentialNaming
-                    ? `image_${imageCounter}.png`
-                    : `image_${String(imageCounter).padStart(3, '0')}.png`;
+                // 아카라이브용(sequentialNaming)일 때 파일 정렬이 깨지지 않도록 숫자를 0으로 채웁니다.
+                const filename = `image_${String(imageCounter).padStart(3, '0')}.png`;
 
                 imagePromises.push(
                     fetch(src)
@@ -899,19 +898,21 @@ const AVATAR_ATTR = 'data-avatar';
                 transition: transform 0.3s ease-out;
                 position: relative; /* 닫기 버튼을 위한 기준점 */
             }
-            .log-exporter-modal-header { padding: 12px 18px; font-size: 1.15em; font-weight: bold; border-bottom: 1px solid #414868; padding-right: 48px; /* 닫기 버튼 공간 확보 */ }
+            .log-exporter-modal-header-bar { padding: 12px 18px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #414868; background: #1a1b26; }
+            .log-exporter-modal-header-bar .header-title { font-size: 1.15em; font-weight: bold; color: #ffffff; flex: 1; }
+            .log-exporter-modal-header-bar .header-help { font-size: 0.85em; color: #ffffff; margin-left: auto; }
             .log-exporter-modal-content { padding: 15px; display: flex; flex-direction: row; gap: 15px; overflow-y: hidden; flex-grow: 1; }
             .log-exporter-left-panel { flex: 1; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; max-height: 100%; }
             .log-exporter-right-panel { flex: 1; display: flex; flex-direction: column; gap: 12px; overflow-y: hidden; max-height: 100%; }
             .log-exporter-modal-close-btn {
-                position: absolute;
-                top: 8px; right: 8px;
+                position: static;
                 width: 36px; height: 36px;
                 background: transparent;
-                border: none; color: #a9b1d6;
+                border: none; color: #ffffff;
                 font-size: 24px; line-height: 36px; text-align: center;
                 cursor: pointer; transition: all 0.2s ease;
                 border-radius: 50%;
+                flex-shrink: 0;
             }
             .log-exporter-modal-close-btn:hover { background-color: #414868; color: #fff; transform: rotate(90deg); }
             .log-exporter-modal-options { display: flex; gap: 8px; align-items: center; background: #1f2335; padding: 8px 10px; border-radius: 5px; flex-wrap: wrap; }
@@ -933,9 +934,6 @@ const AVATAR_ATTR = 'data-avatar';
             .log-exporter-modal-btn.primary { background-color: #7aa2f7; color: #1a1b26; }
             .log-exporter-modal-btn.primary:hover { background-color: #9eceff; }
             @media (max-width: 992px) { /* Tablet breakpoint: revert to column layout */
-                .log-exporter-modal-header {
-                    padding-right: 44px; /* 모바일에서 닫기 버튼 공간 */
-                }
                 .log-exporter-modal-content { flex-direction: column; overflow-y: auto; } /* 컨텐츠 영역 스크롤 */
                 .log-exporter-left-panel, .log-exporter-right-panel { max-height: none; overflow-y: visible; flex: none; width: 100%; } /* 패널 높이 제한 해제 */
                 .log-exporter-modal-preview { max-height: 40vh; } /* 세로 모드에서 미리보기 높이 제한 */
@@ -1109,11 +1107,18 @@ const AVATAR_ATTR = 'data-avatar';
                     padding: 8px;
                     gap: 12px;
                 }
-                .log-exporter-modal-header {
+                .log-exporter-modal-header-bar {
                     padding: 12px 8px;
+                    gap: 6px;
+                }
+                
+                .log-exporter-modal-header-bar .header-title {
                     font-size: 1.05em;
-                    padding-right: 40px;
                     text-align: center;
+                }
+                
+                .log-exporter-modal-header-bar .header-help {
+                    font-size: 0.7em;
                 }
                 .log-exporter-modal-btn {
                     padding: 12px 8px;
@@ -1169,9 +1174,6 @@ const AVATAR_ATTR = 'data-avatar';
             
             /* 가로 모드 최적화 */
             @media (max-width: 768px) and (orientation: landscape) {
-                .log-exporter-modal-header {
-                    padding-right: 44px;
-                }
                 .log-exporter-modal-footer .log-exporter-modal-btn { flex-basis: auto; flex-grow: 1; }
                 .log-exporter-modal-footer[data-expanded="true"] > button { flex-basis: calc(33.33% - 4px); }
                 .log-exporter-modal-content {
@@ -3113,17 +3115,27 @@ const customFilterHtml = `
                         overflow: hidden !important;
                     }
                     
-                    .log-exporter-modal-header {
-                        background: linear-gradient(135deg, #7aa2f7 0%, #bb9af7 100%);
-                        color: #1a1b26;
+                    .log-exporter-modal-header-bar {
+                        background: #1a1b26;
                         padding: 20px 24px !important;
-                        font-size: 1.3em !important;
-                        font-weight: bold;
-                        border-bottom: none !important;
-                        display: flex;
-                        align-items: center;
-                        justify-content: space-between;
+                        border-bottom: 1px solid #414868 !important;
+                        display: flex !important;
+                        align-items: center !important;
+                        gap: 12px !important;
                         flex-shrink: 0;
+                    }
+                    
+                    .log-exporter-modal-header-bar .header-title {
+                        font-size: 1.3em !important;
+                        font-weight: bold !important;
+                        color: #ffffff !important;
+                        flex: 1 !important;
+                    }
+                    
+                    .log-exporter-modal-header-bar .header-help {
+                        font-size: 0.9em !important;
+                        color: #ffffff !important;
+                        margin-left: auto !important;
                     }
                     
                     .log-exporter-modal-close-btn {
@@ -3134,6 +3146,7 @@ const customFilterHtml = `
                         height: 36px !important;
                         transition: all 0.2s !important;
                         font-weight: bold !important;
+                        flex-shrink: 0 !important;
                     }
                     
                     .log-exporter-modal-close-btn:hover {
@@ -3509,11 +3522,26 @@ const customFilterHtml = `
                         top: 0;
                         left: 0;
                     }
-                    .log-exporter-modal-header {
+                    .log-exporter-modal-header-bar {
                         padding: 12px 16px !important;
-                        font-size: 1.1em !important;
                         border-bottom: 1px solid #414868 !important;
                         flex-shrink: 0;
+                        display: flex !important;
+                        align-items: center !important;
+                        gap: 8px !important;
+                        background: #1a1b26 !important;
+                    }
+                    
+                    .log-exporter-modal-header-bar .header-title {
+                        font-size: 1.1em !important;
+                        font-weight: bold !important;
+                        color: #ffffff !important;
+                        flex: 1 !important;
+                    }
+                    
+                    .log-exporter-modal-header-bar .header-help {
+                        font-size: 0.75em !important;
+                        color: #ffffff !important;
                     }
                     .log-exporter-modal-content {
                         flex: 1 !important;
@@ -3672,10 +3700,13 @@ const customFilterHtml = `
                 }
             </style>
             <div class="log-exporter-modal">
-                <button id="log-exporter-close" class="log-exporter-modal-close-btn" title="닫기 (Esc)" aria-label="모달 닫기" style="min-width: 44px; min-height: 44px;">
-                    &times;
-                </button>
-                <div class="log-exporter-modal-header" id="modal-header">로그 내보내기 옵션 <span style="font-size: 0.75em; color: #7aa2f7; margin-left: 8px;">(Ctrl+/ 도움말)</span></div>
+                <div class="log-exporter-modal-header-bar">
+                    <button id="log-exporter-close" class="log-exporter-modal-close-btn" title="닫기 (Esc)" aria-label="모달 닫기">
+                        &times;
+                    </button>
+                    <span class="header-title">로그 내보내기 옵션</span>
+                    <span class="header-help">(Ctrl+/ 도움말)</span>
+                </div>
                 
                 <!-- 모바일 전용 탭 네비게이션 -->
                 <div class="mobile-tab-navigation">
@@ -4202,6 +4233,14 @@ const customFilterHtml = `
             </div>`;
             document.body.appendChild(modal);
 
+            // 데스크톱 collapsible content 초기 상태 설정
+            const initialCollapsibleContents = modal.querySelectorAll('.desktop-collapsible-content');
+            initialCollapsibleContents.forEach(content => {
+                if (!content.classList.contains('open')) {
+                    content.style.display = 'none';
+                }
+            });
+
             // 모바일 환경 최적화: 모달 열릴 때 배경 스크롤 방지
             const originalOverflow = document.body.style.overflow;
             const originalPosition = document.body.style.position;
@@ -4278,9 +4317,15 @@ const customFilterHtml = `
                 // 숫자 키 1-4: 형식 선택
                 if (e.key >= '1' && e.key <= '4' && !e.ctrlKey && !e.metaKey && !e.altKey) {
                     const formats = ['html', 'basic', 'markdown', 'text'];
-                    const formatInput = modal.querySelector(`input[name="log-format"][value="${formats[parseInt(e.key) - 1]}"]`);
+                    const formatInput = modal.querySelector(`input[name="log-format-desktop"][value="${formats[parseInt(e.key) - 1]}"]`);
                     if (formatInput && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
                         formatInput.checked = true;
+                        // 라벨의 active 클래스도 업데이트
+                        const label = formatInput.closest('label');
+                        if (label) {
+                            modal.querySelectorAll('.desktop-radio-label').forEach(l => l.classList.remove('active'));
+                            label.classList.add('active');
+                        }
                         formatInput.dispatchEvent(new Event('change', { bubbles: true }));
                         e.preventDefault();
                     }
@@ -5349,6 +5394,19 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                         
                         newDesktopSection.classList.toggle('open');
                         
+                        // display 속성 명시적으로 제어
+                        if (isOpen) {
+                            // 닫기: display를 none으로 설정하되, transition 후에 적용
+                            setTimeout(() => {
+                                if (!newDesktopSection.classList.contains('open')) {
+                                    newDesktopSection.style.display = 'none';
+                                }
+                            }, 300); // transition 시간과 일치
+                        } else {
+                            // 열기: display를 먼저 block으로 설정
+                            newDesktopSection.style.display = 'block';
+                        }
+                        
                         const icon = newDesktopToggle.querySelector('.toggle-icon');
                         if (icon) {
                             // isOpen이 true면 현재 열려있는 상태이므로 닫힌 후 ▼로 변경
@@ -5360,6 +5418,8 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                                 nowOpen: !isOpen, 
                                 icon: newIcon,
                                 newClassList: newDesktopSection.classList.toString(),
+                                newDisplay: newDesktopSection.style.display,
+                                computedDisplay: window.getComputedStyle(newDesktopSection).display,
                                 computedMaxHeight: window.getComputedStyle(newDesktopSection).maxHeight,
                                 computedOpacity: window.getComputedStyle(newDesktopSection).opacity,
                                 computedVisibility: window.getComputedStyle(newDesktopSection).visibility
@@ -5370,24 +5430,48 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                     const selectAllBtn = modal.querySelector('#custom-filter-section #select-all-filters');
                     const deselectAllBtn = modal.querySelector('#custom-filter-section #deselect-all-filters');
                     
+                    console.log('[Log Exporter] 전체 선택/해제 버튼 찾기:', { selectAllBtn, deselectAllBtn });
+                    
                     if (selectAllBtn) {
-                        selectAllBtn.addEventListener('click', () => { 
+                        selectAllBtn.addEventListener('click', (e) => { 
+                            e.preventDefault();
+                            e.stopPropagation();
                             console.log('[Log Exporter] 전체 선택 클릭');
-                            modal.querySelectorAll('#custom-filter-section .custom-filter-class').forEach(cb => { 
+                            const checkboxes = modal.querySelectorAll('#custom-filter-section .custom-filter-class');
+                            console.log('[Log Exporter] 찾은 체크박스 개수:', checkboxes.length);
+                            checkboxes.forEach((cb, index) => { 
+                                console.log(`[Log Exporter] 체크박스 ${index}: 변경 전 ${cb.checked} → 변경 후 true`);
                                 cb.checked = true; 
                                 cb.dispatchEvent(new Event('change', { bubbles: true })); 
-                            }); 
+                            });
+                            // 미리보기 즉시 업데이트
+                            if (typeof updatePreview === 'function') {
+                                updatePreview();
+                            }
                         });
+                    } else {
+                        console.warn('[Log Exporter] 전체 선택 버튼을 찾을 수 없습니다');
                     }
                     
                     if (deselectAllBtn) {
-                        deselectAllBtn.addEventListener('click', () => { 
+                        deselectAllBtn.addEventListener('click', (e) => { 
+                            e.preventDefault();
+                            e.stopPropagation();
                             console.log('[Log Exporter] 전체 해제 클릭');
-                            modal.querySelectorAll('#custom-filter-section .custom-filter-class').forEach(cb => { 
+                            const checkboxes = modal.querySelectorAll('#custom-filter-section .custom-filter-class');
+                            console.log('[Log Exporter] 찾은 체크박스 개수:', checkboxes.length);
+                            checkboxes.forEach((cb, index) => { 
+                                console.log(`[Log Exporter] 체크박스 ${index}: 변경 전 ${cb.checked} → 변경 후 false`);
                                 cb.checked = false; 
                                 cb.dispatchEvent(new Event('change', { bubbles: true })); 
-                            }); 
+                            });
+                            // 미리보기 즉시 업데이트
+                            if (typeof updatePreview === 'function') {
+                                updatePreview();
+                            }
                         });
+                    } else {
+                        console.warn('[Log Exporter] 전체 해제 버튼을 찾을 수 없습니다');
                     }
                 }
             } else {
@@ -5640,6 +5724,7 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                             if (!content.classList.contains('open')) {
                                 content.style.maxHeight = '0';
                                 content.style.opacity = '0';
+                                content.style.display = 'none';
                             }
                         });
                     }
