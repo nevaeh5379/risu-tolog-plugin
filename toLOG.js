@@ -2387,7 +2387,7 @@ const AVATAR_ATTR = 'data-avatar';
                 if (!showFooter) return '';
                 return `
                     <footer style="text-align: center; margin-top: 3em; padding-top: 1.5em; border-top: 1px solid ${color.border}; font-size: 0.8em; color: ${color.text}; opacity: 0.6;">
-                        Created by Chat Log Exporter Plugin
+                        Created by Log Plugin
                     </footer>
                 `;
             };
