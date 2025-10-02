@@ -2581,6 +2581,7 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
         } else {
             await ensureHtmlToImage(); imageLib = window.__htmlToImageLib || window.htmlToImage;
         }
+
         // --- 비디오 프레임 캡처 ---
         onProgress('비디오 프레임 캡처 중...', 5, 100);
         const videoElements = Array.from(captureTarget.querySelectorAll('video'));
@@ -2676,35 +2677,108 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
         // --- 이미지 생성 및 분할 저장 로직 (기존과 동일) ---
         // (이 부분은 수정할 필요가 없으므로 생략합니다. 기존 코드를 그대로 사용하세요)
         const totalHeight = (borderWrapper || captureTarget).scrollHeight;
-        const MAX_CHUNK_HEIGHT = 30000;
+        const MAX_CHUNK_HEIGHT = 15000;
         
         if (totalHeight <= MAX_CHUNK_HEIGHT) {
             // 단일 이미지 저장
-            let canvas = await imageLib.toCanvas(previewContainer, { ...commonOptions, width: imageWidth, height: totalHeight });
+            let canvas;
+            try {
+                canvas = await imageLib.toCanvas(previewContainer, { ...commonOptions, width: imageWidth, height: totalHeight, timeout: 30000 }); // 타임아웃 30초
+            } catch (e) {
+                throw new Error(`이미지 렌더링 중 타임아웃 발생: ${e.message}`);
+            }
             downloadImage(canvas.toDataURL('image/png', 1.0), charName, chatName);
         } else {
                        // --- 라이브 DOM 조작을 통한 분할 저장 ---
-            // [수정] 판타지 테마의 구분선(separator) div를 건너뛰고 메시지 컨테이너만 정확히 선택하도록 수정
-            // captureTarget의 직계 자식 중에서 '.chat-message-container' 클래스를 가진 요소만 선택합니다.
-            const messageContainers = Array.from(captureTarget.children)
-                                           .filter(el => el.classList.contains('chat-message-container'));
+            // [수정] 메시지 컨테이너를 깊이 탐색하여 찾기
+            let messageContainers = [];
+            
+            // 1순위: captureTarget 직계 자식에서 .chat-message-container 찾기
+            messageContainers = Array.from(captureTarget.querySelectorAll(':scope > .chat-message-container'));
+            console.log(`[Log Exporter] 1순위 검색: ${messageContainers.length}개의 .chat-message-container 발견`);
+            
+            // 2순위: .chat-log-wrapper 내부에서 찾기 (Shadow DOM 구조)
+            if (messageContainers.length === 0) {
+                const chatLogWrapper = captureTarget.querySelector('.chat-log-wrapper');
+                if (chatLogWrapper) {
+                    messageContainers = Array.from(chatLogWrapper.querySelectorAll('.chat-message-container'));
+                    console.log(`[Log Exporter] 2순위 검색 (.chat-log-wrapper 내부): ${messageContainers.length}개 발견`);
+                }
+            }
+            
+            // 3순위: 전체 하위 요소에서 .chat-message-container 찾기
+            if (messageContainers.length === 0) {
+                messageContainers = Array.from(captureTarget.querySelectorAll('.chat-message-container'));
+                console.log(`[Log Exporter] 3순위 검색 (전체 하위): ${messageContainers.length}개 발견`);
+            }
+            
+            // 4순위: 모든 직계 자식 div 요소 사용 (style, link 제외)
+            if (messageContainers.length === 0) {
+                console.log('[Log Exporter] .chat-message-container를 찾을 수 없어 모든 자식 요소를 메시지 단위로 사용합니다.');
+                messageContainers = Array.from(captureTarget.querySelectorAll(':scope > div'))
+                                         .filter(el => el.tagName === 'DIV' && 
+                                                      !el.classList.contains('chat-log-wrapper') &&
+                                                      !el.querySelector('style'));
+                console.log(`[Log Exporter] 4순위 검색 (직계 자식 div): ${messageContainers.length}개 발견`);
+            }
+            
             if (messageContainers.length === 0) throw new Error("메시지 단위를 찾을 수 없어 분할 저장을 할 수 없습니다.");
-            console.log(`[Log Exporter] 로그가 너무 길어(${totalHeight}px) ${Math.ceil(totalHeight / MAX_CHUNK_HEIGHT)}개의 이미지로 분할 저장을 시작합니다.`);
+            console.log(`[Log Exporter] 로그가 너무 길어(${totalHeight}px) ${Math.ceil(totalHeight / MAX_CHUNK_HEIGHT)}개의 이미지로 분할 저장을 시작합니다. (메시지 단위: ${messageContainers.length}개)`);
             if (!confirm(`[알림] 로그가 너무 길어 단일 이미지로 만들 수 없습니다.\n\n여러 개의 이미지 파일로 나누어 저장합니다.\n\n계속하시겠습니까?`)) return false;
 
+            // [핵심 수정] 그룹 분할 로직 개선: scrollHeight를 사용하여 정확한 높이 측정
             const groups = [];
             let currentGroup = [], accumulatedHeight = 0;
-            messageContainers.forEach(msg => {
-                const msgHeight = msg.offsetHeight;
+            
+            for (const msg of messageContainers) {
+                // 각 메시지의 실제 렌더링 높이를 측정하기 위해 임시로 격리하여 측정
+                const tempContainer = document.createElement('div');
+                Object.assign(tempContainer.style, {
+                    position: 'absolute',
+                    left: '-9999px',
+                    top: '-9999px',
+                    width: `${imageWidth}px`,
+                    visibility: 'hidden'
+                });
+                document.body.appendChild(tempContainer);
+                tempContainer.appendChild(msg.cloneNode(true));
+                
+                await new Promise(r => requestAnimationFrame(r));
+                const msgHeight = tempContainer.scrollHeight;
+                document.body.removeChild(tempContainer);
+                
+                console.log(`[Log Exporter] 메시지 높이 측정: ${msgHeight}px (누적: ${accumulatedHeight}px)`);
+                
+                // 단일 메시지가 MAX_CHUNK_HEIGHT를 초과하는 경우 단독으로 그룹화
+                if (msgHeight > MAX_CHUNK_HEIGHT) {
+                    if (currentGroup.length > 0) {
+                        groups.push(currentGroup);
+                        currentGroup = [];
+                        accumulatedHeight = 0;
+                    }
+                    groups.push([msg]);
+                    console.log(`[Log Exporter] 큰 메시지를 단독 그룹으로 저장 (${msgHeight}px)`);
+                    continue;
+                }
+                
+                // 현재 그룹에 추가하면 MAX_CHUNK_HEIGHT를 초과하는 경우 새 그룹 시작
                 if (currentGroup.length > 0 && accumulatedHeight + msgHeight > MAX_CHUNK_HEIGHT) {
                     groups.push(currentGroup);
+                    console.log(`[Log Exporter] 그룹 ${groups.length} 완료 (${accumulatedHeight}px, ${currentGroup.length}개 메시지)`);
                     currentGroup = [];
                     accumulatedHeight = 0;
                 }
+                
                 currentGroup.push(msg);
                 accumulatedHeight += msgHeight;
-            });
-            if (currentGroup.length > 0) groups.push(currentGroup);
+            }
+            
+            if (currentGroup.length > 0) {
+                groups.push(currentGroup);
+                console.log(`[Log Exporter] 마지막 그룹 ${groups.length} 완료 (${accumulatedHeight}px, ${currentGroup.length}개 메시지)`);
+            }
+            
+            console.log(`[Log Exporter] 총 ${groups.length}개의 그룹으로 분할 완료`);
             
             for (let i = 0; i < groups.length; i++) {
                 if (cancellationToken.cancelled) throw new Error("Cancelled");
@@ -2722,11 +2796,16 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                 const currentChunkHeight = captureTarget.scrollHeight;
                 console.log(`[Log Exporter] 분할 이미지 ${i + 1} 캡처 중... (높이: ${currentChunkHeight}px)`);
                 let canvas;
-                if (library === 'dom-to-image') {
-                    const dataUrl = await imageLib.toPng(previewContainer, { ...commonOptions, width: imageWidth, height: currentChunkHeight });
-                    canvas = await (new Promise(resolve => { const img = new Image(); img.onload = () => { const c = document.createElement('canvas'); c.width = img.width; c.height = img.height; c.getContext('2d').drawImage(img, 0, 0); resolve(c); }; img.src = dataUrl; }));
-                } else {
-                    canvas = await imageLib.toCanvas(previewContainer, { ...commonOptions, width: imageWidth, height: currentChunkHeight });
+                 try {
+                    if (library === 'dom-to-image') {
+                        const dataUrl = await imageLib.toPng(previewContainer, { ...commonOptions, width: imageWidth, height: currentChunkHeight, timeout: 30000 });
+                        canvas = await (new Promise((resolve, reject) => { const img = new Image(); img.onload = () => { const c = document.createElement('canvas'); c.width = img.width; c.height = img.height; c.getContext('2d').drawImage(img, 0, 0); resolve(c); }; img.onerror = reject; img.src = dataUrl; }));
+                    } else {
+                        canvas = await imageLib.toCanvas(previewContainer, { ...commonOptions, width: imageWidth, height: currentChunkHeight, timeout: 30000 });
+                    }
+                } catch (e) {
+                    console.error(`[Log Exporter] 분할 이미지 ${i + 1} 캡처 중 오류:`, e);
+                    throw new Error(`분할 이미지 캡처 중 오류 발생: ${e.message}`);
                 }
 
                 downloadImage(canvas.toDataURL('image/png', 1.0), charName, chatName, { partNumber: i + 1, showCompletionAlert: false });
