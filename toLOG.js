@@ -2581,8 +2581,46 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
         } else {
             await ensureHtmlToImage(); imageLib = window.__htmlToImageLib || window.htmlToImage;
         }
-
-        // --- 비디오 프레임 캡처 (생략) ---
+        // --- 비디오 프레임 캡처 ---
+        onProgress('비디오 프레임 캡처 중...', 5, 100);
+        const videoElements = Array.from(captureTarget.querySelectorAll('video'));
+        
+        if (videoElements.length > 0) {
+            console.log(`[Log Exporter] ${videoElements.length}개의 비디오 요소를 발견하여 프레임 캡처를 시도합니다.`);
+            await Promise.all(videoElements.map(videoEl => new Promise(async (resolve) => {
+                let timeoutId = setTimeout(() => resolve(), 10000);
+                try {
+                    const videoSrc = videoEl.querySelector('source')?.src || videoEl.src;
+                    if (!videoSrc) return resolve();
+                    const response = await fetch(videoSrc);
+                    if (!response.ok) return resolve();
+                    const videoBlob = await response.blob();
+                    const objectURL = URL.createObjectURL(videoBlob);
+                    const tempVideo = document.createElement('video');
+                    tempVideo.muted = true; tempVideo.src = objectURL;
+                    tempVideo.onseeked = () => {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = tempVideo.videoWidth; canvas.height = tempVideo.videoHeight;
+                        canvas.getContext('2d').drawImage(tempVideo, 0, 0, canvas.width, canvas.height);
+                        const img = new Image();
+                        img.onload = () => {
+                            Object.assign(img.style, { width: '100%', height: 'auto', margin: '0' });
+                            domReplacements.push({ original: videoEl, parent: videoEl.parentNode, replacement: img, objectURL });
+                            clearTimeout(timeoutId); resolve();
+                        };
+                        img.onerror = () => { clearTimeout(timeoutId); resolve(); };
+                        img.src = canvas.toDataURL();
+                    };
+                    tempVideo.onloadeddata = () => tempVideo.currentTime = 0;
+                    tempVideo.onerror = () => { clearTimeout(timeoutId); resolve(); };
+                } catch (e) { clearTimeout(timeoutId); resolve(); }
+            })));
+        }
+        
+        domReplacements.forEach(({ parent, original, replacement }) => {
+            if (parent && parent.contains(original)) parent.replaceChild(replacement, original);
+        });
+        await new Promise(r => requestAnimationFrame(r));
 
         // --- [핵심 수정] 판타지 테마 렌더링 문제 해결 ---
         const isFantasyTheme = originalStyles.target.fontFamily?.includes('Nanum Myeongjo') || captureTarget.style.fontFamily.includes('Nanum Myeongjo');
@@ -2645,9 +2683,60 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
             let canvas = await imageLib.toCanvas(previewContainer, { ...commonOptions, width: imageWidth, height: totalHeight });
             downloadImage(canvas.toDataURL('image/png', 1.0), charName, chatName);
         } else {
-            // 분할 저장
-            // (이 로직은 매우 길기 때문에 생략합니다. 기존의 분할 저장 로직을 여기에 그대로 두시면 됩니다.)
-             alert('분할 저장 로직은 생략되었습니다. 이 부분은 기존 코드를 유지하세요.');
+                       // --- 라이브 DOM 조작을 통한 분할 저장 ---
+            // [수정] 판타지 테마의 구분선(separator) div를 건너뛰고 메시지 컨테이너만 정확히 선택하도록 수정
+            // captureTarget의 직계 자식 중에서 '.chat-message-container' 클래스를 가진 요소만 선택합니다.
+            const messageContainers = Array.from(captureTarget.children)
+                                           .filter(el => el.classList.contains('chat-message-container'));
+            if (messageContainers.length === 0) throw new Error("메시지 단위를 찾을 수 없어 분할 저장을 할 수 없습니다.");
+            console.log(`[Log Exporter] 로그가 너무 길어(${totalHeight}px) ${Math.ceil(totalHeight / MAX_CHUNK_HEIGHT)}개의 이미지로 분할 저장을 시작합니다.`);
+            if (!confirm(`[알림] 로그가 너무 길어 단일 이미지로 만들 수 없습니다.\n\n여러 개의 이미지 파일로 나누어 저장합니다.\n\n계속하시겠습니까?`)) return false;
+
+            const groups = [];
+            let currentGroup = [], accumulatedHeight = 0;
+            messageContainers.forEach(msg => {
+                const msgHeight = msg.offsetHeight;
+                if (currentGroup.length > 0 && accumulatedHeight + msgHeight > MAX_CHUNK_HEIGHT) {
+                    groups.push(currentGroup);
+                    currentGroup = [];
+                    accumulatedHeight = 0;
+                }
+                currentGroup.push(msg);
+                accumulatedHeight += msgHeight;
+            });
+            if (currentGroup.length > 0) groups.push(currentGroup);
+            
+            for (let i = 0; i < groups.length; i++) {
+                if (cancellationToken.cancelled) throw new Error("Cancelled");
+                onProgress(`이미지 ${i + 1}/${groups.length} 렌더링 중...`, i, groups.length);
+
+                // 1. 미리보기 창을 비움
+                while (captureTarget.firstChild) captureTarget.removeChild(captureTarget.firstChild);
+                
+                // 2. 현재 그룹의 노드만 다시 삽입
+                groups[i].forEach(msgNode => captureTarget.appendChild(msgNode));
+                
+                await new Promise(r => requestAnimationFrame(r));
+                
+                // 3. 현재 보이는 부분만 캡처
+                const currentChunkHeight = captureTarget.scrollHeight;
+                console.log(`[Log Exporter] 분할 이미지 ${i + 1} 캡처 중... (높이: ${currentChunkHeight}px)`);
+                let canvas;
+                if (library === 'dom-to-image') {
+                    const dataUrl = await imageLib.toPng(previewContainer, { ...commonOptions, width: imageWidth, height: currentChunkHeight });
+                    canvas = await (new Promise(resolve => { const img = new Image(); img.onload = () => { const c = document.createElement('canvas'); c.width = img.width; c.height = img.height; c.getContext('2d').drawImage(img, 0, 0); resolve(c); }; img.src = dataUrl; }));
+                } else {
+                    canvas = await imageLib.toCanvas(previewContainer, { ...commonOptions, width: imageWidth, height: currentChunkHeight });
+                }
+
+                downloadImage(canvas.toDataURL('image/png', 1.0), charName, chatName, { partNumber: i + 1, showCompletionAlert: false });
+                
+                await new Promise(r => setTimeout(r, 100));
+            }
+
+            if (!cancellationToken.cancelled) {
+                alert(`${groups.length}개의 이미지로 분할하여 저장되었습니다.`, 'success');
+            }
         }
 
         return true;
