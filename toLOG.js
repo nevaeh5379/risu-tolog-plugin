@@ -1819,11 +1819,27 @@ const AVATAR_ATTR = 'data-avatar';
                 let contentSourceEl = originalMessageEl.cloneNode(true);
                 // [수정] script, style, 버튼 그룹만 제거하고 img 태그는 유지합니다.
                 contentSourceEl.querySelectorAll('script, style, .log-exporter-msg-btn-group').forEach(el => el.remove());
-                contentSourceEl.querySelectorAll('[style*="background-image"]').forEach(el => el.style.backgroundImage = 'none');
+
+                // [수정] background-image를 가진 요소를 <img> 태그로 변환
+                const bgImagePromises = Array.from(contentSourceEl.querySelectorAll('[style*="background-image"]')).map(async (el) => {
+                    const style = el.getAttribute('style');
+                    const urlMatch = style.match(/url\(["']?(.+?)["']?\)/);
+                    if (urlMatch && urlMatch[1]) {
+                        const img = document.createElement('img');
+                        if (embedImagesAsBase64) {
+                            img.src = await imageUrlToBase64(urlMatch[1]);
+                        } else {
+                            img.src = urlMatch[1];
+                        }
+                        el.parentNode.insertBefore(img, el);
+                        el.remove();
+                    }
+                });
+                await Promise.all(bgImagePromises);
                 
                 // [추가] 메시지 내의 모든 이미지를 Base64로 변환하여 포함시킵니다.
                 const imagePromises = Array.from(contentSourceEl.querySelectorAll('img')).map(async (img) => {
-                    if (img.src && embedImagesAsBase64) { // embedImagesAsBase64 플래그 확인
+                    if (img.src && embedImagesAsBase64 && !img.src.startsWith('data:')) { // embedImagesAsBase64 플래그 확인 및 중복 변환 방지
                         if (img.src) {
                             try {
                                 const base64Src = await imageUrlToBase64(img.src);
@@ -2560,6 +2576,7 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
     const originalMessageNodes = Array.from(captureTarget.childNodes);
     let borderWrapper = null; // border-image 시뮬레이션용 래퍼
 
+    let forceHoverStyleEl = null; // [추가] 호버 강제 스타일 요소를 추적하기 위한 변수
     try {
         // --- 웹 폰트 로드 ---
         const fontLinkEl = previewContainer.querySelector('link[href*="fonts.googleapis.com"]');
@@ -2571,6 +2588,22 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                 document.fonts.add(fontFace);
             } catch (fontError) {
                 console.warn('[Log Exporter] 웹 폰트 로드 실패', fontError);
+            }
+        }
+
+        // [수정] 비디오 캡처 전에 호버 스타일을 먼저 적용
+        const expandHover = options.useHighRes; // '고해상도' 옵션을 호버 확장 여부로 사용
+        if (expandHover) {
+            onProgress('호버 스타일 적용 중...', 3, 100);
+            console.log('[Log Exporter] 비디오 캡처 전 호버 스타일을 강제 적용합니다.');
+            const hoverCss = await generateForceHoverCss();
+            if (hoverCss) {
+                forceHoverStyleEl = document.createElement('style');
+                forceHoverStyleEl.id = 'tolog-force-hover-style';
+                forceHoverStyleEl.textContent = hoverCss;
+                document.head.appendChild(forceHoverStyleEl);
+                // [수정] 스타일이 적용되고 렌더링될 시간을 충분히 확보합니다.
+                await new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, 100)));
             }
         }
 
@@ -2723,8 +2756,11 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
             }
             
             if (messageContainers.length === 0) throw new Error("메시지 단위를 찾을 수 없어 분할 저장을 할 수 없습니다.");
+            // [수정] confirm 대화상자를 제거하고, onProgress를 통해 진행률 UI에 상태를 바로 표시합니다.
             console.log(`[Log Exporter] 로그가 너무 길어(${totalHeight}px) ${Math.ceil(totalHeight / MAX_CHUNK_HEIGHT)}개의 이미지로 분할 저장을 시작합니다. (메시지 단위: ${messageContainers.length}개)`);
-            if (!confirm(`[알림] 로그가 너무 길어 단일 이미지로 만들 수 없습니다.\n\n여러 개의 이미지 파일로 나누어 저장합니다.\n\n계속하시겠습니까?`)) return false;
+            onProgress(`분할 저장을 시작합니다... (총 ${Math.ceil(totalHeight / MAX_CHUNK_HEIGHT)}개)`, 0, 100);
+            // 짧은 지연을 주어 UI가 업데이트될 시간을 확보합니다.
+            await new Promise(resolve => setTimeout(resolve, 50));
 
             // [핵심 수정] 그룹 분할 로직 개선: scrollHeight를 사용하여 정확한 높이 측정
             const groups = [];
@@ -2846,6 +2882,12 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
         Object.assign(previewContainer.style, originalStyles.preview);
         Object.assign(captureTarget.style, originalStyles.target);
         Object.assign(rootHtml.style, originalStyles.rootHtml);
+
+        // [추가] 추가했던 호버 강제 스타일 시트를 제거하여 페이지를 완전히 복구
+        if (forceHoverStyleEl) {
+            forceHoverStyleEl.remove();
+            console.log('[Log Exporter] 추가했던 호버 강제 스타일을 제거했습니다.');
+        }
     }
 }
     /**
@@ -2940,11 +2982,19 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
      * @returns {{name: string, displayName: string, hasImage: boolean}[]} UI 클래스 정보 객체의 배열.
      */
     function collectUIClasses(nodes) {
-        console.log('[Log Exporter] collectUIClasses: RisuAI UI 클래스 수집 시작');
+        console.log('[Log Exporter] collectUIClasses: RisuAI UI 클래스 수집 시작 (v2)');
         const CONTENT_CLASSES_TO_PRESERVE = [
             'x-risu-regex-quote-block',
             'x-risu-regex-thought-block',
             'x-risu-regex-sound-block'
+        ];
+
+        // [수정] 필터링에서 제외할 이미지 관련 필수 클래스 목록
+        const IMAGE_RELATED_CLASSES_TO_EXCLUDE = [
+            'x-risu-image-container',
+            'x-risu-image-cell',
+            'x-risu-asset-table',
+            'x-risu-in-table'
         ];
 
         const classDetails = new Map();
@@ -2953,7 +3003,10 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
         nodes.forEach(node => {
             node.querySelectorAll('*[class*="x-risu-"]').forEach(el => {
                 const currentClasses = Array.from(el.classList)
-                    .filter(c => c.startsWith('x-risu-') && !CONTENT_CLASSES_TO_PRESERVE.includes(c));
+                    // [수정] 보존할 콘텐츠 클래스와 제외할 이미지 클래스를 모두 필터링
+                    .filter(c => c.startsWith('x-risu-') && 
+                                 !CONTENT_CLASSES_TO_PRESERVE.includes(c) && 
+                                 !IMAGE_RELATED_CLASSES_TO_EXCLUDE.includes(c));
 
                 if (currentClasses.length === 0) return;
 
@@ -2963,7 +3016,9 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                 let parentRisuClass = null;
                 while (parentEl && parentEl !== node) {
                     const parentClasses = Array.from(parentEl.classList)
-                        .filter(c => c.startsWith('x-risu-') && !CONTENT_CLASSES_TO_PRESERVE.includes(c));
+                        .filter(c => c.startsWith('x-risu-') && 
+                                     !CONTENT_CLASSES_TO_PRESERVE.includes(c) &&
+                                     !IMAGE_RELATED_CLASSES_TO_EXCLUDE.includes(c));
                     if (parentClasses.length > 0) {
                         parentRisuClass = parentClasses[0];
                         break;
@@ -2986,12 +3041,9 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
             });
         });
 
-        const imageRelatedClasses = ['x-risu-asset-table', 'x-risu-image-cell', 'x-risu-in-table'];
-
         const topLevelClasses = [];
         for (const [className, details] of classDetails.entries()) {
-            if (imageRelatedClasses.includes(className)) continue;
-
+            // 이미 위에서 필터링했으므로 별도 체크 불필요
             if (details.parent && classDetails.has(details.parent)) {
                 if (!classHierarchy.has(details.parent)) {
                     classHierarchy.set(details.parent, []);
@@ -5749,14 +5801,21 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
 
             // [수정] 이미지 저장 버튼 클릭 시 옵션 값들 읽어서 전달
             const handleImageSave = async () => {
+                // [추가] 새로운 UI의 액션 바 참조
+                const desktopActionBar = modal.querySelector('.desktop-action-bar');
+                const mobileActionBar = modal.querySelector('.mobile-action-bar');
+
                 cancellationToken.cancelled = false;
-                footer.style.display = 'none';
+                if (desktopActionBar) desktopActionBar.style.display = 'none';
+                if (mobileActionBar) mobileActionBar.style.display = 'none';
                 progressFooter.style.display = 'flex';
                 updateProgress('이미지 생성 준비 중...', 0, 100);
 
-                const useHighRes = highResCheckbox.checked;
-                const baseFontSize = parseInt(fontSizeInput.value) || 16;
-                const imageWidth = parseInt(imageWidthInput.value) || 900;
+                // [수정] 모바일/데스크톱 공용으로 설정 값 읽기
+                const useHighRes = modal.querySelector('#image-high-res-checkbox, #image-high-res-mobile').checked;
+                const baseFontSize = parseInt(modal.querySelector('#image-font-size-input, #image-font-size-mobile').value) || 26;
+                const imageWidth = parseInt(modal.querySelector('#image-width-input, #image-width-mobile').value) || 700;
+                const library = modal.querySelector('#image-library-selector, #image-library-mobile').value;
 
                 // 현재 화면 크기에 따라 올바른 미리보기 선택
                 const isMobile = window.innerWidth <= 768;
@@ -5768,11 +5827,13 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                     useHighRes,
                     baseFontSize,
                     imageWidth,
-                    library: imageLibrarySelector.value
+                    library
                 });
 
-                footer.style.display = 'flex';
+                if (desktopActionBar) desktopActionBar.style.display = 'flex';
+                if (mobileActionBar) mobileActionBar.style.display = 'flex';
                 progressFooter.style.display = 'none';
+
                 if (success) closeModal();
                 else if (!cancellationToken.cancelled) alert("이미지 저장이 실패했거나 중단되었습니다.", "error");
             };
