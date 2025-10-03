@@ -1354,8 +1354,8 @@ const AVATAR_ATTR = 'data-avatar';
      * @async
      * @returns {Promise<string>} :hover를 강제 활성화하는 CSS 규칙 문자열.
      */
-    async function generateForceHoverCss() {
-        console.log('[Log Exporter] generateForceHoverCss: :hover 강제 활성화 CSS 생성 시작 (v2, !important 적용)');
+    async function generateForceHoverCss(previewContainer = null) {
+        console.log('[Log Exporter] generateForceHoverCss: :hover 강제 활성화 CSS 생성 시작 (v3, 인라인 스타일 포함)');
         const newRules = new Set();
         const hoverRegex = /:hover/g;
 
@@ -1371,8 +1371,11 @@ const AVATAR_ATTR = 'data-avatar';
             // :hover를 제거하고 앞에 강제 활성화 클래스를 붙여 새 선택자 생성
             const newSelector = rule.selectorText
                 .split(',')
-                // ▼▼▼ [수정] :not 선택자를 사용하여 data-no-force-hover 속성을 가진 요소를 제외 ▼▼▼
-                .map(part => `.expand-hover-globally ${part.trim().replace(hoverRegex, '')}:not([data-no-force-hover])`)
+                .map(part => {
+                    const trimmed = part.trim().replace(hoverRegex, '');
+                    // .expand-hover-globally 내부의 모든 요소에 적용
+                    return `.expand-hover-globally ${trimmed}`;
+                })
                 .join(', ');
 
             // 규칙 내의 모든 스타일 속성을 !important와 함께 재구성
@@ -1390,6 +1393,7 @@ const AVATAR_ATTR = 'data-avatar';
             return null;
         };
 
+        // 1. document.styleSheets에서 CSS 규칙 수집
         for (const sheet of document.styleSheets) {
             try {
                 if (!sheet.cssRules) continue;
@@ -1420,8 +1424,91 @@ const AVATAR_ATTR = 'data-avatar';
                 console.warn(`[Log Exporter] 스타일시트를 읽을 수 없습니다 (CORS): ${sheet.href}`, e);
             }
         }
+
+        // 2. [추가] previewContainer 내부의 인라인 <style> 태그도 처리
+        if (previewContainer) {
+            // 일반 DOM에서 찾기
+            let inlineStyles = Array.from(previewContainer.querySelectorAll('style'));
+            
+            // Shadow DOM이 있다면 그 안에서도 찾기
+            const allElements = previewContainer.querySelectorAll('*');
+            for (const el of allElements) {
+                if (el.shadowRoot) {
+                    const shadowStyles = Array.from(el.shadowRoot.querySelectorAll('style'));
+                    inlineStyles = inlineStyles.concat(shadowStyles);
+                }
+            }
+            
+            console.log(`[Log Exporter] 인라인 <style> 태그 ${inlineStyles.length}개 발견 (Shadow DOM 포함)`);
+            
+            for (const styleEl of inlineStyles) {
+                const cssText = styleEl.textContent;
+                if (!cssText || !hoverRegex.test(cssText)) {
+                    console.log('[Log Exporter] 스타일 태그에 :hover 없음, 건너뜀');
+                    continue;
+                }
+
+                console.log('[Log Exporter] :hover 규칙을 포함한 인라인 스타일 발견:', cssText.substring(0, 100));
+
+                // 임시 style 요소를 만들어 CSS 파싱
+                const tempStyle = document.createElement('style');
+                tempStyle.textContent = cssText;
+                document.head.appendChild(tempStyle);
+                
+                try {
+                    const tempSheet = tempStyle.sheet;
+                    if (tempSheet && tempSheet.cssRules) {
+                        console.log(`[Log Exporter] 인라인 스타일에서 ${tempSheet.cssRules.length}개의 CSS 규칙 발견`);
+                        
+                        // [디버깅] 모든 규칙의 선택자를 출력
+                        const allSelectors = [];
+                        for (const rule of tempSheet.cssRules) {
+                            if (rule.selectorText) {
+                                allSelectors.push(rule.selectorText);
+                            } else if (rule.type === CSSRule.MEDIA_RULE) {
+                                for (const nestedRule of rule.cssRules) {
+                                    if (nestedRule.selectorText) {
+                                        allSelectors.push(`@media { ${nestedRule.selectorText} }`);
+                                    }
+                                }
+                            }
+                        }
+                        console.log('[Log Exporter] 인라인 스타일의 모든 선택자:', allSelectors.join(', '));
+                        
+                        for (const rule of tempSheet.cssRules) {
+                            if (rule.type === CSSRule.MEDIA_RULE) {
+                                let mediaRules = '';
+                                for (const nestedRule of rule.cssRules) {
+                                    const importantRule = createImportantRule(nestedRule);
+                                    if (importantRule) {
+                                        mediaRules += importantRule;
+                                    }
+                                }
+                                if (mediaRules) {
+                                    newRules.add(`@media ${rule.conditionText} { ${mediaRules} }`);
+                                }
+                            } else {
+                                const importantRule = createImportantRule(rule);
+                                if (importantRule) {
+                                    newRules.add(importantRule);
+                                }
+                            }
+                        }
+                    } else {
+                        console.warn('[Log Exporter] ⚠️ tempSheet.cssRules를 읽을 수 없습니다');
+                    }
+                } catch (parseError) {
+                    console.error('[Log Exporter] ⚠️ CSS 파싱 중 오류:', parseError);
+                } finally {
+                    tempStyle.remove();
+                }
+            }
+        }
+
         console.log(`[Log Exporter] generateForceHoverCss: ${newRules.size}개의 :hover 대체 규칙 블록 생성 완료.`);
-        return Array.from(newRules).join('\n');
+        const finalCss = Array.from(newRules).join('\n');
+        console.log('[Log Exporter] 생성된 CSS 샘플:\n', finalCss.substring(0, 500));
+        return finalCss;
     }
 // ▲▲▲ [교체] 여기까지 덮어쓰시면 됩니다. ▲▲▲
     /**
@@ -2551,7 +2638,8 @@ const AVATAR_ATTR = 'data-avatar';
  * @returns {Promise<boolean>} 저장 성공 여부.
  */
 async function savePreviewAsImage(previewContainer, onProgress, cancellationToken, charName, chatName, options = {}) {
-    const { useHighRes = false, baseFontSize = 16, imageWidth = 900, library = 'html-to-image' } = options;
+    // [수정] expandHover를 options에서 올바르게 구조 분해 할당합니다.
+    const { useHighRes = false, baseFontSize = 16, imageWidth = 900, library = 'html-to-image', expandHover = false } = options;
     console.log(`[Log Exporter] savePreviewAsImage: 이미지 저장을 시작합니다. (v3 - border-image 시뮬레이션 적용)`, { useHighRes, imageWidth, library });
 
     let captureTarget = previewContainer.querySelector('div');
@@ -2567,8 +2655,23 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
     const rootHtml = document.documentElement;
     // 나중에 복원할 원본 스타일 저장
     const originalStyles = {
-        preview: { width: previewContainer.style.width, height: previewContainer.style.height, maxHeight: previewContainer.style.maxHeight, overflowY: previewContainer.style.overflowY, padding: previewContainer.style.padding, border: previewContainer.style.border },
-        target: { width: captureTarget.style.width, border: captureTarget.style.border, borderImage: captureTarget.style.borderImage, backgroundImage: captureTarget.style.backgroundImage, margin: captureTarget.style.margin },
+        preview: { 
+            width: previewContainer.style.width, 
+            height: previewContainer.style.height, 
+            maxHeight: previewContainer.style.maxHeight, 
+            overflowY: previewContainer.style.overflowY, 
+            padding: previewContainer.style.padding, 
+            border: previewContainer.style.border,
+            borderRadius: previewContainer.style.borderRadius
+        },
+        target: { 
+            width: captureTarget.style.width, 
+            border: captureTarget.style.border, 
+            borderImage: captureTarget.style.borderImage, 
+            borderRadius: captureTarget.style.borderRadius,
+            backgroundImage: captureTarget.style.backgroundImage, 
+            margin: captureTarget.style.margin 
+        },
         rootHtml: { fontSize: rootHtml.style.fontSize }
     };
 
@@ -2577,6 +2680,8 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
     let borderWrapper = null; // border-image 시뮬레이션용 래퍼
 
     let forceHoverStyleEl = null; // [추가] 호버 강제 스타일 요소를 추적하기 위한 변수
+    const expandedElements = []; // [수정] finally 블록에서 접근 가능하도록 try 밖으로 이동
+    
     try {
         // --- 웹 폰트 로드 ---
         const fontLinkEl = previewContainer.querySelector('link[href*="fonts.googleapis.com"]');
@@ -2591,20 +2696,107 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
             }
         }
 
-        // [수정] 비디오 캡처 전에 호버 스타일을 먼저 적용
-        const expandHover = options.useHighRes; // '고해상도' 옵션을 호버 확장 여부로 사용
+        // [새로운 접근] 호버 효과를 CSS가 아닌 인라인 스타일로 직접 적용
+        
+        // [수정] 올바른 expandHover 값을 로그로 출력합니다.
+        console.log(`[Log Exporter] ⚙️ expandHover = ${expandHover}, useHighRes = ${useHighRes}`);
+        
         if (expandHover) {
-            onProgress('호버 스타일 적용 중...', 3, 100);
-            console.log('[Log Exporter] 비디오 캡처 전 호버 스타일을 강제 적용합니다.');
-            const hoverCss = await generateForceHoverCss();
-            if (hoverCss) {
-                forceHoverStyleEl = document.createElement('style');
-                forceHoverStyleEl.id = 'tolog-force-hover-style';
-                forceHoverStyleEl.textContent = hoverCss;
-                document.head.appendChild(forceHoverStyleEl);
-                // [수정] 스타일이 적용되고 렌더링될 시간을 충분히 확보합니다.
-                await new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, 100)));
-            }
+             onProgress('호버 스타일 적용 중...', 3, 100);
+             console.log('[Log Exporter] ✅ 호버 확장 모드 활성화: 모든 제한된 높이 요소를 확장합니다.');
+ 
+             // 1. 일반 CSS 호버 효과를 위한 기본 처리
+             const hoverCss = await generateForceHoverCss(previewContainer);
+             if (hoverCss) {
+                 forceHoverStyleEl = document.createElement('style');
+                 forceHoverStyleEl.id = 'tolog-force-hover-style';
+                 forceHoverStyleEl.textContent = hoverCss;
+                 document.head.appendChild(forceHoverStyleEl);
+                 captureTarget.classList.add('expand-hover-globally');
+             }
+ 
+             // 2. [핵심] 모든 제한된 높이 요소를 실제 scrollHeight로 확장
+             // [새로운 전략] 먼저 모든 제한을 해제하고 실제 높이를 측정한 다음 고정
+             const elementsToExpand = Array.from(captureTarget.querySelectorAll('*'));
+             
+             // Step 1: max-height가 있는 모든 요소 찾기 & 원본 스타일 저장
+             elementsToExpand.forEach(el => {
+                 const computedStyle = getComputedStyle(el);
+                 
+                 if (computedStyle.maxHeight && computedStyle.maxHeight !== 'none') {
+                     const maxHeightPx = parseFloat(computedStyle.maxHeight);
+                     
+                     expandedElements.push({ 
+                         el, 
+                         originalStyles: {
+                             maxHeight: el.style.maxHeight,
+                             overflow: el.style.overflow,
+                             transition: el.style.transition,
+                             transform: el.style.transform,
+                             borderRadius: el.style.borderRadius // [추가] border-radius 저장
+                         },
+                         originalMaxHeight: maxHeightPx,
+                         computedBorderRadius: computedStyle.borderRadius // [추가] 계산된 border-radius 저장
+                     });
+                     
+                     console.log(`[Log Exporter] 📌 제한된 요소 발견: ${maxHeightPx.toFixed(0)}px`,
+                                `클래스: "${el.className}"`,
+                                `태그: ${el.tagName}`,
+                                `border-radius: ${computedStyle.borderRadius}`);
+                 }
+             });
+             
+             // Step 2: 모든 제한을 임시로 제거하여 실제 콘텐츠 높이 측정 가능하게 만들기
+             expandedElements.forEach(({ el, computedBorderRadius }) => {
+                 el.style.setProperty('max-height', 'none', 'important');
+                 // [수정] overflow는 hidden으로 유지 (visible은 border-radius를 무시함)
+                 el.style.setProperty('overflow', 'hidden', 'important');
+                 el.style.setProperty('transition', 'none', 'important');
+                 el.style.setProperty('transform', 'none', 'important');
+                 // [추가] border-radius 유지
+                 if (computedBorderRadius && computedBorderRadius !== '0px') {
+                     el.style.setProperty('border-radius', computedBorderRadius, 'important');
+                 }
+             });
+             
+             console.log(`[Log Exporter] 🔓 ${expandedElements.length}개 요소의 제한을 임시 해제했습니다.`);
+             
+             // Step 3: 렌더링 대기 - DOM이 실제 높이로 확장되도록
+             await new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, 200)));
+             
+             // Step 4: 이제 실제 콘텐츠 높이를 측정하고 고정
+             expandedElements.forEach(({ el, originalMaxHeight, computedBorderRadius }) => {
+                 const actualHeight = el.scrollHeight;
+                 
+                 // 실제 높이가 원래 제한보다 크면 확장된 것
+                 if (actualHeight > originalMaxHeight) {
+                     el.style.setProperty('max-height', `${actualHeight}px`, 'important');
+                     // [추가] overflow를 hidden으로 유지하여 border-radius 적용
+                     el.style.setProperty('overflow', 'hidden', 'important');
+                     // [추가] border-radius 명시적으로 유지
+                     if (computedBorderRadius && computedBorderRadius !== '0px') {
+                         el.style.setProperty('border-radius', computedBorderRadius, 'important');
+                     }
+                     
+                     console.log(`[Log Exporter] ✅ 요소 확장 완료: ${originalMaxHeight.toFixed(0)}px → ${actualHeight}px`,
+                                `클래스: "${el.className}"`,
+                                `태그: ${el.tagName}`,
+                                `border-radius: ${computedBorderRadius}`);
+                 } else {
+                     // 실제 높이가 더 작으면 원래대로 복원
+                     el.style.setProperty('max-height', `${originalMaxHeight}px`, 'important');
+                     
+                     console.log(`[Log Exporter] ↩️  원래 크기 유지: ${originalMaxHeight.toFixed(0)}px`,
+                                `클래스: "${el.className}"`);
+                 }
+             });
+ 
+             console.log(`[Log Exporter] ✨ ${expandedElements.length}개 요소 처리 완료`);
+ 
+             // 최종 렌더링 대기
+             await new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, 100)));
+        } else {
+            console.log('[Log Exporter] ❌ 호버 확장 모드 비활성화: 원본 상태 그대로 캡처합니다.');
         }
 
         // --- 캡처 라이브러리 로드 ---
@@ -2702,7 +2894,11 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
         const commonOptions = { quality: 1.0, pixelRatio, backgroundColor: getComputedStyle(captureTarget).backgroundColor || '#1a1b26' };
         
         rootHtml.style.fontSize = `${baseFontSize}px`;
-        Object.assign(previewContainer.style, { height: 'auto', maxHeight: 'none', overflowY: 'visible', border: 'none', padding: '0', width: `${imageWidth}px` });
+        // [수정] 기본 스타일만 적용 (높이/오버플로우 제한은 유지)
+        Object.assign(previewContainer.style, { 
+            padding: '0', 
+            width: `${imageWidth}px` 
+        });
         (borderWrapper || captureTarget).style.width = `${imageWidth}px`;
         
         await new Promise(r => requestAnimationFrame(r));
@@ -2887,6 +3083,24 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
         if (forceHoverStyleEl) {
             forceHoverStyleEl.remove();
             console.log('[Log Exporter] 추가했던 호버 강제 스타일을 제거했습니다.');
+        }
+        
+        // [추가] expand-hover-globally 클래스 제거
+        if (expandHover) {
+            captureTarget.classList.remove('expand-hover-globally');
+            console.log('[Log Exporter] expand-hover-globally 클래스를 제거했습니다.');
+        }
+        
+        // [추가] 인라인으로 확장했던 요소들의 스타일 복원
+        expandedElements.forEach(({ el, originalStyles }) => {
+            el.style.maxHeight = originalStyles.maxHeight;
+            el.style.overflow = originalStyles.overflow;
+            el.style.transition = originalStyles.transition;
+            el.style.transform = originalStyles.transform;
+            el.style.borderRadius = originalStyles.borderRadius; // [추가] border-radius 복원
+        });
+        if (expandedElements.length > 0) {
+            console.log(`[Log Exporter] ${expandedElements.length}개 요소의 스타일을 복원했습니다.`);
         }
     }
 }
@@ -3909,6 +4123,10 @@ const customFilterHtml = `
                     .log-exporter-modal-footer {
                         display: none !important;
                     }
+                    /* [추가] 데스크톱에서 이미지 저장 컨트롤 보이기 */
+                    #image-export-controls {
+                        display: flex !important;
+                    }
                 }
                 
                 @media (max-width: 768px) {
@@ -4397,6 +4615,9 @@ const customFilterHtml = `
                     <button class="desktop-btn desktop-btn-warning" id="desktop-save-image">
                         🖼️ 이미지 저장
                     </button>
+                    <button class="desktop-btn" id="log-exporter-debug-hover" title="호버 스타일 적용 상태를 확인합니다" style="background-color: #7dcfff; color: #1a1b26;">
+                        🐛 디버그
+                    </button>
                     <button class="desktop-btn desktop-btn-secondary" id="desktop-download-zip">
                         📦 ZIP 다운로드
                     </button>
@@ -4428,7 +4649,8 @@ const customFilterHtml = `
                             </select></label>
                         <label>폰트:<input type="number" id="image-font-size-input" data-setting-key="imageFontSize" value="${savedSettings.imageFontSize || 26}" min="12" max="40" style="width: 45px; margin-left: 4px; background: #1a1b26; color: #c0caf5; border: 1px solid #414868; border-radius: 4px; text-align: center;"></label>
                         <label>너비:<input type="number" id="image-width-input" data-setting-key="imageWidth" value="${savedSettings.imageWidth || 700}" min="600" max="1200" step="50" style="width: 60px; margin-left: 4px; background: #1a1b26; color: #c0caf5; border: 1px solid #414868; border-radius: 4px; text-align: center;"></label>
-                        <button class="log-exporter-modal-btn image-save" id="log-exporter-save-image" aria-label="이미지로 저장" accesskey="i" style="min-height: 36px;"><u>I</u>mage 저장</button>    
+                        <button class="log-exporter-modal-btn image-save" id="log-exporter-save-image" aria-label="이미지로 저장" accesskey="i" style="min-height: 36px;"><u>I</u>mage 저장</button>
+                        <button class="log-exporter-modal-btn" id="log-exporter-debug-hover" title="호버 스타일 적용 상태를 확인합니다" style="background-color: #7dcfff; color: #1a1b26; min-height: 36px;">🐛 디버그</button>
                     </div>
                     
                     <button class="log-exporter-modal-btn" id="log-exporter-download-zip" style="background-color: #e0af68; color: #1a1b26; min-height: 36px;" aria-label="이미지 ZIP 다운로드" accesskey="z"><u>Z</u>IP 다운로드</button>
@@ -5813,13 +6035,14 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
 
                 // [수정] 모바일/데스크톱 공용으로 설정 값 읽기
                 const useHighRes = modal.querySelector('#image-high-res-checkbox, #image-high-res-mobile').checked;
+                const expandHover = modal.querySelector('#expand-hover-elements-checkbox, #expand-hover-mobile').checked;
                 const baseFontSize = parseInt(modal.querySelector('#image-font-size-input, #image-font-size-mobile').value) || 26;
                 const imageWidth = parseInt(modal.querySelector('#image-width-input, #image-width-mobile').value) || 700;
                 const library = modal.querySelector('#image-library-selector, #image-library-mobile').value;
 
                 // 현재 화면 크기에 따라 올바른 미리보기 선택
                 const isMobile = window.innerWidth <= 768;
-                const targetPreview = isMobile ? mobilePreviewEl : desktopPreviewEl;
+                const targetPreview = isMobile ? (mobilePreviewEl || desktopPreviewEl) : (desktopPreviewEl || mobilePreviewEl);
                 
                 console.log(`[Log Exporter] 이미지 저장 시작: ${isMobile ? '모바일' : '데스크톱'} 미리보기 사용`);
 
@@ -5827,7 +6050,8 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                     useHighRes,
                     baseFontSize,
                     imageWidth,
-                    library
+                    library,
+                    expandHover // "호버 펼치기" 옵션 값을 명시적으로 전달
                 });
 
                 if (desktopActionBar) desktopActionBar.style.display = 'flex';
@@ -5839,6 +6063,136 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
             };
             
             saveImageBtn.addEventListener('click', handleImageSave);
+            
+            // [추가] 디버그 버튼 이벤트 리스너
+            const debugHoverBtn = modal.querySelector('#log-exporter-debug-hover');
+            if (debugHoverBtn) {
+                debugHoverBtn.addEventListener('click', async () => {
+                    console.log('[Log Exporter] 🐛 디버그 모드 시작 - 이미지 저장 환경을 그대로 시뮬레이션합니다.');
+                    
+                    // 설정 값 읽기 (이미지 저장과 동일하게)
+                    const useHighRes = modal.querySelector('#image-high-res-checkbox, #image-high-res-mobile')?.checked || false;
+                    const baseFontSize = parseInt(modal.querySelector('#image-font-size-input, #image-font-size-mobile')?.value) || 26;
+                    const imageWidth = parseInt(modal.querySelector('#image-width-input, #image-width-mobile')?.value) || 700;
+                    
+                    console.log('[Log Exporter] 🐛 설정값:', { useHighRes, baseFontSize, imageWidth });
+                    
+                    // 현재 화면 크기에 따라 올바른 미리보기 선택
+                    const isMobile = window.innerWidth <= 768;
+                    const targetPreview = isMobile ? mobilePreviewEl : desktopPreviewEl;
+                    
+                    let captureTarget = targetPreview.querySelector('div');
+                    if (captureTarget?.shadowRoot) {
+                        captureTarget = captureTarget.shadowRoot.querySelector('.preview-wrapper') || captureTarget.shadowRoot.firstElementChild || captureTarget;
+                    }
+                    
+                    const rootHtml = document.documentElement;
+                    
+                    // 원본 스타일 저장
+                    const originalStyles = {
+                        preview: { 
+                            width: targetPreview.style.width, 
+                            height: targetPreview.style.height, 
+                            maxHeight: targetPreview.style.maxHeight, 
+                            overflowY: targetPreview.style.overflowY, 
+                            padding: targetPreview.style.padding, 
+                            border: targetPreview.style.border 
+                        },
+                        target: { 
+                            width: captureTarget.style.width, 
+                            border: captureTarget.style.border, 
+                            borderImage: captureTarget.style.borderImage, 
+                            backgroundImage: captureTarget.style.backgroundImage, 
+                            margin: captureTarget.style.margin 
+                        },
+                        rootHtml: { fontSize: rootHtml.style.fontSize }
+                    };
+                    
+                    console.log('[Log Exporter] 🐛 원본 스타일 저장 완료');
+                    
+                    // 1. 폰트 크기 적용
+                    console.log('[Log Exporter] 🐛 1단계: 폰트 크기 적용');
+                    rootHtml.style.fontSize = `${baseFontSize}px`;
+                    console.log(`[Log Exporter] 🐛 html 폰트 크기 변경: ${baseFontSize}px`);
+                    
+                    // 2. 미리보기 크기 조정
+                    console.log('[Log Exporter] 🐛 2단계: 미리보기 크기 조정');
+                    Object.assign(targetPreview.style, { 
+                        height: 'auto', 
+                        maxHeight: 'none', 
+                        overflowY: 'visible', 
+                        border: 'none', 
+                        padding: '0', 
+                        width: `${imageWidth}px` 
+                    });
+                    captureTarget.style.width = `${imageWidth}px`;
+                    console.log(`[Log Exporter] 🐛 미리보기 너비 변경: ${imageWidth}px`);
+                    
+                    // 3. 호버 CSS 생성 및 적용
+                    if (useHighRes) {
+                        console.log('[Log Exporter] 🐛 3단계: 호버 CSS 생성 (고해상도 모드 활성화)');
+                        const hoverCss = await generateForceHoverCss(targetPreview);
+                        console.log('[Log Exporter] 🐛 생성된 CSS 길이:', hoverCss.length);
+                        console.log('[Log Exporter] 🐛 생성된 CSS 전체:\n', hoverCss);
+                        
+                        const debugStyleEl = document.createElement('style');
+                        debugStyleEl.id = 'tolog-debug-hover-style';
+                        debugStyleEl.textContent = hoverCss;
+                        document.head.appendChild(debugStyleEl);
+                        
+                        captureTarget.classList.add('expand-hover-globally');
+                        console.log('[Log Exporter] 🐛 expand-hover-globally 클래스 추가');
+                    } else {
+                        console.log('[Log Exporter] 🐛 3단계: 고해상도 모드 비활성화 - 호버 스타일 미적용');
+                    }
+                    
+                    // 4. 렌더링 대기
+                    await new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, 200)));
+                    
+                    // 5. 실제 적용된 스타일 확인
+                    console.log('[Log Exporter] 🐛 4단계: 적용된 스타일 확인');
+                    console.log('[Log Exporter] 🐛 html fontSize:', window.getComputedStyle(rootHtml).fontSize);
+                    console.log('[Log Exporter] 🐛 targetPreview 너비:', window.getComputedStyle(targetPreview).width);
+                    console.log('[Log Exporter] 🐛 captureTarget 너비:', window.getComputedStyle(captureTarget).width);
+                    
+                    const testElements = captureTarget.querySelectorAll('.x-risu-holy-frame, .holy-frame');
+                    console.log('[Log Exporter] 🐛 찾은 holy-frame 요소:', testElements.length);
+                    testElements.forEach((el, idx) => {
+                        const computedStyle = window.getComputedStyle(el);
+                        console.log(`[Log Exporter] 🐛 holy-frame[${idx}] 계산된 스타일:`, {
+                            maxHeight: computedStyle.maxHeight,
+                            display: computedStyle.display,
+                            position: computedStyle.position,
+                            width: computedStyle.width,
+                            height: computedStyle.height
+                        });
+                    });
+                    
+                    const ornaments = captureTarget.querySelectorAll('.x-risu-deco-ornament, .deco-ornament');
+                    console.log('[Log Exporter] 🐛 찾은 장식 요소:', ornaments.length);
+                    ornaments.forEach((el, idx) => {
+                        const computedStyle = window.getComputedStyle(el);
+                        console.log(`[Log Exporter] 🐛 ornament[${idx}] 계산된 스타일:`, {
+                            transform: computedStyle.transform,
+                            display: computedStyle.display,
+                            position: computedStyle.position
+                        });
+                    });
+                    
+                    alert(`디버그 정보가 콘솔에 출력되었습니다.\n\n【적용된 설정】\n- 폰트 크기: ${baseFontSize}px\n- 이미지 너비: ${imageWidth}px\n- 고해상도(호버): ${useHighRes ? 'ON' : 'OFF'}\n\n이 상태가 유지됩니다.\n원래대로 복구하려면 페이지를 새로고침하세요.`, 'success');
+                    
+                    // 원본 스타일을 복구하는 함수를 글로벌로 노출 (콘솔에서 사용 가능)
+                    window.restoreDebugStyles = () => {
+                        Object.assign(targetPreview.style, originalStyles.preview);
+                        Object.assign(captureTarget.style, originalStyles.target);
+                        Object.assign(rootHtml.style, originalStyles.rootHtml);
+                        captureTarget.classList.remove('expand-hover-globally');
+                        document.getElementById('tolog-debug-hover-style')?.remove();
+                        console.log('[Log Exporter] 🐛 디버그 스타일 복구 완료');
+                    };
+                    console.log('[Log Exporter] 🐛 복구 함수 등록: window.restoreDebugStyles() 를 실행하면 원래 상태로 복구됩니다.');
+                });
+            }
             
             // 모바일 이미지 저장 버튼도 같은 핸들러 사용
             if (mobileSaveImageBtn) {
