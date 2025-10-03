@@ -742,6 +742,68 @@ const AVATAR_ATTR = 'data-avatar';
         return jszipPromise;
     }
 
+    let html2canvasPromise = null;
+    /**
+     * html2canvas 라이브러리가 로드되었는지 확인하고, 로드되지 않았다면 CDN에서 동적으로 로드합니다.
+     * @returns {Promise<void>} 라이브러리 로드가 완료되면 resolve되는 Promise.
+     */
+    function ensureHtml2canvas() {
+        console.log('[Log Exporter] ensureHtml2canvas: html2canvas 라이브러리 확인/로드 시작');
+        if (typeof window.html2canvas !== 'undefined') {
+            console.log('[Log Exporter] ensureHtml2canvas: 이미 로드됨');
+            return Promise.resolve();
+        }
+        if (html2canvasPromise) {
+            return html2canvasPromise;
+        }
+
+        html2canvasPromise = new Promise(async (resolve, reject) => {
+            console.log('[Log Exporter] html2canvas 라이브러리 로드 시작...');
+            try {
+                const response = await fetch('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+                if (!response.ok) {
+                    throw new Error(`CDN에서 스크립트를 가져오는 데 실패했습니다: ${response.statusText}`);
+                }
+                const libraryCode = await response.text();
+
+                // [수정] AMD 로더 충돌을 피하기 위해 window.define과 window.require를 일시적으로 비활성화합니다.
+                const wrappedCode = `
+                    (() => {
+                        const define_backup = window.define;
+                        const require_backup = window.require;
+                        try {
+                            window.define = undefined;
+                            window.require = undefined;
+                            ${libraryCode}
+                        } catch (e) {
+                            console.error("[Log Exporter] 주입된 html2canvas 코드 실행 중 오류 발생:", e);
+                        } finally {
+                            window.define = define_backup;
+                            window.require = require_backup;
+                        }
+                    })();
+                `;
+
+                const script = document.createElement('script');
+                script.textContent = wrappedCode;
+                document.head.appendChild(script);
+                document.head.removeChild(script);
+                if (typeof window.html2canvas !== 'undefined') {
+                    console.log('[Log Exporter] html2canvas 라이브러리가 성공적으로 로드되었습니다.');
+                    resolve();
+                } else {
+                    throw new Error('코드를 주입하여 실행했지만 html2canvas 객체가 생성되지 않았습니다.');
+                }
+            } catch (error) {
+                console.error('[Log Exporter] html2canvas 라이브러리 동적 로드에 최종 실패했습니다.', error);
+                html2canvasPromise = null;
+                reject(error);
+            }
+        });
+        return html2canvasPromise;
+    }
+
+
     /**
      * 제공된 노드들에서 이미지를 수집하여 ZIP 파일로 다운로드합니다.
      * @async
@@ -2801,10 +2863,15 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
 
         // --- 캡처 라이브러리 로드 ---
         let imageLib;
-        if (library === 'dom-to-image') {
-            await ensureDomToImage(); imageLib = window.domtoimage;
+        if (library === 'html2canvas') {
+            await ensureHtml2canvas();
+            imageLib = window.html2canvas;
+        } else if (library === 'dom-to-image') {
+            await ensureDomToImage();
+            imageLib = window.domtoimage;
         } else {
-            await ensureHtmlToImage(); imageLib = window.__htmlToImageLib || window.htmlToImage;
+            await ensureHtmlToImage();
+            imageLib = window.__htmlToImageLib || window.htmlToImage;
         }
 
         // --- 비디오 프레임 캡처 ---
@@ -2911,8 +2978,13 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
         if (totalHeight <= MAX_CHUNK_HEIGHT) {
             // 단일 이미지 저장
             let canvas;
+            const captureNode = borderWrapper || previewContainer;
             try {
-                canvas = await imageLib.toCanvas(previewContainer, { ...commonOptions, width: imageWidth, height: totalHeight, timeout: 30000 }); // 타임아웃 30초
+                if (library === 'html2canvas') {
+                    canvas = await imageLib(captureNode, { ...commonOptions, width: imageWidth, height: totalHeight, useCORS: true, allowTaint: true });
+                } else {
+                    canvas = await imageLib.toCanvas(captureNode, { ...commonOptions, width: imageWidth, height: totalHeight, timeout: 30000 }); // 타임아웃 30초
+                }
             } catch (e) {
                 throw new Error(`이미지 렌더링 중 타임아웃 발생: ${e.message}`);
             }
@@ -3028,12 +3100,15 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                 const currentChunkHeight = captureTarget.scrollHeight;
                 console.log(`[Log Exporter] 분할 이미지 ${i + 1} 캡처 중... (높이: ${currentChunkHeight}px)`);
                 let canvas;
+                const captureNode = borderWrapper || previewContainer;
                  try {
-                    if (library === 'dom-to-image') {
-                        const dataUrl = await imageLib.toPng(previewContainer, { ...commonOptions, width: imageWidth, height: currentChunkHeight, timeout: 30000 });
+                    if (library === 'html2canvas') {
+                        canvas = await imageLib(captureNode, { ...commonOptions, width: imageWidth, height: currentChunkHeight, useCORS: true, allowTaint: true });
+                    } else if (library === 'dom-to-image') {
+                        const dataUrl = await imageLib.toPng(captureNode, { ...commonOptions, width: imageWidth, height: currentChunkHeight, timeout: 30000 });
                         canvas = await (new Promise((resolve, reject) => { const img = new Image(); img.onload = () => { const c = document.createElement('canvas'); c.width = img.width; c.height = img.height; c.getContext('2d').drawImage(img, 0, 0); resolve(c); }; img.onerror = reject; img.src = dataUrl; }));
                     } else {
-                        canvas = await imageLib.toCanvas(previewContainer, { ...commonOptions, width: imageWidth, height: currentChunkHeight, timeout: 30000 });
+                        canvas = await imageLib.toCanvas(captureNode, { ...commonOptions, width: imageWidth, height: currentChunkHeight, timeout: 30000 });
                     }
                 } catch (e) {
                     console.error(`[Log Exporter] 분할 이미지 ${i + 1} 캡처 중 오류:`, e);
@@ -4279,6 +4354,7 @@ const customFilterHtml = `
                                 <select id="image-library-mobile" data-setting-key="imageLibrary" class="mobile-option-control">
                                     <option value="html-to-image" ${(savedSettings.imageLibrary || 'html-to-image') === 'html-to-image' ? 'selected' : ''}>html-to-image</option>
                                     <option value="dom-to-image" ${savedSettings.imageLibrary === 'dom-to-image' ? 'selected' : ''}>dom-to-image</option>
+                                    <option value="html2canvas" ${savedSettings.imageLibrary === 'html2canvas' ? 'selected' : ''}>html2canvas</option>
                                 </select>
                             </div>
                             <div class="mobile-option-row">
@@ -4421,6 +4497,36 @@ const customFilterHtml = `
                             </div>
                         </div>
                         
+                        <!-- 이미지 저장 옵션 -->
+                        <div class="desktop-section" id="desktop-image-options">
+                            <div class="desktop-section-header">
+                                <span class="desktop-section-icon">💾</span>
+                                <span class="desktop-section-title">이미지 저장 옵션</span>
+                            </div>
+                            <div class="desktop-option-row">
+                                <span class="desktop-option-label">고해상도</span>
+                                <div class="desktop-toggle ${savedSettings.imageHighRes !== false ? 'active' : ''}" id="image-high-res-checkbox-wrapper" data-setting-key="imageHighRes">
+                                    <input type="checkbox" id="image-high-res-checkbox" data-setting-key="imageHighRes" ${savedSettings.imageHighRes !== false ? 'checked' : ''} style="display: none;">
+                                </div>
+                            </div>
+                            <div class="desktop-option-row">
+                                <span class="desktop-option-label">엔진</span>
+                                <select id="image-library-selector" data-setting-key="imageLibrary" class="desktop-select">
+                                    <option value="html-to-image" ${(savedSettings.imageLibrary || 'html-to-image') === 'html-to-image' ? 'selected' : ''}>html-to-image</option>
+                                    <option value="dom-to-image" ${savedSettings.imageLibrary === 'dom-to-image' ? 'selected' : ''}>dom-to-image</option>
+                                    <option value="html2canvas" ${savedSettings.imageLibrary === 'html2canvas' ? 'selected' : ''}>html2canvas</option>
+                                </select>
+                            </div>
+                            <div class="desktop-option-row">
+                                <span class="desktop-option-label">폰트 크기</span>
+                                <input type="number" id="image-font-size-input" data-setting-key="imageFontSize" value="${savedSettings.imageFontSize || 26}" min="12" max="40" class="desktop-input" style="width: 70px;">
+                            </div>
+                            <div class="desktop-option-row">
+                                <span class="desktop-option-label">너비</span>
+                                <input type="number" id="image-width-input" data-setting-key="imageWidth" value="${savedSettings.imageWidth || 700}" min="600" max="1200" step="50" class="desktop-input" style="width: 80px;">
+                            </div>
+                        </div>
+
                         <!-- 필터 설정 -->
                         <div class="desktop-section" id="filter-controls" style="display: block !important; overflow: visible;">
                             <div class="desktop-section-header">
@@ -4606,6 +4712,9 @@ const customFilterHtml = `
                     <button class="desktop-btn desktop-btn-primary" id="desktop-copy-html" title="HTML 소스 코드 복사">
                         📋 HTML 복사
                     </button>
+                    <button class="desktop-btn desktop-btn-primary" id="desktop-copy-html-no-style" title="스타일 없는 HTML 소스 코드 복사" style="display: none; background-color: #414868; color: #c0caf5;">
+                        📋 HTML 복사 (No-Style)
+                    </button>
                     <button class="desktop-btn desktop-btn-success" id="desktop-copy-formatted" title="서식 있는 텍스트로 복사">
                         📄 서식 복사
                     </button>
@@ -4640,19 +4749,6 @@ const customFilterHtml = `
                     <button class="log-exporter-modal-btn" id="arca-helper-toggle-btn" style="background-color: #bb9af7; color: #1a1b26; display: none;" aria-label="아카라이브 변환기 열기">아카라이브 변환기</button>
                     
                     <!-- [복원] 이미지 저장 옵션 UI -->
-                    <div id="image-export-controls" style="display: flex; align-items: center; gap: 8px; margin-left: auto; flex-wrap: wrap; font-size: 0.9em;">
-                        <label><input type="checkbox" id="image-high-res-checkbox" data-setting-key="imageHighRes" ${savedSettings.imageHighRes !== false ? 'checked' : ''}>고해상도</label>
-                        <label>엔진:
-                            <select id="image-library-selector" data-setting-key="imageLibrary" style="width: auto; margin-left: 4px; background: #1a1b26; color: #c0caf5; border: 1px solid #414868; border-radius: 4px; text-align: center;">
-                                <option value="html-to-image" ${ (savedSettings.imageLibrary || 'html-to-image') === 'html-to-image' ? 'selected' : ''}>html-to-image</option>
-                                <option value="dom-to-image" ${savedSettings.imageLibrary === 'dom-to-image' ? 'selected' : ''}>dom-to-image</option>
-                            </select></label>
-                        <label>폰트:<input type="number" id="image-font-size-input" data-setting-key="imageFontSize" value="${savedSettings.imageFontSize || 26}" min="12" max="40" style="width: 45px; margin-left: 4px; background: #1a1b26; color: #c0caf5; border: 1px solid #414868; border-radius: 4px; text-align: center;"></label>
-                        <label>너비:<input type="number" id="image-width-input" data-setting-key="imageWidth" value="${savedSettings.imageWidth || 700}" min="600" max="1200" step="50" style="width: 60px; margin-left: 4px; background: #1a1b26; color: #c0caf5; border: 1px solid #414868; border-radius: 4px; text-align: center;"></label>
-                        <button class="log-exporter-modal-btn image-save" id="log-exporter-save-image" aria-label="이미지로 저장" accesskey="i" style="min-height: 36px;"><u>I</u>mage 저장</button>
-                        <button class="log-exporter-modal-btn" id="log-exporter-debug-hover" title="호버 스타일 적용 상태를 확인합니다" style="background-color: #7dcfff; color: #1a1b26; min-height: 36px;">🐛 디버그</button>
-                    </div>
-                    
                     <button class="log-exporter-modal-btn" id="log-exporter-download-zip" style="background-color: #e0af68; color: #1a1b26; min-height: 36px;" aria-label="이미지 ZIP 다운로드" accesskey="z"><u>Z</u>IP 다운로드</button>
                     <button class="log-exporter-modal-btn" id="log-exporter-copy-formatted" title="메일, 노션 등에 사용해볼 수 있지만, 대상 프로그램에 따라 서식이 깨질 수 있습니다." aria-label="서식 있는 텍스트로 복사" accesskey="f" style="min-height: 36px;">
                         서식 복사 (<u>F</u>ormatted)
@@ -4941,6 +5037,16 @@ const customFilterHtml = `
                 syncCheckbox('filter-toggle-checkbox', 'filter-toggle-mobile');
                 syncCheckbox('image-high-res-checkbox', 'image-high-res-mobile');
                 
+                // 데스크톱 토글 UI와 체크박스 동기화
+                const syncToggle = (wrapperId, checkboxId) => {
+                    const wrapper = modal.querySelector(`#${wrapperId}`);
+                    const checkbox = modal.querySelector(`#${checkboxId}`);
+                    if (wrapper && checkbox) {
+                        wrapper.addEventListener('click', () => wrapper.classList.toggle('active', checkbox.checked));
+                    }
+                };
+                syncToggle('image-high-res-checkbox-wrapper', 'image-high-res-checkbox');
+
                 // 슬라이더 동기화
                 const imageScaleDesktop = modal.querySelector('#image-scale-slider');
                 const imageScaleMobile = modal.querySelector('#image-scale-slider-mobile');
@@ -5078,6 +5184,10 @@ const customFilterHtml = `
                 const filterSection = modal.querySelector('#filter-controls');
                 const saveFileBtn = modal.querySelector('#log-exporter-save-file'); // 이 변수는 사용되지 않음
                 
+                const desktopImageOptions = modal.querySelector('#desktop-image-options');
+                const desktopCopyHtmlNoStyleBtn = modal.querySelector('#desktop-copy-html-no-style');
+                const desktopCopyHtmlBtn = modal.querySelector('#desktop-copy-html');
+
                 console.log('[Log Exporter] 데스크톱 형식 변경:', selectedFormat);
                 
                 if (basicOptions) basicOptions.style.display = selectedFormat === 'basic' ? 'block' : 'none';
@@ -5085,6 +5195,10 @@ const customFilterHtml = `
                 if (htmlOptions) htmlOptions.style.display = selectedFormat === 'html' ? 'block' : 'none';
                 if (filterSection) filterSection.style.display = (selectedFormat !== 'html') ? 'block' : 'none';
                 if (modal.querySelector('#log-exporter-save-file')) modal.querySelector('#log-exporter-save-file').style.display = selectedFormat === 'html' ? 'inline-flex' : 'none';
+
+                if (desktopImageOptions) desktopImageOptions.style.display = (selectedFormat === 'html' || selectedFormat === 'basic') ? 'block' : 'none';
+                if (desktopCopyHtmlNoStyleBtn) desktopCopyHtmlNoStyleBtn.style.display = selectedFormat === 'html' ? 'inline-flex' : 'none';
+                if (desktopCopyHtmlBtn) desktopCopyHtmlBtn.style.display = selectedFormat !== 'html' ? 'inline-flex' : 'none';
             };
             
             modal.querySelectorAll('input[name="log-format-desktop"]').forEach(input => {
@@ -5457,10 +5571,6 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
             const previewEl = desktopPreviewEl || mobilePreviewEl; // 데스크톱 우선, 없으면 모바일
             console.log('[Log Exporter] 미리보기 요소:', { desktopPreviewEl, mobilePreviewEl });
             const imageScaleSlider = modal.querySelector('#image-scale-slider');
-            const imageScaleValue = modal.querySelector('#image-scale-value');
-            const saveFileBtn = modal.querySelector('#log-exporter-save-file');
-            const saveImageControls = modal.querySelector('#image-export-controls');
-            const htmlStyleControls = modal.querySelector('#html-style-controls');
             const styleToggleCheckbox = modal.querySelector('#style-toggle-checkbox');
             const filterControls = modal.querySelector('#filter-controls');
             const filterToggleCheckbox = modal.querySelector('#filter-toggle-checkbox');
@@ -5475,6 +5585,10 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
             const basicOptionsGroup = modal.querySelector('#desktop-basic-options') || modal.querySelector('#basic-options-group');
             const imageScaleControls = modal.querySelector('#image-scale-controls');
             const htmlOptionsGroup = modal.querySelector('#html-options-group');
+            const imageScaleValue = modal.querySelector('#image-scale-value');
+            const saveFileBtn = modal.querySelector('#log-exporter-save-file');
+            const saveImageControls = modal.querySelector('#desktop-image-options');
+            const htmlStyleControls = modal.querySelector('#html-options-group');
 
             const arcaHelperSection = modal.querySelector('#arca-helper-section');
             const arcaHelperToggleBtn = modal.querySelector('#arca-helper-toggle-btn');
@@ -5657,9 +5771,9 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
 
                 const isImageFormat = selectedFormat === 'html' || selectedFormat === 'basic';
                 imageScaleControls.style.display = isImageFormat ? 'block' : 'none'; // flex -> block
-                saveImageControls.style.display = isImageFormat ? 'flex' : 'none';
+                saveImageControls.style.display = isImageFormat ? 'block' : 'none';
                 basicOptionsGroup.style.display = selectedFormat === 'basic' ? 'block' : 'none';
-                htmlOptionsGroup.style.display = selectedFormat === 'html' ? 'flex' : 'none';
+                htmlOptionsGroup.style.display = selectedFormat === 'html' ? 'block' : 'none';
 
                 // 모바일과 데스크톱 미리보기 동시 업데이트를 위한 헬퍼
                 const syncedPreview = {
@@ -6006,11 +6120,6 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
             const cancelBtn = modal.querySelector('#log-exporter-cancel-image');
 
             // [복원] 이미지 저장 옵션 요소들
-            const saveImageBtn = modal.querySelector('#log-exporter-save-image');
-            const highResCheckbox = modal.querySelector('#image-high-res-checkbox');
-            const fontSizeInput = modal.querySelector('#image-font-size-input');
-            const imageLibrarySelector = modal.querySelector('#image-library-selector');
-            const imageWidthInput = modal.querySelector('#image-width-input');
             let cancellationToken = { cancelled: false };
 
             const updateProgress = (status, value, max) => {
@@ -6021,6 +6130,7 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                 progressPercentageText.textContent = `${Math.round((value / max) * 100)}%`;
             };
 
+            const saveImageBtn = modal.querySelector('#desktop-save-image');
             // [수정] 이미지 저장 버튼 클릭 시 옵션 값들 읽어서 전달
             const handleImageSave = async () => {
                 // [추가] 새로운 UI의 액션 바 참조
@@ -6067,7 +6177,7 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
             // [추가] 디버그 버튼 이벤트 리스너
             const debugHoverBtn = modal.querySelector('#log-exporter-debug-hover');
             if (debugHoverBtn) {
-                debugHoverBtn.addEventListener('click', async () => {
+                debugHoverBtn.addEventListener('click', async (e) => {
                     console.log('[Log Exporter] 🐛 디버그 모드 시작 - 이미지 저장 환경을 그대로 시뮬레이션합니다.');
                     
                     // 설정 값 읽기 (이미지 저장과 동일하게)
@@ -6081,7 +6191,7 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                     const isMobile = window.innerWidth <= 768;
                     const targetPreview = isMobile ? mobilePreviewEl : desktopPreviewEl;
                     
-                    let captureTarget = targetPreview.querySelector('div');
+                    let captureTarget = targetPreview?.querySelector('div');
                     if (captureTarget?.shadowRoot) {
                         captureTarget = captureTarget.shadowRoot.querySelector('.preview-wrapper') || captureTarget.shadowRoot.firstElementChild || captureTarget;
                     }
@@ -6129,7 +6239,7 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                     console.log(`[Log Exporter] 🐛 미리보기 너비 변경: ${imageWidth}px`);
                     
                     // 3. 호버 CSS 생성 및 적용
-                    if (useHighRes) {
+                    if (e.shiftKey || useHighRes) { // Shift 키를 누르고 클릭하면 강제로 호버 CSS 적용
                         console.log('[Log Exporter] 🐛 3단계: 호버 CSS 생성 (고해상도 모드 활성화)');
                         const hoverCss = await generateForceHoverCss(targetPreview);
                         console.log('[Log Exporter] 🐛 생성된 CSS 길이:', hoverCss.length);
@@ -6142,7 +6252,7 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                         
                         captureTarget.classList.add('expand-hover-globally');
                         console.log('[Log Exporter] 🐛 expand-hover-globally 클래스 추가');
-                    } else {
+                    } else if (!useHighRes) {
                         console.log('[Log Exporter] 🐛 3단계: 고해상도 모드 비활성화 - 호버 스타일 미적용');
                     }
                     
@@ -6179,7 +6289,7 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                         });
                     });
                     
-                    alert(`디버그 정보가 콘솔에 출력되었습니다.\n\n【적용된 설정】\n- 폰트 크기: ${baseFontSize}px\n- 이미지 너비: ${imageWidth}px\n- 고해상도(호버): ${useHighRes ? 'ON' : 'OFF'}\n\n이 상태가 유지됩니다.\n원래대로 복구하려면 페이지를 새로고침하세요.`, 'success');
+                    alert(`디버그 정보가 콘솔에 출력되었습니다.\n\n【적용된 설정】\n- 폰트 크기: ${baseFontSize}px\n- 이미지 너비: ${imageWidth}px\n- 고해상도(호버): ${useHighRes ? 'ON' : 'OFF'}\n\n이 상태가 유지됩니다.\n원래대로 복구하려면 페이지를 새로고침하거나 콘솔에서 restoreDebugStyles()를 실행하세요.`, 'success');
                     
                     // 원본 스타일을 복구하는 함수를 글로벌로 노출 (콘솔에서 사용 가능)
                     window.restoreDebugStyles = () => {
@@ -6321,7 +6431,7 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                     // 데스크톱 액션 바 버튼들 숨김 (아카라이브 토글 버튼 제외)
                     const desktopActionButtons = modal.querySelectorAll('.desktop-action-bar > button:not(#arca-helper-toggle-btn)');
                     desktopActionButtons.forEach(btn => btn.style.display = 'none');
-                    
+
                     // 모바일에서 다른 섹션들 숨기기
                     if (isMobile) {
                         const mobileSections = modal.querySelectorAll('.mobile-section:not(#arca-helper-section)');
@@ -6928,6 +7038,7 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
     injectModalStyles();
     ensureHtmlToImage().catch(e => console.error(e));
     ensureDomToImage().catch(e => console.error(e)); // 미리 로드
+    ensureHtml2canvas().catch(e => console.error(e)); // 미리 로드
     ensureJSZip().catch(e => console.error(e));
     startObserver();
 
