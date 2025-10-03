@@ -814,96 +814,118 @@ const AVATAR_ATTR = 'data-avatar';
      * @param {boolean} [showAvatar=true] - 아바타 이미지를 포함할지 여부.
      */
     async function downloadImagesAsZip(nodes, charName, chatName, sequentialNaming = false, showAvatar = true) {
-        console.log(`[Log Exporter] downloadImagesAsZip: 이미지 ZIP 다운로드 시작. 순차 이름 지정: ${sequentialNaming}`);
+        console.log(`[Log Exporter] downloadImagesAsZip: 미디어 ZIP 다운로드 시작 (v5 - Hex-Encoded Extension Detection)`);
         try {
             await ensureJSZip();
             const zip = new window.JSZip();
-            const imagePromises = [];
-            let imageCounter = 0;
-            const addedUrls = new Set(); // 중복 추가 방지
+            const mediaPromises = [];
+            let mediaCounter = 0;
+            const addedUrls = new Set();
 
-            const addImageToZip = (src) => {
-                if (!src || src.startsWith('data:')) return;
-
-                // 일반 모드(sequentialNaming=false)에서만 중복을 체크하고 건너뛴다.
-                // 아카라이브 모드에서는 모든 이미지 요소를 파일로 만들어야 순서가 맞는다.
-                if (!sequentialNaming) {
-                    if (addedUrls.has(src)) return;
-                    addedUrls.add(src);
+            /**
+             * [신규] 16진수 문자열을 일반 문자열로 변환합니다.
+             * @param {string} hex - 16진수 문자열
+             * @returns {string} 디코딩된 문자열
+             */
+            const hexToString = (hex) => {
+                let str = '';
+                for (let i = 0; i < hex.length; i += 2) {
+                    str += String.fromCharCode(parseInt(hex.substr(i, 2), 16));
                 }
-
-                imageCounter++;
-                // 아카라이브용(sequentialNaming)일 때 파일 정렬이 깨지지 않도록 숫자를 0으로 채웁니다.
-                const filename = `image_${String(imageCounter).padStart(3, '0')}.png`;
-
-                imagePromises.push(
-                    fetch(src)
-                        .then(res => {
-                            if (!res.ok) throw new Error(`Failed to fetch ${src}`);
-                            return res.blob();
-                        })
-                        .then(blob => zip.file(filename, blob))
-                        .catch(e => console.warn(`Failed to fetch or zip image: ${src}`, e))
-                );
+                return str;
             };
 
-            // 아카라이브 모드에서는 순서가 중요하므로, HTML 생성 후 순서대로 수집
+            const addMediaToZip = async (el) => {
+                const isVideo = el.tagName === 'VIDEO';
+                const src = isVideo ? (el.querySelector('source')?.src || el.src) : el.src;
+
+                if (!src || src.startsWith('data:')) return;
+                if (!sequentialNaming && addedUrls.has(src)) return;
+                addedUrls.add(src);
+
+                mediaCounter++;
+                const baseFilename = `media_${String(mediaCounter).padStart(3, '0')}`;
+
+                mediaPromises.push(
+                    fetch(src)
+                        .then(res => {
+                            if (!res.ok) throw new Error(`미디어 다운로드 실패: ${src}`);
+                            return res.blob();
+                        })
+                        .then(async (blob) => {
+                            let extension = null;
+                            const urlPath = src.split(/[?#]/)[0];
+                            const filenamePart = urlPath.substring(urlPath.lastIndexOf('/') + 1);
+
+                            // [핵심 수정] 1. 16진수로 인코딩된 확장자(.2e)를 최우선으로 찾습니다.
+                            const hexDotIndex = filenamePart.lastIndexOf('2e');
+                            if (hexDotIndex !== -1 && hexDotIndex > 0) { // 파일명 중간에 있는 경우
+                                try {
+                                    const hexExt = filenamePart.substring(hexDotIndex + 2);
+                                    const decodedExt = hexToString(hexExt);
+                                    // 디코딩된 확장자가 5자 이하의 영문자인지 확인하여 안정성 확보
+                                    if (decodedExt.match(/^[a-z0-9]{1,5}$/i)) {
+                                        extension = decodedExt;
+                                        console.log(`[Log Exporter] 16진수 인코딩된 확장자 감지: .${extension}`);
+                                    }
+                                } catch (e) {
+                                    console.warn('16진수 확장자 디코딩 실패', e);
+                                }
+                            }
+
+                            // 2. 일반적인 확장자(.)를 다음으로 찾습니다.
+                            if (!extension) {
+                                const lastDotIndex = urlPath.lastIndexOf('.');
+                                if (lastDotIndex !== -1 && urlPath.length - lastDotIndex <= 5) {
+                                    extension = urlPath.substring(lastDotIndex + 1).toLowerCase();
+                                }
+                            }
+
+                            // 3. 모든 방법 실패 시 최종 기본값 설정
+                            if (!extension) {
+                                console.error(`URL에서 확장자를 찾을 수 없어 기본값 사용. URL: ${src}`);
+                                extension = isVideo ? 'mp4' : 'png';
+                            }
+                            
+                            const filename = `${baseFilename}.${extension}`;
+                            console.log(`[Log Exporter] 파일 저장: ${filename}`);
+                            zip.file(filename, blob);
+                        })
+                        .catch(e => console.warn(`미디어 처리/압축 실패: ${src}`, e))
+                );
+            };
+            
             if (sequentialNaming) {
-                // [수정] generateBasicFormatLog 호출 시 두 번째 인자로 charInfo 객체를 전달하도록 수정
-                // [수정] 이미지를 Base64로 임베드하지 않고 원본 URL을 유지하도록 embedImagesAsBase64: false 옵션 추가
-                const charInfoForLog = {
-                    name: charName,
-                    chatName: chatName,
-                    avatarUrl: '' // 아바타 URL은 이 컨텍스트에서 직접 사용되지 않으므로 빈 값으로 전달
-                };
-                const baseHtml = await generateBasicFormatLog(nodes, charInfoForLog, 'basic', 'dark', showAvatar, false, false, true, true, false);
+                const { charAvatarUrl } = await processChatLog(document.querySelector('button[data-risu-chat-idx].bg-selected')?.getAttribute('data-risu-chat-idx'));
+                const charInfoForLog = { name: charName, chatName: chatName, avatarUrl: charAvatarUrl };
+                const baseHtml = await generateBasicFormatLog(nodes, charInfoForLog, 'basic', 'dark', showAvatar, true, false, true, true, false);
                 const tempDiv = document.createElement('div');
                 tempDiv.innerHTML = baseHtml;
-
-                // 단일 쿼리로 모든 이미지 요소를 문서 순서대로 수집하여 순서 불일치 문제 해결
-                tempDiv.querySelectorAll('img, [style*="url("]').forEach(el => {
-                    if (el.tagName === 'IMG') {
-                        if (el.src) addImageToZip(el.src);
-                    } else { // 배경 이미지
-                        const style = el.getAttribute('style');
-                        const urlMatch = style.match(/url\(["']?([^"')]+)["']?\)/);
-                        if (urlMatch && urlMatch[1]) {
-                            addImageToZip(urlMatch[1]);
-                        }
-                    }
-                });
+                
+                tempDiv.querySelectorAll('img, video').forEach(el => addMediaToZip(el));
             } else {
-                // 일반 모드에서는 모든 참가자 아바타를 먼저 추가
                 if (showAvatar) {
                     const avatarMap = await collectCharacterAvatars(nodes, false);
                     for (const avatarUrl of avatarMap.values()) {
-                        addImageToZip(avatarUrl);
+                        const fakeImg = { tagName: 'IMG', src: avatarUrl };
+                        await addMediaToZip(fakeImg);
                     }
                 }
-
                 for (const node of nodes) {
-                    node.querySelectorAll('img').forEach(img => { if (img.src) addImageToZip(img.src); });
-                    const elementsWithBg = node.querySelectorAll('[style*="background-image"]');
-                    for (const el of elementsWithBg) {
-                        const style = el.style.backgroundImage;
-                        const urlMatch = style.match(/url\(["']?([^"')]+)["']?\)/);
-                        if (urlMatch && urlMatch[1]) addImageToZip(urlMatch[1]);
-                    }
+                    node.querySelectorAll('img, video').forEach(el => addMediaToZip(el));
                 }
             }
 
-            if (imagePromises.length === 0) {
-                alert("다운로드할 이미지가 로그에 없습니다.", "info");
+            if (mediaPromises.length === 0) {
+                alert("다운로드할 이미지나 비디오가 로그에 없습니다.", "info");
                 return;
             }
 
-            await Promise.all(imagePromises);
-
+            await Promise.all(mediaPromises);
             const content = await zip.generateAsync({ type: "blob" });
-
             const safeCharName = charName.replace(/[\/\\?%*:|"<>]/g, '-');
             const safeChatName = chatName.replace(/[\/\\?%*:|"<>]/g, '-');
-            const zipFilename = `Risu_Log_Images_${safeCharName}_${safeChatName}${sequentialNaming ? '_Arca' : ''}.zip`;
+            const zipFilename = `Risu_Log_Media_${safeCharName}_${safeChatName}${sequentialNaming ? '_Arca' : ''}.zip`;
 
             const link = document.createElement('a');
             link.href = URL.createObjectURL(content);
@@ -915,7 +937,7 @@ const AVATAR_ATTR = 'data-avatar';
 
         } catch (error) {
             console.error('[Log Exporter] Error creating ZIP file:', error);
-            alert('이미지 ZIP 파일 생성 중 오류가 발생했습니다.', 'error');
+            alert('미디어 ZIP 파일 생성 중 오류가 발생했습니다.', 'error');
         }
     }
 
@@ -1916,13 +1938,11 @@ const AVATAR_ATTR = 'data-avatar';
          * @returns {Promise<string>} 포맷된 채팅 로그를 나타내는 HTML 문자열.
          */
         async function generateBasicFormatLog(nodes, charInfo, selectedThemeKey = 'basic', selectedColorKey = 'dark', showAvatar = true, showHeader = true, showFooter = true, showBubble = true, isForArca = false, embedImagesAsBase64 = true) {
-            console.log(`[Log Exporter] generateBasicFormatLog: 테마: ${selectedThemeKey}, 헤더: ${showHeader}, 푸터: ${showFooter}`);
+            console.log(`[Log Exporter] generateBasicFormatLog: 테마: ${selectedThemeKey}, 헤더: ${showHeader}, 푸터: ${showFooter}, Base64 임베드: ${embedImagesAsBase64}`);
             
             const themeInfo = THEMES[selectedThemeKey] || THEMES.basic;
-            // '기본' 테마는 COLORS에서, 나머지는 THEMES의 고정 color 객체에서 색상 정보를 가져옴
             const color = (selectedThemeKey === 'basic') ? (COLORS[selectedColorKey] || COLORS.dark) : themeInfo.color;
 
-            // [핵심 수정] CSS 누락 방지를 위한 기본 태그 스타일 정의
             const baseTagStyles = `
             p { margin: 0.75em 0; }
             a { color: ${color.nameColor}; text-decoration: none; }
@@ -1933,21 +1953,24 @@ const AVATAR_ATTR = 'data-avatar';
             strong, b { font-weight: bold; color: ${color.nameColor}; }
             em, i { font-style: italic; }
             hr { border: 0; height: 1px; background-color: ${color.border}; margin: 1.5em 0; }
-            /* Add monospace font for code-like elements */
             code, pre { font-family: 'Nanum Gothic Coding', 'D2Coding', 'Fira Code', 'JetBrains Mono', monospace, sans-serif; }
         `;
 
-            // [수정] 헤더 HTML 생성 로직
-            const generateHeaderHtml = async () => {
+            // [핵심 수정] 헤더 생성 로직이 embedImagesAsBase64 플래그를 존중하도록 변경
+            const generateHeaderHtml = async (embedAsBase64) => {
                 if (!showHeader) return '';
-                const charAvatarBase64 = await imageUrlToBase64(charInfo.avatarUrl);
+                // 플래그 값에 따라 Base64 변환 여부 결정
+                const avatarSrc = embedAsBase64 
+                    ? await imageUrlToBase64(charInfo.avatarUrl) 
+                    : charInfo.avatarUrl;
+
                 const headerStyles = `
                     text-align:center; padding-bottom:1.5em; margin-bottom:2em;
                     border-bottom: 2px solid ${color.border};
                 `;
                 return `
                     <header style="${headerStyles}">
-                        <img src="${charAvatarBase64}" style="width:80px; height:80px; border-radius:50%; object-fit:cover; margin:0 auto 1em; display:block; border: 3px solid ${color.avatarBorder}; box-shadow: ${color.shadow};">
+                        <img src="${avatarSrc}" style="width:80px; height:80px; border-radius:50%; object-fit:cover; margin:0 auto 1em; display:block; border: 3px solid ${color.avatarBorder}; box-shadow: ${color.shadow};">
                         <h1 style="color: ${color.nameColor}; margin: 0 0 0.25em 0; font-size: 1.8em; letter-spacing: 1px;">${charInfo.name}</h1>
                         <p style="color: ${color.text}; opacity: 0.8; margin: 0; font-size: 0.9em;">${charInfo.chatName}</p>
                     </header>
@@ -1955,7 +1978,8 @@ const AVATAR_ATTR = 'data-avatar';
             };
 
             let log = '';
-            const avatarMap = await collectCharacterAvatars(nodes, false);
+            // [수정] 아바타 수집 시 isForArca가 아닐 때만 Base64로 변환
+            const avatarMap = await collectCharacterAvatars(nodes, !isForArca);
             const fantasyFont = `'Nanum Myeongjo', serif`;
 
             for (const [index, node] of nodes.entries()) {
@@ -1966,10 +1990,8 @@ const AVATAR_ATTR = 'data-avatar';
                 if (!originalMessageEl) continue;
     
                 let contentSourceEl = originalMessageEl.cloneNode(true);
-                // [수정] script, style, 버튼 그룹만 제거하고 img 태그는 유지합니다.
                 contentSourceEl.querySelectorAll('script, style, .log-exporter-msg-btn-group').forEach(el => el.remove());
 
-                // [수정] background-image를 가진 요소를 <img> 태그로 변환
                 const bgImagePromises = Array.from(contentSourceEl.querySelectorAll('[style*="background-image"]')).map(async (el) => {
                     const style = el.getAttribute('style');
                     const urlMatch = style.match(/url\(["']?(.+?)["']?\)/);
@@ -1986,9 +2008,8 @@ const AVATAR_ATTR = 'data-avatar';
                 });
                 await Promise.all(bgImagePromises);
                 
-                // [추가] 메시지 내의 모든 이미지를 Base64로 변환하여 포함시킵니다.
                 const imagePromises = Array.from(contentSourceEl.querySelectorAll('img')).map(async (img) => {
-                    if (img.src && embedImagesAsBase64 && !img.src.startsWith('data:')) { // embedImagesAsBase64 플래그 확인 및 중복 변환 방지
+                    if (img.src && embedImagesAsBase64 && !img.src.startsWith('data:')) {
                         if (img.src) {
                             try {
                                 const base64Src = await imageUrlToBase64(img.src);
@@ -1998,31 +2019,25 @@ const AVATAR_ATTR = 'data-avatar';
                             }
                         }
                     }
-                    // [수정] 스타일 적용은 Base64 변환 여부와 관계없이 항상 수행
                     Object.assign(img.style, { maxWidth: '100%', height: 'auto', borderRadius: '8px', display: 'block', margin: '12px 0' });
                 });
                 await Promise.all(imagePromises);
 
-                // [핵심 수정] RisuAI 전용 서식(인용, 생각 등) 스타일링 로직 추가
                 const styleBlock = (el, bg, textColor, border = null) => {
                     const newBlock = document.createElement('div');
                     newBlock.innerHTML = `<div style="padding:0; margin:0;">${el.innerHTML}</div>`;
-                    // [핵심 수정] 스타일 제거를 우회하기 위해 구형 bgcolor 속성을 직접 설정
                     newBlock.setAttribute('bgcolor', bg);
                     Object.assign(newBlock.style, {
                         padding: '0.75em 1em', margin: '0.75em 0',
                         borderRadius: '4px', borderLeft: `3px solid ${border || 'transparent'}`
                     });
-                    // 기존 CSS 속성도 유지하여 호환성 확보
                     newBlock.style.setProperty('background-color', bg );
                     newBlock.style.setProperty('color', textColor);
-
                     el.replaceWith(newBlock);
                 };
                 
                 contentSourceEl.querySelectorAll('.x-risu-regex-quote-block').forEach(el => styleBlock(el, color.quoteBg, color.quoteText, color.quoteText));
                 contentSourceEl.querySelectorAll('.x-risu-regex-thought-block').forEach(el => styleBlock(el, color.thoughtBg, color.thoughtText));
-                // .x-risu-regex-sound-block 등 다른 서식이 있다면 여기에 추가할 수 있습니다.
     
                 contentSourceEl.querySelectorAll('mark[risu-mark^="quote"]').forEach(markEl => {
                     Object.assign(markEl.style, {
@@ -2030,10 +2045,9 @@ const AVATAR_ATTR = 'data-avatar';
                         color: color.quoteText,
                         padding: '0.1em 0.3em',
                         borderRadius: '3px',
-                        textDecoration: 'none' // mark 태그의 기본 밑줄 제거
+                        textDecoration: 'none'
                     });
                 });
-                // --- 스타일링 로직 끝 ---
                 
                 let messageHtml = contentSourceEl.innerHTML.trim();
                 if (messageHtml.length === 0) continue;
@@ -2042,14 +2056,9 @@ const AVATAR_ATTR = 'data-avatar';
                 const avatarSrc = avatarMap.get(name);
                 let avatarHtml = '';
 
-                // [수정] 아카라이브용 변환 시, 모든 아바타를 <img> 태그로 통일하여 생성합니다.
                 if (isForArca && showAvatar && avatarSrc) {
-                    // AVATAR_ATTR 속성과 data-user 속성을 <img> 태그에 추가하여 아바타와 유저 구분을 명시합니다.
-                    // style="" 속성을 추가하여 각 테마에서 스타일을 추가할 수 있도록 합니다.
                     avatarHtml = `<img ${AVATAR_ATTR} data-user="${isUser}" style="" src="${avatarSrc}">`;
-                    // 아카라이브 변환 시에는 아래의 복잡한 div 생성 로직을 건너뜁니다.
                 } else 
-
                 if (showAvatar && selectedThemeKey !== 'log' && selectedThemeKey !== 'fantasy') {
                     const createAvatarDiv = (src, isUser) => {
                         const margin = isUser ? 'margin-left:12px;' : 'margin-right:12px;';
@@ -2065,6 +2074,8 @@ const AVATAR_ATTR = 'data-avatar';
                 }
     
                 let logEntry = '';
+                // ( ... switch (selectedThemeKey) { ... } 부분은 변경 없음 ... )
+                // ... 기존 switch 문 코드를 여기에 그대로 유지 ...
                 switch (selectedThemeKey) {
                      case 'modern':
                          const modernCardBg = isUser 
@@ -2406,161 +2417,60 @@ const AVATAR_ATTR = 'data-avatar';
                 log += logEntry;
             }
     
-            // 전체 컨테이너 스타일
             let containerStyle = `
                 margin: 16px auto;
                 max-width: 900px;
                 background-color: ${color.background};
                 border-radius: ${selectedThemeKey === 'log' ? '8px' : '12px'};
-                overflow: hidden; /* 둥근 모서리에서 내용이 삐져나가지 않도록 */
+                overflow: hidden;
             `;
 
             if (selectedThemeKey === 'log') {
-                containerStyle += `
-                    padding: 0; /* 컨테이너 자체 패딩 제거 */
-                    border: none; /* 컨테이너 테두리 제거 */
-                    box-shadow: none; /* 컨테이너 그림자 제거 */
-                `;
+                containerStyle += `padding: 0; border: none; box-shadow: none;`;
             } else {
-                containerStyle += `
-                    border: 1px solid ${color.border};
-                    box-shadow: ${color.shadow || 'none'};
-                    padding: 24px 32px;
-                `;
+                containerStyle += `border: 1px solid ${color.border}; box-shadow: ${color.shadow || 'none'}; padding: 24px 32px;`;
             }
 
             const containerIdSuffix = Date.now();
-
-            // 테마별 최종 컨테이너 장식
             let extraStyles = '';
-            if (selectedThemeKey === 'modern') {
-                containerStyle += `background-image: linear-gradient(145deg, ${color.background}, #2c2f33);`;
-            }
-            // [수정] 아카라이브용으로 변환 시, 가상요소 대신 인라인 배경 이미지로 그라데이션을 직접 적용합니다.
+            if (selectedThemeKey === 'modern') containerStyle += `background-image: linear-gradient(145deg, ${color.background}, #2c2f33);`;
             if (isForArca && selectedThemeKey === 'fantasy') {
                 const gradient = `radial-gradient(ellipse at top, rgba(74, 85, 140, 0.3), transparent 60%), radial-gradient(ellipse at bottom, rgba(74, 85, 140, 0.2), transparent 70%)`;
                 containerStyle += ` background-image: ${gradient};`;
             }
             if (selectedThemeKey === 'fantasy') {
-                containerStyle += `
-                    ${!isForArca ? `font-family:${fantasyFont};` : ''} 
-                    border-image: linear-gradient(to bottom, ${color.border}, ${color.separator}) 1; 
-                    border-width: 2px; 
-                    border-style: solid;
-                    position: relative; /* 가상 요소를 위한 기준점 */
-                    overflow: hidden; /* 가상 요소가 삐져나가지 않도록 */
-                    z-index: 0; /* 내용물과의 z-index 계층을 위해 */
-                `;
-                // 그라데이션 배경을 ::before 가상 요소로 분리하여 렌더링 문제 해결
-                extraStyles = `
-                    #tolog-fantasy-container-${containerIdSuffix}::before {
-                        content: '';
-                        position: absolute;
-                        top: 0; left: 0; width: 100%; height: 100%;
-                        background-image: radial-gradient(ellipse at top, rgba(74, 85, 140, 0.3), transparent 60%), radial-gradient(ellipse at bottom, rgba(74, 85, 140, 0.2), transparent 70%);
-                        pointer-events: none; /* 마우스 이벤트 방해 방지 */
-                        z-index: -1; /* 내용물 뒤로 보내기 */
-                    }
-                `;
+                containerStyle += `${!isForArca ? `font-family:${fantasyFont};` : ''} border-image: linear-gradient(to bottom, ${color.border}, ${color.separator}) 1; border-width: 2px; border-style: solid; position: relative; overflow: hidden; z-index: 0;`;
+                extraStyles = `#tolog-fantasy-container-${containerIdSuffix}::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-image: radial-gradient(ellipse at top, rgba(74, 85, 140, 0.3), transparent 60%), radial-gradient(ellipse at bottom, rgba(74, 85, 140, 0.2), transparent 70%); pointer-events: none; z-index: -1; }`;
             }
             if (selectedThemeKey === 'fantasy2') {
                 containerStyle += `${!isForArca ? `font-family: 'Nanum Myeongjo', serif;` : ''} background: ${color.background}; border: 2px solid transparent; background-clip: padding-box; position: relative; overflow: hidden;`;
-                extraStyles = `
-                    #tolog-fantasy2-container-${containerIdSuffix}::before {
-                        content: '';
-                        position: absolute;
-                        inset: -2px;
-                        background: linear-gradient(45deg, #10b981, #34d399, #10b981);
-                        border-radius: 14px;
-                        z-index: -1;
-                    }
-                    @keyframes pulse {
-                        0%, 100% { opacity: 0.5; transform: scale(1); }
-                        50% { opacity: 0.8; transform: scale(1.05); }
-                    }
-                    @keyframes float {
-                        0%, 100% { transform: translateY(0px) rotate(0deg); }
-                        33% { transform: translateY(-10px) rotate(1deg); }
-                        66% { transform: translateY(5px) rotate(-1deg); }
-                    }
-                `;
+                extraStyles = `#tolog-fantasy2-container-${containerIdSuffix}::before { content: ''; position: absolute; inset: -2px; background: linear-gradient(45deg, #10b981, #34d399, #10b981); border-radius: 14px; z-index: -1; } @keyframes pulse { 0%, 100% { opacity: 0.5; transform: scale(1); } 50% { opacity: 0.8; transform: scale(1.05); } } @keyframes float { 0%, 100% { transform: translateY(0px) rotate(0deg); } 33% { transform: translateY(-10px) rotate(1deg); } 66% { transform: translateY(5px) rotate(-1deg); } }`;
             }
             if (selectedThemeKey === 'royal') {
                 containerStyle += `${!isForArca ? `font-family: 'Nanum Myeongjo', serif;` : ''} background: ${color.background}; border: 3px solid transparent; background-clip: padding-box; position: relative;`;
-                extraStyles = `
-                    #tolog-royal-container-${containerIdSuffix}::before {
-                        content: '';
-                        position: absolute;
-                        inset: -3px;
-                        background: linear-gradient(45deg, #7c3aed, #fbbf24, #a855f7, #fbbf24, #7c3aed);
-                        border-radius: 15px;
-                        z-index: -1;
-                        animation: royalShine 4s linear infinite;
-                    }
-                    @keyframes royalShine {
-                        0% { background-position: 0% 50%; }
-                        100% { background-position: 200% 50%; }
-                    }
-                `;
+                extraStyles = `#tolog-royal-container-${containerIdSuffix}::before { content: ''; position: absolute; inset: -3px; background: linear-gradient(45deg, #7c3aed, #fbbf24, #a855f7, #fbbf24, #7c3aed); border-radius: 15px; z-index: -1; animation: royalShine 4s linear infinite; } @keyframes royalShine { 0% { background-position: 0% 50%; } 100% { background-position: 200% 50%; } }`;
             }
             if (selectedThemeKey === 'ocean') {
                 containerStyle += `background: ${color.background}; border: 1px solid rgba(34, 211, 238, 0.3); position: relative; overflow: hidden;`;
-                extraStyles = `
-                    #tolog-ocean-container-${containerIdSuffix}::before {
-                        content: '';
-                        position: absolute;
-                        top: 0; left: -100%; width: 200%; height: 100%;
-                        background: linear-gradient(90deg, transparent, rgba(34, 211, 238, 0.1), transparent);
-                        animation: wave 3s ease-in-out infinite;
-                        z-index: -1;
-                    }
-                    @keyframes wave {
-                        0% { left: -100%; }
-                        100% { left: 100%; }
-                    }
-                `;
+                extraStyles = `#tolog-ocean-container-${containerIdSuffix}::before { content: ''; position: absolute; top: 0; left: -100%; width: 200%; height: 100%; background: linear-gradient(90deg, transparent, rgba(34, 211, 238, 0.1), transparent); animation: wave 3s ease-in-out infinite; z-index: -1; } @keyframes wave { 0% { left: -100%; } 100% { left: 100%; } }`;
             }
             if (selectedThemeKey === 'sakura') {
                 containerStyle += `background: ${color.background}; border: 1px solid rgba(244, 114, 182, 0.2); position: relative; overflow: hidden;`;
-                extraStyles = `
-                    @keyframes float {
-                        0%, 100% { transform: translateY(0px) rotate(0deg); }
-                        33% { transform: translateY(-8px) rotate(2deg); }
-                        66% { transform: translateY(4px) rotate(-1deg); }
-                    }
-                `;
+                extraStyles = `@keyframes float { 0%, 100% { transform: translateY(0px) rotate(0deg); } 33% { transform: translateY(-8px) rotate(2deg); } 66% { transform: translateY(4px) rotate(-1deg); } }`;
             }
             if (selectedThemeKey === 'matrix') {
                 containerStyle += `background: ${color.background}; border: 1px solid ${color.border}; font-family: 'Courier New', monospace; position: relative;`;
-                extraStyles = `
-                    #tolog-matrix-container-${containerIdSuffix}::before {
-                        content: '';
-                        position: absolute;
-                        top: 0; left: 0; right: 0; height: 2px;
-                        background: linear-gradient(90deg, transparent, ${color.nameColor}, transparent);
-                        animation: scan 2s linear infinite;
-                    }
-                    @keyframes scan {
-                        0% { transform: translateX(-100%); }
-                        100% { transform: translateX(100%); }
-                    }
-                `;
+                extraStyles = `#tolog-matrix-container-${containerIdSuffix}::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent, ${color.nameColor}, transparent); animation: scan 2s linear infinite; } @keyframes scan { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }`;
             }
 
-            // [수정] 푸터 HTML 생성 로직
             const generateFooterHtml = () => {
                 if (!showFooter) return '';
-                return `
-                    <footer style="text-align: center; margin-top: 3em; padding-top: 1.5em; border-top: 1px solid ${color.border}; font-size: 0.8em; color: ${color.text}; opacity: 0.6;">
-                        Created by Log Plugin
-                    </footer>
-                `;
+                return `<footer style="text-align: center; margin-top: 3em; padding-top: 1.5em; border-top: 1px solid ${color.border}; font-size: 0.8em; color: ${color.text}; opacity: 0.6;">Created by Log Plugin</footer>`;
             };
 
-            // [수정] 최종 return 구문에 헤더와 푸터 포함
-            const headerHtml = await generateHeaderHtml();
+            // [핵심 수정] 헤더 생성 시 embedImagesAsBase64 플래그를 전달
+            const headerHtml = await generateHeaderHtml(embedImagesAsBase64);
             const footerHtml = generateFooterHtml();
-            // 최종 HTML 생성 로직 수정
             const containerIdMap = {
                 'fantasy': `tolog-fantasy-container-${containerIdSuffix}`,
                 'fantasy2': `tolog-fantasy2-container-${containerIdSuffix}`,
@@ -3399,84 +3309,62 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
      * [수정] innerHTML 재파싱으로 인한 스타일 손실을 방지하기 위해 문자열 기반 처리로 변경
      * [핵심 수정] 아바타와 일반 이미지를 구분하여 순차적으로 교체
      */
-    async function generateArcaLiveTemplate(nodes, charInfo, themeKey = 'basic', colorKey = 'dark', showAvatar = true) {
-        console.log('[Log Exporter] generateArcaLiveTemplate: 아카라이브용 템플릿 생성 시작');
-        let imageCounter = 0;
+    async function generateArcaLiveTemplate(nodes, charInfo, themeKey = 'basic', colorKey = 'dark', showAvatar = true, showHeader = true) {
+        console.log('[Log Exporter] generateArcaLiveTemplate: 아카라이브용 템플릿 생성 시작. 헤더 표시:', showHeader);
 
-        // 헤더/푸터/말풍선은 아카라이브 템플릿에 포함시키지 않음 (false, false, false)
-        let baseHtml = await generateBasicFormatLog(nodes, charInfo, themeKey, colorKey, showAvatar, false, false, true, true);
+        let baseHtml = await generateBasicFormatLog(nodes, charInfo, themeKey, colorKey, showAvatar, showHeader, false, true, true, false);
 
-        // [핵심 수정] 이미지를 순서대로 찾아서 교체하되, 정확한 패턴 매칭 사용
-        // 1. 먼저 모든 이미지의 위치와 타입을 파악
-        const imageMatches = [];
+        const mediaMatches = [];
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = baseHtml;
         
-        // 1-1. data-tolog-avatar 속성을 가진 아바타 이미지 찾기 (data-user 속성도 추출)
-        const avatarRegex = /<img\s+[^>]*data-tolog-avatar[^>]*data-user="(true|false)"[^>]*>/gi;
-        let match;
-        while ((match = avatarRegex.exec(baseHtml)) !== null) {
-            const isUser = match[1] === 'true';
-            imageMatches.push({ index: match.index, length: match[0].length, type: 'avatar', isUser, content: match[0] });
-        }
+        // DOM 기반으로 모든 이미지와 비디오를 순서대로 찾기
+        const allMedia = tempDiv.querySelectorAll('img, video');
         
-        // 1-2. 배경 이미지를 가진 div 찾기 (아바타용) - 주변 컨텍스트에서 isUser 판단
-        const bgImageRegex = /<div\s+[^>]*style="[^"]*background-image:\s*url\([^)]+\)[^"]*"[^>]*>/gi;
-        while ((match = bgImageRegex.exec(baseHtml)) !== null) {
-            // 해당 div를 포함하는 부모 컨테이너를 찾아 flex-direction을 확인
-            // flex-direction:row-reverse가 있으면 사용자 메시지
-            const contextStart = Math.max(0, match.index - 200);
-            const contextEnd = Math.min(baseHtml.length, match.index + match[0].length + 200);
-            const context = baseHtml.substring(contextStart, contextEnd);
-            
-            // 주변 200자 내에서 flex-direction:row-reverse를 찾음
-            const isUser = context.includes('flex-direction:row-reverse');
-            
-            imageMatches.push({ index: match.index, length: match[0].length, type: 'avatar-bg', isUser, content: match[0] });
-        }
-        
-        // 1-3. 일반 이미지 찾기 (data-tolog-avatar가 없는 img)
-        const imgRegex = /<img\s+(?![^>]*data-tolog-avatar)[^>]*>/gi;
-        while ((match = imgRegex.exec(baseHtml)) !== null) {
-            imageMatches.push({ index: match.index, length: match[0].length, type: 'content', content: match[0] });
-        }
-        
-        // 2. 인덱스 순으로 정렬 (문서 순서대로)
-        imageMatches.sort((a, b) => a.index - b.index);
-        
-        console.log(`[Log Exporter] generateArcaLiveTemplate: 발견된 이미지 타입별 개수:`, {
-            avatar: imageMatches.filter(m => m.type === 'avatar').length,
-            avatarBg: imageMatches.filter(m => m.type === 'avatar-bg').length,
-            content: imageMatches.filter(m => m.type === 'content').length,
-            total: imageMatches.length
-        });
-        
-        // 3. 먼저 정방향으로 번호를 매기고, 뒤에서부터 치환 (인덱스 변화 방지)
-        for (let i = 0; i < imageMatches.length; i++) {
-            imageMatches[i].imageNumber = i + 1;  // 정방향으로 번호 매기기
-        }
-        
-        // 4. 뒤에서부터 치환 (인덱스 변화 방지하면서 실제 HTML 수정)
-        for (let i = imageMatches.length - 1; i >= 0; i--) {
-            const img = imageMatches[i];
-            const imageNumber = img.imageNumber;  // 미리 매겨진 번호 사용
-            
-            let placeholder;
-            if (img.type === 'avatar' || img.type === 'avatar-bg') {
-                // 아바타인 경우 isUser 정보를 자리표시자에 포함
-                const isUserValue = img.isUser !== undefined ? img.isUser : false;
-                placeholder = `<!-- ARCA_AVATAR_PLACEHOLDER_${isUserValue ? 'true' : 'false'}_${imageNumber} -->`;
-                console.log(`[Log Exporter] 아바타 #${imageNumber}: type=${img.type}, isUser=${isUserValue}`);
+        allMedia.forEach(el => {
+            let type, isUser = null;
+
+            if (el.tagName === 'VIDEO') {
+                type = 'video';
+            } else if (el.closest('header')) {
+                type = 'header-avatar';
+            } else if (el.hasAttribute(AVATAR_ATTR)) {
+                type = 'avatar';
+                isUser = el.dataset.user === 'true';
             } else {
-                placeholder = `<!-- ARCA_IMG_PLACEHOLDER_${imageNumber} -->`;
-                console.log(`[Log Exporter] 일반 이미지 #${imageNumber}`);
+                type = 'content-image';
             }
             
-            baseHtml = baseHtml.substring(0, img.index) + placeholder + baseHtml.substring(img.index + img.length);
-        }
+            mediaMatches.push({ type, isUser });
+            
+            // DOM에서 임시 자리표시자로 교체
+            const placeholderNode = document.createComment(`TEMP_PLACEHOLDER_${mediaMatches.length-1}`);
+            el.parentNode.replaceChild(placeholderNode, el);
+        });
         
-        imageCounter = imageMatches.length;
+        let processedHtml = tempDiv.innerHTML;
 
-        console.log(`[Log Exporter] generateArcaLiveTemplate: 템플릿 생성 완료. 이미지 개수: ${imageCounter}`);
-        return baseHtml;
+        // 임시 자리표시자를 실제 아카라이브용 자리표시자로 교체
+        for(let i = 0; i < mediaMatches.length; i++) {
+            const match = mediaMatches[i];
+            const mediaNumber = i + 1;
+            let finalPlaceholder = '';
+
+            if (match.type === 'video') {
+                finalPlaceholder = `<!-- ARCA_VIDEO_PLACEHOLDER_${mediaNumber} -->`;
+            } else if (match.type === 'header-avatar') {
+                finalPlaceholder = `<!-- ARCA_HEADER_AVATAR_PLACEHOLDER_${mediaNumber} -->`;
+            } else if (match.type === 'avatar') {
+                finalPlaceholder = `<!-- ARCA_AVATAR_PLACEHOLDER_${match.isUser ? 'true' : 'false'}_${mediaNumber} -->`;
+            } else { // content-image
+                finalPlaceholder = `<!-- ARCA_IMG_PLACEHOLDER_${mediaNumber} -->`;
+            }
+            
+            processedHtml = processedHtml.replace(`<!--TEMP_PLACEHOLDER_${i}-->`, finalPlaceholder);
+        }
+
+        console.log(`[Log Exporter] generateArcaLiveTemplate: 템플릿 생성 완료. 미디어 개수: ${mediaMatches.length}`);
+        return processedHtml;
     }
 
     /**
@@ -4502,6 +4390,13 @@ const customFilterHtml = `
                             <div class="desktop-section-header">
                                 <span class="desktop-section-icon">💾</span>
                                 <span class="desktop-section-title">이미지 저장 옵션</span>
+                            </div>
+                            <div class="desktop-option-row">
+                                <span class="desktop-option-label">포맷</span>
+                                <select id="image-format-selector" data-setting-key="imageFormat" class="desktop-select">
+                                    <option value="png" ${savedSettings.imageFormat === 'png' ? 'selected' : ''}>PNG</option>
+                                    <option value="webp" ${(savedSettings.imageFormat || 'webp') === 'webp' ? 'selected' : ''}>WebP</option>
+                                </select>
                             </div>
                             <div class="desktop-option-row">
                                 <span class="desktop-option-label">고해상도</span>
@@ -6460,11 +6355,14 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                     const selectedColorKey = colorSelector ? colorSelector.value : 'dark';
                     const selectedThemeKey = themeSelector ? themeSelector.value : 'basic';
                     const showAvatar = avatarToggleCheckbox ? avatarToggleCheckbox.checked : true;
+                    // [핵심 수정] '헤더 표시' 체크박스의 현재 상태를 읽어옵니다.
+                    const showHeader = headerToggleCheckbox ? headerToggleCheckbox.checked : true;
                     
                     console.log('[Arca] 템플릿 생성 시작:', { 
                         selectedThemeKey, 
                         selectedColorKey, 
                         showAvatar, 
+                        showHeader, // 로그 추가
                         nodesCount: nodesForTemplate.length,
                         charInfo: { name: charName, chatName: chatName, avatarUrl: charAvatarUrl }
                     });
@@ -6475,7 +6373,8 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                             { name: charName, chatName: chatName, avatarUrl: charAvatarUrl }, 
                             selectedThemeKey, 
                             selectedColorKey, 
-                            showAvatar
+                            showAvatar,
+                            showHeader // [핵심 수정] 읽어온 헤더 상태를 함수에 전달합니다.
                         );
                         console.log('[Arca] 템플릿 생성 완료, 길이:', template?.length);
                         console.log('[Arca] 템플릿 미리보기 (첫 200자):', template?.substring(0, 200));
@@ -6519,105 +6418,79 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                     return;
                 }
 
-                const imageUrls = [...source.matchAll(/<img[^>]+src="([^"]+)"/g)].map(match => match[1]);
+                // [핵심 수정] 정규식을 수정하여 <img>, <video>, <source> 태그의 src를 모두 추출합니다.
+                const mediaUrls = [...source.matchAll(/<(?:img|video|source)[^>]+src="([^"]+)"/g)].map(match => match[1]);
 
-                if (imageUrls.length === 0) {
-                    alert('아카라이브 소스에서 이미지 URL을 찾을 수 없습니다. 이미지를 올바르게 업로드했는지 확인해주세요.', 'error');
+                if (mediaUrls.length === 0) {
+                    alert('아카라이브 소스에서 이미지나 비디오 URL을 찾을 수 없습니다. 미디어를 올바르게 업로드했는지 확인해주세요.', 'error');
                     return;
                 }
 
                 let usedUrlCount = 0;
 
-                // ▼▼▼ [최종 수정 코드] 이 코드로 전체를 교체하세요 ▼▼▼
-                let finalHtml = template.replace(/<!--\s*(ARCA_IMG_PLACEHOLDER_(\d+)|ARCA_AVATAR_PLACEHOLDER_(true|false)_(\d+))\s*-->/g, (match, fullMatch, imgNum, isUserStr, avatarNum) => {
-                    // 이미지 번호 결정: 일반 이미지는 imgNum, 아바타는 avatarNum 사용
-                    const imageNumber = imgNum || avatarNum;
-                    const index = parseInt(imageNumber, 10) - 1;
+                let finalHtml = template.replace(/<!--\s*(?:ARCA_IMG_PLACEHOLDER_(\d+)|ARCA_AVATAR_PLACEHOLDER_(true|false)_(\d+)|ARCA_HEADER_AVATAR_PLACEHOLDER_(\d+)|ARCA_VIDEO_PLACEHOLDER_(\d+))\s*-->/g, (match, imgNum, isUserStr, avatarNum, headerAvatarNum, videoNum) => {
+                    const mediaNumber = imgNum || avatarNum || headerAvatarNum || videoNum;
+                    const index = parseInt(mediaNumber, 10) - 1;
 
-                    if (index < imageUrls.length) {
+                    if (index < mediaUrls.length) {
                         usedUrlCount++;
-                        const imageUrl = imageUrls[index]; // 이미지 URL 추출
+                        const mediaUrl = mediaUrls[index]; // 변수명 변경: imageUrl -> mediaUrl
                         const selectedThemeKey = themeSelector.value;
                         const themeInfo = THEMES[selectedThemeKey] || THEMES.basic;
                         const color = (selectedThemeKey === 'basic') ? (COLORS[colorSelector.value] || COLORS.dark) : themeInfo.color;
-                
-                        // 아바타인지 확인 (isUserStr이 정의되어 있으면 아바타)
-                        if (typeof isUserStr !== 'undefined' && isUserStr !== null) {
+                        
+                        if (videoNum) {
+                            const style = `max-width: 100%; height: auto; border-radius: 8px; display: block; margin: 12px 0;`;
+                            const fileType = mediaUrl.split('.').pop().split('?')[0] || 'mp4';
+                            return `<video controls loop muted playsinline style="${style}"><source src="${mediaUrl}" type="video/${fileType}"></video>`;
+                        }
+                        if (headerAvatarNum) {
+                             const style = `width:80px; height:80px; border-radius:50%; object-fit:cover; margin:0 auto 1em; display:block; border: 3px solid ${color.avatarBorder}; box-shadow: ${color.shadow};`;
+                             return `<img src="${mediaUrl}" style="${style}">`;
+                        }
+                        if (avatarNum) {
                             const isUser = isUserStr === 'true';
                             let style;
-
-                            // 테마별 아바타 스타일 적용 (이제 margin, display는 여기서 정의하지 않음)
                             switch(selectedThemeKey) {
-                                case 'fantasy':
-                                    style = `width:52px;height:52px;min-width:52px;border-radius:50%;border:2px solid ${color.avatarBorder}; box-shadow: 0 0 12px rgba(255, 201, 120, 0.5);`;
-                                    break;
-                                case 'fantasy2':
-                                    style = `width:50px;height:50px;min-width:50px;border-radius:50%;border:3px solid ${color.avatarBorder}; box-shadow: ${color.shadow}; position: relative; margin:${isUser ? '0 0 0 16px' : '0 16px 0 0'};`;
-                                    break;
-                                case 'royal':
-                                    style = `width:55px;height:55px;min-width:55px;border-radius:50%;border:3px solid ${color.avatarBorder}; box-shadow: ${color.shadow}; position: relative;`;
-                                    break;
-                                case 'ocean':
-                                    style = `width:48px;height:48px;min-width:48px;border-radius:50%;border:2px solid ${color.avatarBorder}; box-shadow: ${color.shadow}; position: relative; margin:${isUser ? '0 0 0 14px' : '0 14px 0 0'};`;
-                                    break;
-                                case 'sakura':
-                                    style = `width:46px;height:46px;min-width:46px;border-radius:50%;border:2px solid ${color.avatarBorder}; box-shadow: ${color.shadow}; position: relative; margin:${isUser ? '0 0 0 12px' : '0 12px 0 0'};`;
-                                    break;
-                                case 'matrix':
-                                    style = `width:44px;height:44px;min-width:44px;border-radius:4px;border:1px solid ${color.avatarBorder}; box-shadow: ${color.shadow}; font-family: 'Courier New', monospace; margin:${isUser ? '0 0 0 10px' : '0 10px 0 0'};`;
-                                    break;
-                                default:
-                                    style = ARCA_IMG_STYLES.avatar(color, isUser);
+                                case 'fantasy': style = `width:52px;height:52px;min-width:52px;border-radius:50%;border:2px solid ${color.avatarBorder}; box-shadow: 0 0 12px rgba(255, 201, 120, 0.5);`; break;
+                                case 'fantasy2': style = `width:50px;height:50px;min-width:50px;border-radius:50%;border:3px solid ${color.avatarBorder}; box-shadow: ${color.shadow}; position: relative; margin:${isUser ? '0 0 0 16px' : '0 16px 0 0'};`; break;
+                                case 'royal': style = `width:55px;height:55px;min-width:55px;border-radius:50%;border:3px solid ${color.avatarBorder}; box-shadow: ${color.shadow}; position: relative;`; break;
+                                case 'ocean': style = `width:48px;height:48px;min-width:48px;border-radius:50%;border:2px solid ${color.avatarBorder}; box-shadow: ${color.shadow}; position: relative; margin:${isUser ? '0 0 0 14px' : '0 14px 0 0'};`; break;
+                                case 'sakura': style = `width:46px;height:46px;min-width:46px;border-radius:50%;border:2px solid ${color.avatarBorder}; box-shadow: ${color.shadow}; position: relative; margin:${isUser ? '0 0 0 12px' : '0 12px 0 0'};`; break;
+                                case 'matrix': style = `width:44px;height:44px;min-width:44px;border-radius:4px;border:1px solid ${color.avatarBorder}; box-shadow: ${color.shadow}; font-family: 'Courier New', monospace; margin:${isUser ? '0 0 0 10px' : '0 10px 0 0'};`; break;
+                                default: style = ARCA_IMG_STYLES.avatar(color, isUser);
                             }
-
-                            const imgTag = `<img src="${imageUrl}" style="${style}">`;
-
-                            // [핵심 수정] 중앙 정렬이 필요한 테마(fantasy, royal)인 경우, <div>로 감싸서 반환
+                            const imgTag = `<img src="${mediaUrl}" style="${style}">`;
                             if (selectedThemeKey === 'fantasy' || selectedThemeKey === 'royal') {
-                                // <p> 태그의 text-align: center 스타일은 거의 모든 웹 에디터에서 허용하는 표준 기능입니다.
-                                // <p> 태그의 기본 여백(margin)을 제거하여 불필요한 공간이 생기지 않도록 합니다.
                                 return `<div style="text-align: center; margin: auto; padding: 0;">${imgTag}</div>`;
-                            }else {
-                                return imgTag; // 나머지 테마는 기존처럼 <img> 태그만 반환
+                            } else {
+                                return imgTag;
                             }
-                        } else {
-                            // 일반 콘텐츠 이미지
-                            return `<img src="${imageUrl}" style="${ARCA_IMG_STYLES.content}">`;
+                        }
+                        if (imgNum) {
+                            return `<img src="${mediaUrl}" style="${ARCA_IMG_STYLES.content}">`;
                         }
                     }
                     return match;
                 });
-                // ▲▲▲ [최종 수정 코드] 여기까지 ▲▲▲
-
-                // 후처리: td border=0, 이미지 max-width 슬라이더 값 반영, title 태그 제거
+                
                 try {
                     const scale = (typeof imageScaleSlider !== 'undefined' && imageScaleSlider && imageScaleSlider.value) ? imageScaleSlider.value : '100';
                     const tempContainer = document.createElement('div');
                     tempContainer.innerHTML = finalHtml;
-
-                    // title 태그 제거
                     tempContainer.querySelectorAll('title').forEach(el => el.remove());
-
-                    // 모든 td 태그에 border="0" 부여 (기존 border 속성 제거 후 설정)
-                    tempContainer.querySelectorAll('td').forEach(td => {
-                        td.style.border = '0px';
+                    tempContainer.querySelectorAll('td').forEach(td => { td.style.border = '0px'; td.setAttribute('border', '0'); });
+                    tempContainer.querySelectorAll('img, video').forEach(el => {
+                        el.style.setProperty('max-width', `${scale}%`, 'important');
+                        el.style.setProperty('height', 'auto', 'important');
                     });
-                    tempContainer.querySelectorAll('td').forEach(td => td.setAttribute('border', '0'));
-
-                    // 이미지 max-width를 슬라이더 값으로 통일, 높이는 auto 유지
-                    // 이미지에 max-width와 height:auto를 강제로 추가하여 스타일을 통일합니다.
-                    tempContainer.querySelectorAll('img').forEach(img => {
-                        img.style.setProperty('max-width', `${scale}%`, 'important');
-                        img.style.setProperty('height', 'auto', 'important');
-                    });
-
                     finalHtml = tempContainer.innerHTML;
                 } catch (e) {
                     console.warn('[Arca Convert] post-process failed:', e);
                 }
 
                 arcaFinalHtml.value = finalHtml;
-                alert(`변환 완료! ${usedUrlCount}개의 이미지 위치가 교체되었습니다. 최종 결과물을 복사하여 사용하세요.`, 'success');
+                alert(`변환 완료! ${usedUrlCount}개의 미디어 위치가 교체되었습니다. 최종 결과물을 복사하여 사용하세요.`, 'success');
             });
             
             // 데스크톱 아카라이브 변환 버튼 이벤트 리스너
@@ -6631,62 +6504,57 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                         return;
                     }
 
-                    const imageUrls = [...source.matchAll(/<img[^>]+src="([^"]+)"/g)].map(match => match[1]);
+                    // [핵심 수정] 정규식을 수정하여 <img>, <video>, <source> 태그의 src를 모두 추출합니다.
+                    const mediaUrls = [...source.matchAll(/<(?:img|video|source)[^>]+src="([^"]+)"/g)].map(match => match[1]);
 
-                    if (imageUrls.length === 0) {
-                        alert('아카라이브 소스에서 이미지 URL을 찾을 수 없습니다. 이미지를 올바르게 업로드했는지 확인해주세요.', 'error');
+                    if (mediaUrls.length === 0) {
+                        alert('아카라이브 소스에서 이미지나 비디오 URL을 찾을 수 없습니다. 미디어를 올바르게 업로드했는지 확인해주세요.', 'error');
                         return;
                     }
 
                     let usedUrlCount = 0;
 
-                    let finalHtml = template.replace(/<!--\s*(ARCA_IMG_PLACEHOLDER_(\d+)|ARCA_AVATAR_PLACEHOLDER_(true|false)_(\d+))\s*-->/g, (match, fullMatch, imgNum, isUserStr, avatarNum) => {
-                        const imageNumber = imgNum || avatarNum;
-                        const index = parseInt(imageNumber, 10) - 1;
+                    let finalHtml = template.replace(/<!--\s*(?:ARCA_IMG_PLACEHOLDER_(\d+)|ARCA_AVATAR_PLACEHOLDER_(true|false)_(\d+)|ARCA_HEADER_AVATAR_PLACEHOLDER_(\d+)|ARCA_VIDEO_PLACEHOLDER_(\d+))\s*-->/g, (match, imgNum, isUserStr, avatarNum, headerAvatarNum, videoNum) => {
+                        const mediaNumber = imgNum || avatarNum || headerAvatarNum || videoNum;
+                        const index = parseInt(mediaNumber, 10) - 1;
 
-                        if (index < imageUrls.length) {
+                        if (index < mediaUrls.length) {
                             usedUrlCount++;
-                            const imageUrl = imageUrls[index];
+                            const mediaUrl = mediaUrls[index]; // 변수명 변경: imageUrl -> mediaUrl
                             const selectedThemeKey = themeSelector.value;
                             const themeInfo = THEMES[selectedThemeKey] || THEMES.basic;
                             const color = (selectedThemeKey === 'basic') ? (COLORS[colorSelector.value] || COLORS.dark) : themeInfo.color;
-                    
-                            if (typeof isUserStr !== 'undefined' && isUserStr !== null) {
+                            
+                            if (videoNum) {
+                                const style = `max-width: 100%; height: auto; border-radius: 8px; display: block; margin: 12px 0;`;
+                                const fileType = mediaUrl.split('.').pop().split('?')[0] || 'mp4';
+                                return `<video controls loop muted playsinline style="${style}"><source src="${mediaUrl}" type="video/${fileType}"></video>`;
+                            }
+                            if (headerAvatarNum) {
+                                const style = `width:80px; height:80px; border-radius:50%; object-fit:cover; margin:0 auto 1em; display:block; border: 3px solid ${color.avatarBorder}; box-shadow: ${color.shadow};`;
+                                return `<img src="${mediaUrl}" style="${style}">`;
+                            }
+                            if (avatarNum) {
                                 const isUser = isUserStr === 'true';
                                 let style;
-
                                 switch(selectedThemeKey) {
-                                    case 'fantasy':
-                                        style = `width:52px;height:52px;min-width:52px;border-radius:50%;border:2px solid ${color.avatarBorder}; box-shadow: 0 0 12px rgba(255, 201, 120, 0.5);`;
-                                        break;
-                                    case 'fantasy2':
-                                        style = `width:50px;height:50px;min-width:50px;border-radius:50%;border:3px solid ${color.avatarBorder}; box-shadow: ${color.shadow}; position: relative; margin:${isUser ? '0 0 0 16px' : '0 16px 0 0'};`;
-                                        break;
-                                    case 'royal':
-                                        style = `width:55px;height:55px;min-width:55px;border-radius:50%;border:3px solid ${color.avatarBorder}; box-shadow: ${color.shadow}; position: relative;`;
-                                        break;
-                                    case 'ocean':
-                                        style = `width:48px;height:48px;min-width:48px;border-radius:50%;border:2px solid ${color.avatarBorder}; box-shadow: ${color.shadow}; position: relative; margin:${isUser ? '0 0 0 14px' : '0 14px 0 0'};`;
-                                        break;
-                                    case 'sakura':
-                                        style = `width:46px;height:46px;min-width:46px;border-radius:50%;border:2px solid ${color.avatarBorder}; box-shadow: ${color.shadow}; position: relative; margin:${isUser ? '0 0 0 12px' : '0 12px 0 0'};`;
-                                        break;
-                                    case 'matrix':
-                                        style = `width:44px;height:44px;min-width:44px;border-radius:4px;border:1px solid ${color.avatarBorder}; box-shadow: ${color.shadow}; font-family: 'Courier New', monospace; margin:${isUser ? '0 0 0 10px' : '0 10px 0 0'};`;
-                                        break;
-                                    default:
-                                        style = ARCA_IMG_STYLES.avatar(color, isUser);
+                                    case 'fantasy': style = `width:52px;height:52px;min-width:52px;border-radius:50%;border:2px solid ${color.avatarBorder}; box-shadow: 0 0 12px rgba(255, 201, 120, 0.5);`; break;
+                                    case 'fantasy2': style = `width:50px;height:50px;min-width:50px;border-radius:50%;border:3px solid ${color.avatarBorder}; box-shadow: ${color.shadow}; position: relative; margin:${isUser ? '0 0 0 16px' : '0 16px 0 0'};`; break;
+                                    case 'royal': style = `width:55px;height:55px;min-width:55px;border-radius:50%;border:3px solid ${color.avatarBorder}; box-shadow: ${color.shadow}; position: relative;`; break;
+                                    case 'ocean': style = `width:48px;height:48px;min-width:48px;border-radius:50%;border:2px solid ${color.avatarBorder}; box-shadow: ${color.shadow}; position: relative; margin:${isUser ? '0 0 0 14px' : '0 14px 0 0'};`; break;
+                                    case 'sakura': style = `width:46px;height:46px;min-width:46px;border-radius:50%;border:2px solid ${color.avatarBorder}; box-shadow: ${color.shadow}; position: relative; margin:${isUser ? '0 0 0 12px' : '0 12px 0 0'};`; break;
+                                    case 'matrix': style = `width:44px;height:44px;min-width:44px;border-radius:4px;border:1px solid ${color.avatarBorder}; box-shadow: ${color.shadow}; font-family: 'Courier New', monospace; margin:${isUser ? '0 0 0 10px' : '0 10px 0 0'};`; break;
+                                    default: style = ARCA_IMG_STYLES.avatar(color, isUser);
                                 }
-
-                                const imgTag = `<img src="${imageUrl}" style="${style}">`;
-
+                                const imgTag = `<img src="${mediaUrl}" style="${style}">`;
                                 if (selectedThemeKey === 'fantasy' || selectedThemeKey === 'royal') {
                                     return `<div style="text-align: center; margin: auto; padding: 0;">${imgTag}</div>`;
                                 } else {
                                     return imgTag;
                                 }
-                            } else {
-                                return `<img src="${imageUrl}" style="${ARCA_IMG_STYLES.content}">`;
+                            }
+                            if (imgNum) {
+                                return `<img src="${mediaUrl}" style="${ARCA_IMG_STYLES.content}">`;
                             }
                         }
                         return match;
@@ -6696,26 +6564,19 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                         const scale = (typeof imageScaleSlider !== 'undefined' && imageScaleSlider && imageScaleSlider.value) ? imageScaleSlider.value : '100';
                         const tempContainer = document.createElement('div');
                         tempContainer.innerHTML = finalHtml;
-
                         tempContainer.querySelectorAll('title').forEach(el => el.remove());
-
-                        tempContainer.querySelectorAll('td').forEach(td => {
-                            td.style.border = '0px';
+                        tempContainer.querySelectorAll('td').forEach(td => { td.style.border = '0px'; td.setAttribute('border', '0'); });
+                        tempContainer.querySelectorAll('img, video').forEach(el => {
+                            el.style.setProperty('max-width', `${scale}%`, 'important');
+                            el.style.setProperty('height', 'auto', 'important');
                         });
-                        tempContainer.querySelectorAll('td').forEach(td => td.setAttribute('border', '0'));
-
-                        tempContainer.querySelectorAll('img').forEach(img => {
-                            img.style.setProperty('max-width', `${scale}%`, 'important');
-                            img.style.setProperty('height', 'auto', 'important');
-                        });
-
                         finalHtml = tempContainer.innerHTML;
                     } catch (e) {
                         console.warn('[Arca Convert] post-process failed:', e);
                     }
 
                     desktopArcaFinalHtml.value = finalHtml;
-                    alert(`변환 완료! ${usedUrlCount}개의 이미지 위치가 교체되었습니다. 최종 결과물을 복사하여 사용하세요.`, 'success');
+                    alert(`변환 완료! ${usedUrlCount}개의 미디어 위치가 교체되었습니다. 최종 결과물을 복사하여 사용하세요.`, 'success');
                 });
             }
             
