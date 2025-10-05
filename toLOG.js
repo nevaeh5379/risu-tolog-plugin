@@ -1214,7 +1214,16 @@ const AVATAR_ATTR = 'data-avatar';
                     border-radius: 8px;
                     touch-action: manipulation;
                 }
+                /* select와 input 요소 다크 테마 적용 */
+                select, input[type="number"], input[type="text"] {
+                    background: #1a1b26;
+                    color: #c0caf5;
+                    border: 1px solid #414868;
+                }
                 textarea {
+                    background: #1a1b26;
+                    color: #c0caf5;
+                    border: 1px solid #414868;
                     resize: vertical;
                     min-height: 120px;
                 }
@@ -3244,7 +3253,7 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
 
                 if (currentClasses.length === 0) return;
 
-                const containsImage = el.querySelector('img') !== null;
+                const containsImage = el.querySelector('img') !== null || el.querySelector('video') !== null;
 
                 let parentEl = el.parentElement;
                 let parentRisuClass = null;
