@@ -687,6 +687,7 @@ const AVATAR_ATTR = 'data-avatar';
      * AMD 로더와의 충돌을 피하기 위해 `define`과 `require`를 일시적으로 비활성화합니다.
      * @returns {Promise<void>} 라이브러리 로드가 완료되면 resolve되는 Promise.
      */
+
     function ensureJSZip() {
         console.log('[Log Exporter] ensureJSZip: JSZip 라이브러리 확인/로드 시작');
         if (typeof window.JSZip !== 'undefined') {
@@ -813,8 +814,8 @@ const AVATAR_ATTR = 'data-avatar';
      * @param {boolean} [sequentialNaming=false] - 이미지 파일 이름을 순차적으로 지정할지 여부 (아카라이브용).
      * @param {boolean} [showAvatar=true] - 아바타 이미지를 포함할지 여부.
      */
-    async function downloadImagesAsZip(nodes, charName, chatName, sequentialNaming = false, showAvatar = true) {
-        console.log(`[Log Exporter] downloadImagesAsZip: 미디어 ZIP 다운로드 시작 (v5 - Hex-Encoded Extension Detection)`);
+    async function downloadImagesAsZip(nodes, charName, chatName, sequentialNaming = false, showAvatar = true, convertWebM = false) {
+        console.log(`[Log Exporter] downloadImagesAsZip: 미디어 ZIP 다운로드 시작 (v6 - WebM to WebP Conversion)`);
         try {
             await ensureJSZip();
             const zip = new window.JSZip();
@@ -853,6 +854,40 @@ const AVATAR_ATTR = 'data-avatar';
                             return res.blob();
                         })
                         .then(async (blob) => {
+                            // [핵심 수정] URL 확장자를 먼저 확인 (MIME 타입이 잘못된 경우 대비)
+                            const urlLower = src.toLowerCase();
+                            const isWebMFromUrl = urlLower.includes('.webm') || urlLower.includes('2e7765626d'); // .webm의 hex 인코딩
+                            const isWebMFromMime = blob.type.includes('webm');
+                            const isWebM = isWebMFromUrl || isWebMFromMime;
+                            
+                            // [디버깅] 파일 정보 출력
+                            console.log(`[Log Exporter] 파일 다운로드 완료:`, {
+                                src: src.substring(0, 100) + '...',
+                                isVideo,
+                                blobType: blob.type,
+                                convertWebM,
+                                isWebMFromUrl,
+                                isWebMFromMime,
+                                shouldConvert: convertWebM && isVideo && isWebM
+                            });
+                            
+                            // [수정] WebM 변환 로직 - URL 우선 확인
+                            if (convertWebM && isVideo && isWebM) {
+                                console.log(`[Log Exporter] ✅ WebM 파일 감지, WebP로 변환 시작: ${baseFilename}`);
+                                try {
+                                    const file = new File([blob], 'video.webm', { type: 'video/webm' });
+                                    console.log(`[Log Exporter] 변환 시작... (파일 크기: ${(blob.size / 1024).toFixed(2)} KB)`);
+                                    // [수정] 원본 해상도와 프레임레이트 유지 (maxWidth=null, fps=null로 자동 감지)
+                                    const webpBlob = await convertWebMToAnimatedWebP(file, null, null, 80);
+                                    console.log(`[Log Exporter] ✅ WebM → WebP 변환 완료: ${baseFilename}.webp (크기: ${(webpBlob.size / 1024).toFixed(2)} KB)`);
+                                    zip.file(`${baseFilename}.webp`, webpBlob);
+                                    return; // 변환 성공 시 여기서 종료
+                                } catch (e) {
+                                    console.error(`[Log Exporter] ❌ WebM 변환 실패, 원본 저장:`, e);
+                                    // 변환 실패 시 아래 원본 저장 로직으로 진행
+                                }
+                            }
+                            
                             let extension = null;
                             const urlPath = src.split(/[?#]/)[0];
                             const filenamePart = urlPath.substring(urlPath.lastIndexOf('/') + 1);
@@ -3304,6 +3339,240 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
 
     // --- 아카라이브 연동 기능 추가 ---
     /**
+     * WebM 비디오를 Animated WebP로 변환합니다.
+     * @async
+     * @param {File} file - WebM 비디오 파일
+     * @param {number|null} fps - 프레임 레이트 (null이면 원본 유지, 기본값: 10)
+     * @param {number|null} maxWidth - 최대 너비 (null이면 원본 유지, 기본값: 500)
+     * @param {number} quality - 품질 (1-100, 기본값: 80)
+     * @returns {Promise<Blob>} WebP 이미지 Blob
+     */
+    async function convertWebMToAnimatedWebP(file, fps = 10, maxWidth = 500, quality = 80) {
+        const video = document.createElement('video');
+        video.src = URL.createObjectURL(file);
+        video.muted = true;
+        
+        await new Promise((resolve, reject) => {
+            video.onloadedmetadata = resolve;
+            video.onerror = () => reject(new Error('비디오를 로드할 수 없습니다.'));
+        });
+        
+        const duration = video.duration;
+        const originalWidth = video.videoWidth;
+        const originalHeight = video.videoHeight;
+        
+        // [수정] fps가 null이면 원본 프레임레이트 사용 (대략 추정)
+        // 일반적으로 WebM은 30fps 또는 비디오 길이로 프레임 수 추정
+        const targetFps = fps || 30; // 원본 fps를 정확히 알 수 없으므로 30fps로 추정
+        const frameInterval = 1 / targetFps;
+        
+        // [수정] maxWidth가 null이면 원본 너비 사용
+        let newWidth = originalWidth;
+        let newHeight = originalHeight;
+
+        if (maxWidth && originalWidth > maxWidth) {
+            newWidth = maxWidth;
+            newHeight = originalHeight * (maxWidth / originalWidth);
+        }
+
+        console.log('[WebM Converter] 변환 시작:', { 
+            원본: `${originalWidth}x${originalHeight}`, 
+            변환후: `${Math.round(newWidth)}x${Math.round(newHeight)}`,
+            fps: targetFps,
+            quality,
+            duration: `${duration.toFixed(2)}초`
+        });
+        
+        const frames = [];
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+
+        canvas.width = Math.round(newWidth);
+        canvas.height = Math.round(newHeight);
+        
+        let frameCount = 0;
+        const totalFrames = Math.floor(duration * targetFps);
+        
+        console.log(`[WebM Converter] 프레임 추출 중... (총 ${totalFrames}개 예상)`);
+        
+        for (let time = 0; time < duration; time += frameInterval) {
+            video.currentTime = time;
+            
+            await new Promise(resolve => {
+                video.onseeked = resolve;
+            });
+            
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            frames.push(imageData);
+            
+            frameCount++;
+            
+            // 진행률 로그 (10% 단위)
+            if (frameCount % Math.max(1, Math.floor(totalFrames / 10)) === 0) {
+                console.log(`[WebM Converter] 진행: ${frameCount}/${totalFrames} (${Math.round(frameCount/totalFrames*100)}%)`);
+            }
+        }
+        
+        console.log(`[WebM Converter] 프레임 추출 완료: ${frames.length}개`);
+        
+        const delayMs = Math.round(frameInterval * 1000);
+        const webpData = await encodeAnimatedWebP(frames, canvas.width, canvas.height, delayMs, quality);
+        
+        URL.revokeObjectURL(video.src);
+        
+        console.log(`[WebM Converter] 인코딩 완료`);
+        
+        return new Blob([webpData], { type: 'image/webp' });
+    }
+    
+    async function encodeAnimatedWebP(frames, width, height, delay, quality) {
+        const chunks = [];
+        
+        chunks.push(createRIFFHeader());
+        chunks.push(createVP8XChunk(width, height, true));
+        chunks.push(createANIMChunk(0xFFFFFF, 0));
+        
+        for (let i = 0; i < frames.length; i++) {
+            const frameData = await encodeFrameToWebP(frames[i], width, height, quality);
+            const anmf = createANMFChunk(frameData, delay, width, height);
+            chunks.push(anmf);
+        }
+        
+        const totalSize = chunks.reduce((sum, chunk) => sum + chunk.byteLength, 0);
+        const result = new Uint8Array(totalSize);
+        let offset = 0;
+        
+        for (const chunk of chunks) {
+            result.set(new Uint8Array(chunk), offset);
+            offset += chunk.byteLength;
+        }
+        
+        const view = new DataView(result.buffer);
+        view.setUint32(4, totalSize - 8, true);
+        
+        return result.buffer;
+    }
+    
+    function createRIFFHeader() {
+        const buffer = new ArrayBuffer(12);
+        const view = new DataView(buffer);
+        const encoder = new TextEncoder();
+        
+        new Uint8Array(buffer, 0, 4).set(encoder.encode('RIFF'));
+        view.setUint32(4, 0, true);
+        new Uint8Array(buffer, 8, 4).set(encoder.encode('WEBP'));
+        
+        return buffer;
+    }
+    
+    function createVP8XChunk(width, height, hasAnimation) {
+        const buffer = new ArrayBuffer(18);
+        const view = new DataView(buffer);
+        const encoder = new TextEncoder();
+        
+        new Uint8Array(buffer, 0, 4).set(encoder.encode('VP8X'));
+        view.setUint32(4, 10, true);
+        view.setUint8(8, hasAnimation ? 0x02 : 0x00);
+        view.setUint8(9, 0);
+        view.setUint8(10, 0);
+        view.setUint8(11, 0);
+        
+        const w = Math.round(width) - 1;
+        view.setUint8(12, w & 0xFF);
+        view.setUint8(13, (w >> 8) & 0xFF);
+        view.setUint8(14, (w >> 16) & 0xFF);
+        
+        const h = Math.round(height) - 1;
+        view.setUint8(15, h & 0xFF);
+        view.setUint8(16, (h >> 8) & 0xFF);
+        view.setUint8(17, (h >> 16) & 0xFF);
+        
+        return buffer;
+    }
+    
+    function createANIMChunk(bgColor, loopCount) {
+        const buffer = new ArrayBuffer(14);
+        const view = new DataView(buffer);
+        const encoder = new TextEncoder();
+        
+        new Uint8Array(buffer, 0, 4).set(encoder.encode('ANIM'));
+        view.setUint32(4, 6, true);
+        view.setUint32(8, bgColor, false);
+        view.setUint16(12, loopCount, true);
+        
+        return buffer;
+    }
+    
+    async function encodeFrameToWebP(imageData, width, height, quality) {
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.putImageData(imageData, 0, 0);
+        
+        const blob = await new Promise(resolve => {
+            canvas.toBlob(resolve, 'image/webp', quality / 100);
+        });
+        
+        const arrayBuffer = await blob.arrayBuffer();
+        const data = new Uint8Array(arrayBuffer);
+        
+        let offset = 12;
+        
+        while (offset < data.length) {
+            const chunkType = String.fromCharCode(...data.slice(offset, offset + 4));
+            const chunkSize = new DataView(data.buffer, offset + 4, 4).getUint32(0, true);
+            
+            if (chunkType === 'VP8 ' || chunkType === 'VP8L') {
+                return data.slice(offset);
+            }
+            
+            offset += 8 + chunkSize + (chunkSize % 2);
+        }
+        
+        throw new Error('VP8/VP8L 청크를 찾을 수 없습니다.');
+    }
+    
+    function createANMFChunk(frameData, duration, width, height) {
+        const frameDataSize = frameData.byteLength;
+        const payloadSize = 16 + frameDataSize;
+        const chunkSize = payloadSize + (payloadSize % 2);
+        const buffer = new ArrayBuffer(8 + chunkSize);
+        const view = new DataView(buffer);
+        const encoder = new TextEncoder();
+        
+        new Uint8Array(buffer, 0, 4).set(encoder.encode('ANMF'));
+        view.setUint32(4, payloadSize, true);
+        
+        view.setUint32(8, 0, true);
+        view.setUint16(12, 0, true);
+
+        const w = Math.round(width) - 1;
+        view.setUint8(14, w & 0xFF);
+        view.setUint8(15, (w >> 8) & 0xFF);
+        view.setUint8(16, (w >> 16) & 0xFF);
+
+        const h = Math.round(height) - 1;
+        view.setUint8(17, h & 0xFF);
+        view.setUint8(18, (h >> 8) & 0xFF);
+        view.setUint8(19, (h >> 16) & 0xFF);
+
+        view.setUint8(20, duration & 0xFF);
+        view.setUint8(21, (duration >> 8) & 0xFF);
+        view.setUint8(22, (duration >> 16) & 0xFF);
+        view.setUint8(23, 0);
+        
+        new Uint8Array(buffer, 24).set(new Uint8Array(frameData));
+        
+        if (payloadSize % 2 === 1) {
+            view.setUint8(8 + payloadSize, 0);
+        }
+        
+        return buffer;
+    }
+
+    /**
      * 아카라이브용 HTML 템플릿을 생성합니다.
      * <img> 태그를 고유한 자리표시자 주석으로 교체합니다.
      * [수정] innerHTML 재파싱으로 인한 스타일 손실을 방지하기 위해 문자열 기반 처리로 변경
@@ -4263,6 +4532,10 @@ const customFilterHtml = `
                                 <li><b>소스 붙여넣기:</b> 이미지 업로드 후, 에디터의 <b>HTML 소스 전체</b>를 복사하여 아래 <b>'3. 아카라이브 소스'</b> 칸에 붙여넣으세요.</li>
                                 <li><b>변환 및 완료:</b> <b>'변환'</b> 버튼을 누르세요. 생성된 <b>'4. 최종 결과물'</b>을 복사하여 아카라이브 에디터에 붙여넣으면 완료됩니다.</li>
                             </ol>
+                            <label class="mobile-option-row" style="margin-bottom: 10px; padding: 12px; background: #24283b; border-radius: 8px;">
+                                <span class="mobile-option-label">🎬 비디오에서 움짤로 변환</span>
+                                <input type="checkbox" id="arca-convert-webm-mobile" style="width: 20px; height: 20px; cursor: pointer; accent-color: #7aa2f7;">
+                            </label>
                             <button class="log-exporter-modal-btn image-save" id="arca-download-zip-btn-mobile" style="width: 100%; margin-bottom: 10px;">1. 이미지 ZIP 다운로드</button>
                             <label style="display: block; margin: 10px 0 5px;"><b>2. 템플릿 HTML</b></label>
                             <textarea id="arca-template-html-mobile" readonly style="width: 100%; min-height: 100px;"></textarea>
@@ -4484,6 +4757,12 @@ const customFilterHtml = `
                                 <li><b>소스 붙여넣기:</b> 에디터의 HTML 소스를 아래 '아카라이브 소스'에 붙여넣으세요.</li>
                                 <li><b>변환 완료:</b> '변환' 버튼을 누르고 '최종 결과물'을 복사하세요.</li>
                             </ol>
+                            <div class="desktop-option-row" style="margin-bottom: 12px;">
+                                <span class="desktop-option-label">🎬 비디오에서 움짤로 변환</span>
+                                <div class="desktop-toggle arca-toggle-only" id="arca-convert-webm-toggle">
+                                    <input type="checkbox" id="arca-convert-webm-checkbox" style="display: none;">
+                                </div>
+                            </div>
                             <button class="desktop-btn desktop-btn-secondary" id="desktop-arca-download-zip-btn" style="width: 100%; margin-bottom: 12px; background-color: #e0af68; color: #1a1b26;">
                                 📦 1. 이미지 ZIP 다운로드
                             </button>
@@ -4618,9 +4897,6 @@ const customFilterHtml = `
                     </button>
                     <button class="desktop-btn desktop-btn-warning" id="desktop-save-image">
                         🖼️ 이미지 저장
-                    </button>
-                    <button class="desktop-btn" id="log-exporter-debug-hover" title="호버 스타일 적용 상태를 확인합니다" style="background-color: #7dcfff; color: #1a1b26;">
-                        🐛 디버그
                     </button>
                     <button class="desktop-btn desktop-btn-secondary" id="desktop-download-zip">
                         📦 ZIP 다운로드
@@ -5019,9 +5295,12 @@ const customFilterHtml = `
                     if (checkbox) {
                         checkbox.checked = !checkbox.checked;
                         toggle.classList.toggle('active', checkbox.checked);
-                        // handleSettingChange와 updatePreview 모두 호출
-                        handleSettingChange({ target: checkbox });
-                        updatePreview();
+                        // arca-toggle-only 클래스가 있으면 설정 저장 및 미리보기 업데이트 건너뛰기
+                        if (!toggle.classList.contains('arca-toggle-only')) {
+                            // handleSettingChange와 updatePreview 모두 호출
+                            handleSettingChange({ target: checkbox });
+                            updatePreview();
+                        }
                     }
                 });
             });
@@ -6069,136 +6348,6 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
             
             saveImageBtn.addEventListener('click', handleImageSave);
             
-            // [추가] 디버그 버튼 이벤트 리스너
-            const debugHoverBtn = modal.querySelector('#log-exporter-debug-hover');
-            if (debugHoverBtn) {
-                debugHoverBtn.addEventListener('click', async (e) => {
-                    console.log('[Log Exporter] 🐛 디버그 모드 시작 - 이미지 저장 환경을 그대로 시뮬레이션합니다.');
-                    
-                    // 설정 값 읽기 (이미지 저장과 동일하게)
-                    const useHighRes = modal.querySelector('#image-high-res-checkbox, #image-high-res-mobile')?.checked || false;
-                    const baseFontSize = parseInt(modal.querySelector('#image-font-size-input, #image-font-size-mobile')?.value) || 26;
-                    const imageWidth = parseInt(modal.querySelector('#image-width-input, #image-width-mobile')?.value) || 700;
-                    
-                    console.log('[Log Exporter] 🐛 설정값:', { useHighRes, baseFontSize, imageWidth });
-                    
-                    // 현재 화면 크기에 따라 올바른 미리보기 선택
-                    const isMobile = window.innerWidth <= 768;
-                    const targetPreview = isMobile ? mobilePreviewEl : desktopPreviewEl;
-                    
-                    let captureTarget = targetPreview?.querySelector('div');
-                    if (captureTarget?.shadowRoot) {
-                        captureTarget = captureTarget.shadowRoot.querySelector('.preview-wrapper') || captureTarget.shadowRoot.firstElementChild || captureTarget;
-                    }
-                    
-                    const rootHtml = document.documentElement;
-                    
-                    // 원본 스타일 저장
-                    const originalStyles = {
-                        preview: { 
-                            width: targetPreview.style.width, 
-                            height: targetPreview.style.height, 
-                            maxHeight: targetPreview.style.maxHeight, 
-                            overflowY: targetPreview.style.overflowY, 
-                            padding: targetPreview.style.padding, 
-                            border: targetPreview.style.border 
-                        },
-                        target: { 
-                            width: captureTarget.style.width, 
-                            border: captureTarget.style.border, 
-                            borderImage: captureTarget.style.borderImage, 
-                            backgroundImage: captureTarget.style.backgroundImage, 
-                            margin: captureTarget.style.margin 
-                        },
-                        rootHtml: { fontSize: rootHtml.style.fontSize }
-                    };
-                    
-                    console.log('[Log Exporter] 🐛 원본 스타일 저장 완료');
-                    
-                    // 1. 폰트 크기 적용
-                    console.log('[Log Exporter] 🐛 1단계: 폰트 크기 적용');
-                    rootHtml.style.fontSize = `${baseFontSize}px`;
-                    console.log(`[Log Exporter] 🐛 html 폰트 크기 변경: ${baseFontSize}px`);
-                    
-                    // 2. 미리보기 크기 조정
-                    console.log('[Log Exporter] 🐛 2단계: 미리보기 크기 조정');
-                    Object.assign(targetPreview.style, { 
-                        height: 'auto', 
-                        maxHeight: 'none', 
-                        overflowY: 'visible', 
-                        border: 'none', 
-                        padding: '0', 
-                        width: `${imageWidth}px` 
-                    });
-                    captureTarget.style.width = `${imageWidth}px`;
-                    console.log(`[Log Exporter] 🐛 미리보기 너비 변경: ${imageWidth}px`);
-                    
-                    // 3. 호버 CSS 생성 및 적용
-                    if (e.shiftKey || useHighRes) { // Shift 키를 누르고 클릭하면 강제로 호버 CSS 적용
-                        console.log('[Log Exporter] 🐛 3단계: 호버 CSS 생성 (고해상도 모드 활성화)');
-                        const hoverCss = await generateForceHoverCss(targetPreview);
-                        console.log('[Log Exporter] 🐛 생성된 CSS 길이:', hoverCss.length);
-                        console.log('[Log Exporter] 🐛 생성된 CSS 전체:\n', hoverCss);
-                        
-                        const debugStyleEl = document.createElement('style');
-                        debugStyleEl.id = 'tolog-debug-hover-style';
-                        debugStyleEl.textContent = hoverCss;
-                        document.head.appendChild(debugStyleEl);
-                        
-                        captureTarget.classList.add('expand-hover-globally');
-                        console.log('[Log Exporter] 🐛 expand-hover-globally 클래스 추가');
-                    } else if (!useHighRes) {
-                        console.log('[Log Exporter] 🐛 3단계: 고해상도 모드 비활성화 - 호버 스타일 미적용');
-                    }
-                    
-                    // 4. 렌더링 대기
-                    await new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, 200)));
-                    
-                    // 5. 실제 적용된 스타일 확인
-                    console.log('[Log Exporter] 🐛 4단계: 적용된 스타일 확인');
-                    console.log('[Log Exporter] 🐛 html fontSize:', window.getComputedStyle(rootHtml).fontSize);
-                    console.log('[Log Exporter] 🐛 targetPreview 너비:', window.getComputedStyle(targetPreview).width);
-                    console.log('[Log Exporter] 🐛 captureTarget 너비:', window.getComputedStyle(captureTarget).width);
-                    
-                    const testElements = captureTarget.querySelectorAll('.x-risu-holy-frame, .holy-frame');
-                    console.log('[Log Exporter] 🐛 찾은 holy-frame 요소:', testElements.length);
-                    testElements.forEach((el, idx) => {
-                        const computedStyle = window.getComputedStyle(el);
-                        console.log(`[Log Exporter] 🐛 holy-frame[${idx}] 계산된 스타일:`, {
-                            maxHeight: computedStyle.maxHeight,
-                            display: computedStyle.display,
-                            position: computedStyle.position,
-                            width: computedStyle.width,
-                            height: computedStyle.height
-                        });
-                    });
-                    
-                    const ornaments = captureTarget.querySelectorAll('.x-risu-deco-ornament, .deco-ornament');
-                    console.log('[Log Exporter] 🐛 찾은 장식 요소:', ornaments.length);
-                    ornaments.forEach((el, idx) => {
-                        const computedStyle = window.getComputedStyle(el);
-                        console.log(`[Log Exporter] 🐛 ornament[${idx}] 계산된 스타일:`, {
-                            transform: computedStyle.transform,
-                            display: computedStyle.display,
-                            position: computedStyle.position
-                        });
-                    });
-                    
-                    alert(`디버그 정보가 콘솔에 출력되었습니다.\n\n【적용된 설정】\n- 폰트 크기: ${baseFontSize}px\n- 이미지 너비: ${imageWidth}px\n- 고해상도(호버): ${useHighRes ? 'ON' : 'OFF'}\n\n이 상태가 유지됩니다.\n원래대로 복구하려면 페이지를 새로고침하거나 콘솔에서 restoreDebugStyles()를 실행하세요.`, 'success');
-                    
-                    // 원본 스타일을 복구하는 함수를 글로벌로 노출 (콘솔에서 사용 가능)
-                    window.restoreDebugStyles = () => {
-                        Object.assign(targetPreview.style, originalStyles.preview);
-                        Object.assign(captureTarget.style, originalStyles.target);
-                        Object.assign(rootHtml.style, originalStyles.rootHtml);
-                        captureTarget.classList.remove('expand-hover-globally');
-                        document.getElementById('tolog-debug-hover-style')?.remove();
-                        console.log('[Log Exporter] 🐛 디버그 스타일 복구 완료');
-                    };
-                    console.log('[Log Exporter] 🐛 복구 함수 등록: window.restoreDebugStyles() 를 실행하면 원래 상태로 복구됩니다.');
-                });
-            }
-            
             // 모바일 이미지 저장 버튼도 같은 핸들러 사용
             if (mobileSaveImageBtn) {
                 mobileSaveImageBtn.addEventListener('click', handleImageSave);
@@ -6230,8 +6379,11 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                 btn.textContent = '처리 중...';
                 btn.disabled = true;
                 const showAvatar = avatarToggleCheckbox.checked;
+                // WebM 변환 체크박스 값 읽기
+                const convertWebM = modal.querySelector('#arca-convert-webm-mobile')?.checked || false;
+                console.log('[Log Exporter] 아카라이브 ZIP 다운로드 (모바일):', { convertWebM });
                 // 아카라이브용으로 순차 이름(sequentialNaming=true)을 지정하여 ZIP 다운로드
-                await downloadImagesAsZip(filteredNodes, charName, chatName, true, showAvatar);
+                await downloadImagesAsZip(filteredNodes, charName, chatName, true, showAvatar, convertWebM);
                 btn.textContent = originalText;
                 btn.disabled = false;
             });
@@ -6245,8 +6397,11 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                     btn.textContent = '처리 중...';
                     btn.disabled = true;
                     const showAvatar = avatarToggleCheckbox ? avatarToggleCheckbox.checked : true;
+                    // WebM 변환 체크박스 값 읽기
+                    const convertWebM = modal.querySelector('#arca-convert-webm-checkbox')?.checked || false;
+                    console.log('[Log Exporter] 아카라이브 ZIP 다운로드:', { convertWebM });
                     // 아카라이브용으로 순차 이름(sequentialNaming=true)을 지정하여 ZIP 다운로드
-                    await downloadImagesAsZip(filteredNodes, charName, chatName, true, showAvatar);
+                    await downloadImagesAsZip(filteredNodes, charName, chatName, true, showAvatar, convertWebM);
                     btn.textContent = originalText;
                     btn.disabled = false;
                 });
