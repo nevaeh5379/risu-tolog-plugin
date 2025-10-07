@@ -1077,7 +1077,7 @@ const AVATAR_ATTR = 'data-avatar';
             #theme-selector:hover { border-color: #565f89; }
             .arca-helper-section { display: none; flex-direction: column; gap: 8px; background-color: #1a1b26; padding: 12px; border-radius: 8px; border: 1px solid #7aa2f7; margin-top: 8px; }
             .arca-helper-section h4 { margin: 0 0 8px 0; color: #7aa2f7; }
-            .arca-helper-section textarea { width: 100%; height: 100px; background-color: #1f2335; color: #c0caf5; border: 1px solid #414868; border-radius: 5px; padding: 8px; font-family: monospace; font-size: 0.9em; resize: vertical; }
+            .log-exporter-modal .arca-helper-section textarea { width: 100%; height: 100px; background-color: #1f2335; color: #c0caf5; border: 1px solid #414868; border-radius: 5px; padding: 8px; font-family: monospace; font-size: 0.9em; resize: vertical; }
             .arca-helper-section button { align-self: center; }
             /* --- 모바일 반응형 스타일 (개선) --- */
             @media (max-width: 768px) { /* 일반 모바일 기기 */
@@ -1207,20 +1207,24 @@ const AVATAR_ATTR = 'data-avatar';
                     flex-basis: calc(33.33% - 4px);
                     margin-bottom: 4px;
                 }
-                /* 텍스트 입력 요소들 개선 */
-                select, input[type="number"], textarea {
+                /* 텍스트 입력 요소들 개선 - 로그 익스포터 모달 내부만 적용 */
+                .log-exporter-modal select, 
+                .log-exporter-modal input[type="number"], 
+                .log-exporter-modal textarea {
                     padding: 12px;
                     font-size: 16px; /* iOS 자동 줌 방지 */
                     border-radius: 8px;
                     touch-action: manipulation;
                 }
-                /* select와 input 요소 다크 테마 적용 */
-                select, input[type="number"], input[type="text"] {
+                /* select와 input 요소 다크 테마 적용 - 로그 익스포터 모달 내부만 적용 */
+                .log-exporter-modal select, 
+                .log-exporter-modal input[type="number"], 
+                .log-exporter-modal input[type="text"] {
                     background: #1a1b26;
                     color: #c0caf5;
                     border: 1px solid #414868;
                 }
-                textarea {
+                .log-exporter-modal .arca-helper-section textarea {
                     background: #1a1b26;
                     color: #c0caf5;
                     border: 1px solid #414868;
@@ -1252,6 +1256,7 @@ const AVATAR_ATTR = 'data-avatar';
                     padding: 12px 8px;
                     font-size: 0.9em;
                     min-height: 42px;
+                    width: 100%;
                 }
                 /* 푸터를 극도로 컴팩트하게 */
                 .log-exporter-modal-footer {
@@ -1274,7 +1279,7 @@ const AVATAR_ATTR = 'data-avatar';
                     font-size: 0.85em;
                     padding-left: 16px;
                 }
-                .arca-helper-section textarea {
+                .log-exporter-modal .arca-helper-section textarea {
                     min-height: 100px;
                     font-size: 14px;
                 }
@@ -2654,8 +2659,8 @@ const AVATAR_ATTR = 'data-avatar';
  * @returns {Promise<boolean>} 저장 성공 여부.
  */
 async function savePreviewAsImage(previewContainer, onProgress, cancellationToken, charName, chatName, options = {}) {
-    // [수정] expandHover를 options에서 올바르게 구조 분해 할당합니다.
-    const { useHighRes = false, baseFontSize = 16, imageWidth = 900, library = 'html-to-image', expandHover = false } = options;
+    // [수정] imageFormat을 options에서 올바르게 구조 분해 할당합니다.
+    const { useHighRes = false, baseFontSize = 16, imageWidth = 900, library = 'html-to-image', expandHover = false, imageFormat = 'png' } = options;
     console.log(`[Log Exporter] savePreviewAsImage: 이미지 저장을 시작합니다. (v3 - border-image 시뮬레이션 적용)`, { useHighRes, imageWidth, library });
 
     let captureTarget = previewContainer.querySelector('div');
@@ -2668,7 +2673,6 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
         captureTarget = captureTarget.shadowRoot.querySelector('.preview-wrapper') || captureTarget.shadowRoot.firstElementChild || captureTarget;
     }
 
-    const rootHtml = document.documentElement;
     // 나중에 복원할 원본 스타일 저장
     const originalStyles = {
         preview: { 
@@ -2685,10 +2689,10 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
             border: captureTarget.style.border, 
             borderImage: captureTarget.style.borderImage, 
             borderRadius: captureTarget.style.borderRadius,
-            backgroundImage: captureTarget.style.backgroundImage, 
-            margin: captureTarget.style.margin 
-        },
-        rootHtml: { fontSize: rootHtml.style.fontSize }
+            backgroundImage: captureTarget.style.backgroundImage,
+            margin: captureTarget.style.margin,
+            fontSize: captureTarget.style.fontSize // [추가] 캡처 대상의 폰트 크기 저장
+        }
     };
 
     const domReplacements = [];
@@ -2913,13 +2917,15 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
         await document.fonts.ready;
         const pixelRatio = useHighRes ? (window.devicePixelRatio || 2) : 1;
         const commonOptions = { quality: 1.0, pixelRatio, backgroundColor: getComputedStyle(captureTarget).backgroundColor || '#1a1b26' };
-        
-        rootHtml.style.fontSize = `${baseFontSize}px`;
+
         // [수정] 기본 스타일만 적용 (높이/오버플로우 제한은 유지)
         Object.assign(previewContainer.style, { 
             padding: '0', 
-            width: `${imageWidth}px` 
+            width: `${imageWidth}px`,
+            overflowY: 'hidden',
+            overflowX: 'hidden'
         });
+        captureTarget.style.fontSize = `${baseFontSize}px`; // [수정] 캡처 대상에만 폰트 크기 적용
         (borderWrapper || captureTarget).style.width = `${imageWidth}px`;
         
         await new Promise(r => requestAnimationFrame(r));
@@ -2931,18 +2937,28 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
         
         if (totalHeight <= MAX_CHUNK_HEIGHT) {
             // 단일 이미지 저장
-            let canvas;
+            let blob;
             const captureNode = borderWrapper || previewContainer;
+            const mimeType = `image/${imageFormat}`;
+            const quality = imageFormat === 'webp' ? 0.9 : 1.0;
+
             try {
                 if (library === 'html2canvas') {
-                    canvas = await imageLib(captureNode, { ...commonOptions, width: imageWidth, height: totalHeight, useCORS: true, allowTaint: true });
+                    const canvas = await imageLib(captureNode, { ...commonOptions, width: imageWidth, height: totalHeight, useCORS: true, allowTaint: true });
+                    blob = await new Promise(resolve => canvas.toBlob(resolve, mimeType, quality));
                 } else {
-                    canvas = await imageLib.toCanvas(captureNode, { ...commonOptions, width: imageWidth, height: totalHeight, timeout: 30000 }); // 타임아웃 30초
+                    // html-to-image, dom-to-image는 toBlob을 지원합니다.
+                    blob = await imageLib.toBlob(captureNode, { ...commonOptions, width: imageWidth, height: totalHeight, timeout: 30000, type: mimeType, quality: quality });
                 }
             } catch (e) {
                 throw new Error(`이미지 렌더링 중 타임아웃 발생: ${e.message}`);
             }
-            downloadImage(canvas.toDataURL('image/png', 1.0), charName, chatName);
+            if (!blob) {
+                throw new Error('이미지 Blob 생성에 실패했습니다.');
+            }
+            const dataUrl = URL.createObjectURL(blob);
+            downloadImage(dataUrl, charName, chatName, { extension: imageFormat });
+            URL.revokeObjectURL(dataUrl);
         } else {
                        // --- 라이브 DOM 조작을 통한 분할 저장 ---
             // [수정] 메시지 컨테이너를 깊이 탐색하여 찾기
@@ -3053,23 +3069,29 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
                 // 3. 현재 보이는 부분만 캡처
                 const currentChunkHeight = captureTarget.scrollHeight;
                 console.log(`[Log Exporter] 분할 이미지 ${i + 1} 캡처 중... (높이: ${currentChunkHeight}px)`);
-                let canvas;
+                let blob;
                 const captureNode = borderWrapper || previewContainer;
+                const mimeType = `image/${imageFormat}`;
+                const quality = imageFormat === 'webp' ? 0.9 : 1.0;
+
                  try {
                     if (library === 'html2canvas') {
-                        canvas = await imageLib(captureNode, { ...commonOptions, width: imageWidth, height: currentChunkHeight, useCORS: true, allowTaint: true });
+                        const canvas = await imageLib(captureNode, { ...commonOptions, width: imageWidth, height: currentChunkHeight, useCORS: true, allowTaint: true });
+                        blob = await new Promise(resolve => canvas.toBlob(resolve, mimeType, quality));
                     } else if (library === 'dom-to-image') {
-                        const dataUrl = await imageLib.toPng(captureNode, { ...commonOptions, width: imageWidth, height: currentChunkHeight, timeout: 30000 });
-                        canvas = await (new Promise((resolve, reject) => { const img = new Image(); img.onload = () => { const c = document.createElement('canvas'); c.width = img.width; c.height = img.height; c.getContext('2d').drawImage(img, 0, 0); resolve(c); }; img.onerror = reject; img.src = dataUrl; }));
+                        blob = await imageLib.toBlob(captureNode, { ...commonOptions, width: imageWidth, height: currentChunkHeight, timeout: 30000, type: mimeType, quality: quality });
                     } else {
-                        canvas = await imageLib.toCanvas(captureNode, { ...commonOptions, width: imageWidth, height: currentChunkHeight, timeout: 30000 });
+                        blob = await imageLib.toBlob(captureNode, { ...commonOptions, width: imageWidth, height: currentChunkHeight, timeout: 30000, type: mimeType, quality: quality });
                     }
                 } catch (e) {
                     console.error(`[Log Exporter] 분할 이미지 ${i + 1} 캡처 중 오류:`, e);
                     throw new Error(`분할 이미지 캡처 중 오류 발생: ${e.message}`);
                 }
+                if (!blob) throw new Error(`분할 이미지 ${i + 1} Blob 생성 실패`);
 
-                downloadImage(canvas.toDataURL('image/png', 1.0), charName, chatName, { partNumber: i + 1, showCompletionAlert: false });
+                const dataUrl = URL.createObjectURL(blob);
+                downloadImage(dataUrl, charName, chatName, { partNumber: i + 1, showCompletionAlert: false, extension: imageFormat });
+                URL.revokeObjectURL(dataUrl);
                 
                 await new Promise(r => setTimeout(r, 100));
             }
@@ -3106,7 +3128,6 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
         // 4. 모든 스타일을 원상 복구
         Object.assign(previewContainer.style, originalStyles.preview);
         Object.assign(captureTarget.style, originalStyles.target);
-        Object.assign(rootHtml.style, originalStyles.rootHtml);
 
         // [추가] 추가했던 호버 강제 스타일 시트를 제거하여 페이지를 완전히 복구
         if (forceHoverStyleEl) {
@@ -3142,14 +3163,14 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
      * @param {number|null} [options.partNumber=null] - 분할된 파일의 파트 번호.
      * @param {boolean} [options.showCompletionAlert=true] - 완료 알림 표시 여부.
      */
-    function downloadImage(dataUrl, charName, chatName, options = {}) {
-        console.log(`[Log Exporter] downloadImage: 이미지 다운로드. 파트: ${options.partNumber || 'N/A'}`);
-        const { partNumber = null, showCompletionAlert = true } = options;
+function downloadImage(dataUrl, charName, chatName, options = {}) {
+    const { partNumber = null, showCompletionAlert = true, extension = 'png' } = options;
+    console.log(`[Log Exporter] downloadImage: 이미지 다운로드. 파트: ${partNumber || 'N/A'}, 포맷: ${extension}`);
 
         const safeCharName = charName.replace(/[\/\\?%*:|"<>]/g, '-');
         const safeChatName = chatName.replace(/[\/\\?%*:|"<>]/g, '-');
         const baseFilename = `Risu_Log_${safeCharName}_${safeChatName}`;
-        const finalFilename = partNumber ? `${baseFilename}_part_${partNumber}.png` : `${baseFilename}.png`;
+    const finalFilename = partNumber ? `${baseFilename}_part_${partNumber}.${extension}` : `${baseFilename}.${extension}`;
 
         const a = document.createElement('a');
         a.href = dataUrl;
@@ -4165,6 +4186,30 @@ const customFilterHtml = `
                         padding: 10px;
                     }
                     
+                    .desktop-progress-bar-container {
+                        grid-column: 1 / -1;
+                        grid-row: 2;
+                        background: #1f2335;
+                        border-top: 1px solid #414868;
+                        padding: 16px 24px;
+                        display: none; /* 기본 숨김 */
+                        flex-direction: column;
+                        gap: 10px;
+                    }
+
+                    .desktop-collapsible-content::-webkit-scrollbar {
+                        width: 6px;
+                    }
+                    
+                    .desktop-collapsible-content.open {
+                        max-height: 2000px;
+                        opacity: 1;
+                        visibility: visible;
+                        margin-top: 10px;
+                        overflow-y: auto;
+                        padding: 10px;
+                    }
+                    
                     .desktop-collapsible-content::-webkit-scrollbar {
                         width: 6px;
                     }
@@ -4292,13 +4337,21 @@ const customFilterHtml = `
                         z-index: 10;
                         box-shadow: 0 -2px 10px rgba(0,0,0,0.3);
                     }
-                    .mobile-action-bar button {
-                        flex: 1;
-                        padding: 12px 8px;
-                        font-size: 0.85em;
-                        min-height: 44px;
-                        border-radius: 8px;
+                    .mobile-progress-bar-container {
+                        position: sticky;
+                        bottom: 0;
+                        left: 0;
+                        right: 0;
+                        background: #1a1b26;
+                        border-top: 1px solid #414868;
+                        padding: 12px 16px;
+                        display: none; /* 기본 숨김 */
+                        flex-direction: column;
+                        gap: 10px;
+                        flex-shrink: 0;
+                        z-index: 10;
                     }
+
                     .log-exporter-left-panel,
                     .log-exporter-right-panel {
                         display: none !important;
@@ -4395,6 +4448,10 @@ const customFilterHtml = `
                 </div>
                 
                 <div class="log-exporter-modal-content">
+                    <!-- 데스크톱 전용 레이아웃 -->
+                    <div class="desktop-settings-panel">...</div>
+                    <div class="desktop-preview-panel">...</div>
+
                     <!-- 모바일 전용 탭 컨텐츠 -->
                     <div class="mobile-tab-content mobile-preview-tab active" data-tab="preview">
                         <div class="log-exporter-modal-preview"><div style="text-align:center;color:#8a98c9;">로그 데이터 생성 중...</div></div>
@@ -4915,38 +4972,36 @@ const customFilterHtml = `
                         🎨 아카라이브
                     </button>
                 </div>
-                
+
+                <!-- [수정] 진행률 표시 UI를 액션 바와 같은 레벨로 이동 -->
+                <div class="desktop-progress-bar-container" id="desktop-progress-container" style="display: none;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.9em;">
+                        <span class="progress-status-text">이미지 처리 중...</span>
+                        <span class="progress-percentage-text" style="font-weight: bold; color: #7aa2f7;">0%</span>
+                    </div>
+                    <progress class="export-progress-bar" value="0" max="100" style="width: 100%; height: 12px;"></progress>
+                    <button class="desktop-btn desktop-btn-danger cancel-image-export-btn" style="align-self: center; min-width: 120px;">취소</button>
+                </div>
+                <div class="mobile-progress-bar-container" id="mobile-progress-container">
+                    <!-- 데스크톱과 동일한 구조를 사용하되, 스타일은 모바일에 맞게 적용됩니다. -->
+                </div>
+
                 <!-- 모바일 전용 하단 액션 바 -->
                 <div class="mobile-action-bar">
                     <button class="log-exporter-modal-btn primary" id="mobile-copy-html" title="HTML 소스 복사">복사</button>
                     <button class="log-exporter-modal-btn" id="mobile-save-image" title="이미지로 저장" style="background-color: #e0af68; color: #1a1b26;">이미지</button>
-                    <button class="log-exporter-modal-btn" id="mobile-more-menu" title="더 많은 옵션">더보기</button>
-                </div>
-                
-                <div class="log-exporter-modal-footer" id="log-exporter-footer" role="toolbar" aria-label="내보내기 도구">
-                    <button class="log-exporter-modal-btn" id="log-exporter-raw-toggle" style="display: none;" aria-label="HTML Raw 보기 전환" accesskey="r">HTML <u>R</u>aw 보기</button>
-                    <button class="log-exporter-modal-btn" id="log-exporter-save-file" aria-label="HTML 파일로 저장" accesskey="s"><u>S</u>ave HTML 파일</button>
-                    <button class="log-exporter-modal-btn" id="arca-helper-toggle-btn" style="background-color: #bb9af7; color: #1a1b26; display: none;" aria-label="아카라이브 변환기 열기">아카라이브 변환기</button>
                     
                     <!-- [복원] 이미지 저장 옵션 UI -->
-                    <button class="log-exporter-modal-btn" id="log-exporter-download-zip" style="background-color: #e0af68; color: #1a1b26; min-height: 36px;" aria-label="이미지 ZIP 다운로드" accesskey="z"><u>Z</u>IP 다운로드</button>
-                    <button class="log-exporter-modal-btn" id="log-exporter-copy-formatted" title="메일, 노션 등에 사용해볼 수 있지만, 대상 프로그램에 따라 서식이 깨질 수 있습니다." aria-label="서식 있는 텍스트로 복사" accesskey="f" style="min-height: 36px;">
+                    <button class="log-exporter-modal-btn" id="log-exporter-download-zip" style="background-color: #e0af68; color: #1a1b26; min-height: 36px; display: none;" aria-label="이미지 ZIP 다운로드" accesskey="z"><u>Z</u>IP 다운로드</button>
+                    <button class="log-exporter-modal-btn" id="log-exporter-copy-formatted" title="메일, 노션 등에 사용해볼 수 있지만, 대상 프로그램에 따라 서식이 깨질 수 있습니다." aria-label="서식 있는 텍스트로 복사" accesskey="f" style="min-height: 36px; display: none;">
                         서식 복사 (<u>F</u>ormatted)
                     </button>
-                    <button class="log-exporter-modal-btn primary" id="log-exporter-copy-html" title="웹페이지, 블로그, 아카라이브 HTML 모드 등 HTML을 직접 편집할 수 있는 환경에 최적화되어 있습니다. 모든 서식과 이미지가 포함된 완전한 코드를 복사합니다." aria-label="HTML 소스 코드 복사" accesskey="c" style="min-height: 36px;">
+                    <button class="log-exporter-modal-btn primary" id="log-exporter-copy-html" title="웹페이지, 블로그, 아카라이브 HTML 모드 등 HTML을 직접 편집할 수 있는 환경에 최적화되어 있습니다. 모든 서식과 이미지가 포함된 완전한 코드를 복사합니다." aria-label="HTML 소스 코드 복사" accesskey="c" style="min-height: 36px; display: none;">
                         HTML 소스 <u>C</u>opy (권장)
                     </button>
                     <button class="log-exporter-modal-btn mobile-more-menu-btn" id="mobile-more-menu" title="추가 기능 보기">
                         더보기 ⋯
                     </button>
-                </div>
-                <div class="log-exporter-modal-footer" id="log-exporter-progress-footer" style="display: none; flex-direction: column; align-items: stretch; gap: 10px;" role="status" aria-live="polite">
-                    <div style="display: flex; justify-content: space-between; font-size: 0.9em;">
-                        <span id="progress-status-text" aria-live="polite">이미지 처리 중...</span>
-                        <span id="progress-percentage-text" aria-live="polite" style="font-weight: bold; color: #7aa2f7;">0%</span>
-                    </div>
-                    <progress id="export-progress-bar" value="0" max="100" style="width: 100%; height: 12px;" aria-label="내보내기 진행 상황"></progress>
-                    <button class="log-exporter-modal-btn" id="log-exporter-cancel-image" style="background-color: #f7768e; color: #1a1b26; min-height: 40px;" aria-label="내보내기 취소" accesskey="x">취소 (<u>X</u>)</button>
                 </div>
             </div>`;
             document.body.appendChild(modal);
@@ -5658,50 +5713,35 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
             const mobileMoreBtn = modal.querySelector('#mobile-more-menu');
             let moreMenuExpanded = false;
             
-            const hiddenButtons = [
-                '#log-exporter-save-file',
-                '#log-exporter-copy-formatted', 
-                '#log-exporter-copy-html',
-                '#log-exporter-download-zip',
-                '#arca-helper-toggle-btn'
-            ];
+            // 모바일에서는 더보기 눌러도 추가 버튼을 노출하지 않음
+            const hiddenButtons = [];
+            // [추가] 모바일 초기 상태에서 숨겨야 할 버튼들을 감추는 헬퍼
+            const setMobileMoreCollapsedState = () => {
+                const isMobileViewport = window.innerWidth <= 768;
+                if (!isMobileViewport) return;
+                hiddenButtons.forEach(selector => {
+                    const btn = modal.querySelector(selector);
+                    if (btn) btn.style.setProperty('display', 'none', 'important');
+                });
+                const imageControls = modal.querySelector('#image-export-controls');
+                if (imageControls) imageControls.style.setProperty('display', 'none', 'important');
+                if (mobileMoreBtn) {
+                    mobileMoreBtn.textContent = '더보기 ⋯';
+                    mobileMoreBtn.style.backgroundColor = '#9ece6a';
+                }
+                moreMenuExpanded = false;
+            };
+            // 모바일이면 초기 접힘 상태로 설정
+            setMobileMoreCollapsedState();
             
             if (mobileMoreBtn) {
                 mobileMoreBtn.addEventListener('click', () => {
+                    const isMobileViewport = window.innerWidth <= 768;
+                    if (isMobileViewport) return; // 모바일에선 더보기 토글 비활성화
+                    // 데스크톱에서만 토글 동작 (현재 버튼은 데스크톱에 표시되지 않으므로 실질 동작 없음)
                     moreMenuExpanded = !moreMenuExpanded;
-                    
-                    hiddenButtons.forEach(selector => {
-                        const btn = modal.querySelector(selector);
-                        if (btn) {
-                            btn.style.setProperty('display', moreMenuExpanded ? 'block' : 'none', 'important');
-                        }
-                    });
-                    
-                    // 이미지 익스포트 컨트롤도 토글 (내부 버튼들은 개별 처리 안 함)
-                    const imageControls = modal.querySelector('#image-export-controls');
-                    if (imageControls) {
-                        imageControls.style.setProperty('display', moreMenuExpanded ? 'flex' : 'none', 'important');
-                    }
-                    
-                    // 버튼 텍스트 변경
                     mobileMoreBtn.textContent = moreMenuExpanded ? '간단히 ⋀' : '더보기 ⋯';
                     mobileMoreBtn.style.backgroundColor = moreMenuExpanded ? '#f7768e' : '#9ece6a';
-                    
-                    // 푸터 높이 조정 및 스타일 적용
-                    const footer = modal.querySelector('.log-exporter-modal-footer');
-                    if (moreMenuExpanded) {
-                        footer.setAttribute('data-expanded', 'true');
-                        footer.style.maxHeight = '50vh';
-                        footer.style.overflow = 'auto';
-                        footer.style.flexWrap = 'wrap';
-                        footer.style.alignContent = 'flex-start';
-                    } else {
-                        footer.removeAttribute('data-expanded');
-                        footer.style.maxHeight = '15vh';
-                        footer.style.overflow = 'hidden';
-                        footer.style.flexWrap = 'wrap';
-                        footer.style.alignContent = 'center';
-                    }
                 });
             }
 
@@ -5716,18 +5756,10 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                 if (!isMobile) {
                     // '더보기' 메뉴가 열려있던 상태를 초기화
                     moreMenuExpanded = false;
-                    const footer = modal.querySelector('.log-exporter-modal-footer');
-                    if (footer) {
-                        footer.removeAttribute('data-expanded');
-                        // 푸터의 모든 인라인 스타일 제거 (maxHeight, overflow 등)
-                        footer.style.maxHeight = '';
-                        footer.style.overflow = '';
-                        footer.style.flexWrap = '';
-                        footer.style.alignContent = '';
-                    }
+                    // 컨테이너 스타일은 조정하지 않음
 
                     // 모든 버튼의 인라인 display 스타일을 제거하여 CSS 규칙이 적용되도록 함
-                    const allFooterButtons = modal.querySelectorAll('.log-exporter-modal-footer > button');
+                    const allFooterButtons = modal.querySelectorAll('.log-exporter-modal-footer > button, .mobile-action-bar > button');
                     allFooterButtons.forEach(btn => {
                         btn.style.display = ''; // 인라인 스타일 제거
                     });
@@ -5737,8 +5769,10 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                     if (imageControls) {
                         imageControls.style.display = ''; // 인라인 스타일 제거하여 CSS 적용
                     }
+                } else {
+                    // 모바일로 전환 시 접힘 상태 적용
+                    setMobileMoreCollapsedState();
                 }
-                // 모바일 뷰로 전환될 때는 CSS가 알아서 처리하므로 별도 작업 불필요
             };
 
             // 리스너 등록
@@ -6295,22 +6329,25 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                 } catch (e) { console.error('[Log Exporter] File save error from modal:', e); }
             });
 
-            const footer = modal.querySelector('#log-exporter-footer');
-            const progressFooter = modal.querySelector('#log-exporter-progress-footer');
-            const progressBar = modal.querySelector('#export-progress-bar');
-            const progressStatusText = modal.querySelector('#progress-status-text');
-            const progressPercentageText = modal.querySelector('#progress-percentage-text');
-            const cancelBtn = modal.querySelector('#log-exporter-cancel-image');
+            // [수정] 새로운 진행률 UI 요소 참조
+            const desktopProgressContainer = modal.querySelector('#desktop-progress-container');
+            const mobileProgressContainer = modal.querySelector('#mobile-progress-container');
+            const cancelBtns = modal.querySelectorAll('.cancel-image-export-btn');
 
             // [복원] 이미지 저장 옵션 요소들
             let cancellationToken = { cancelled: false };
 
             const updateProgress = (status, value, max) => {
                 if (cancellationToken.cancelled) return;
-                progressStatusText.textContent = status;
-                progressBar.value = value;
-                progressBar.max = max;
-                progressPercentageText.textContent = `${Math.round((value / max) * 100)}%`;
+                const percentage = Math.round((value / max) * 100);
+                
+                // 데스크톱과 모바일 UI 모두 업데이트
+                modal.querySelectorAll('.progress-status-text').forEach(el => el.textContent = status);
+                modal.querySelectorAll('.progress-percentage-text').forEach(el => el.textContent = `${percentage}%`);
+                modal.querySelectorAll('.export-progress-bar').forEach(el => {
+                    el.value = value;
+                    el.max = max;
+                });
             };
 
             const saveImageBtn = modal.querySelector('#desktop-save-image');
@@ -6319,11 +6356,21 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                 // [추가] 새로운 UI의 액션 바 참조
                 const desktopActionBar = modal.querySelector('.desktop-action-bar');
                 const mobileActionBar = modal.querySelector('.mobile-action-bar');
+                const isMobile = window.innerWidth <= 768;
 
                 cancellationToken.cancelled = false;
                 if (desktopActionBar) desktopActionBar.style.display = 'none';
-                if (mobileActionBar) mobileActionBar.style.display = 'none';
-                progressFooter.style.display = 'flex';
+                if (mobileActionBar) mobileActionBar.style.display = 'none'; // 모바일 액션바 숨김
+                
+                // [수정] 화면 크기에 맞는 진행률 UI 표시
+                if (isMobile) {
+                    mobileProgressContainer.style.display = 'block';
+                    // 모바일 진행률 UI 내용 채우기 (데스크톱과 동일)
+                    mobileProgressContainer.innerHTML = desktopProgressContainer.innerHTML.replace('desktop-btn', 'log-exporter-modal-btn');
+                } else {
+                    desktopProgressContainer.style.display = 'flex';
+                }
+
                 updateProgress('이미지 생성 준비 중...', 0, 100);
 
                 // [수정] 모바일/데스크톱 공용으로 설정 값 읽기
@@ -6332,24 +6379,31 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                 const baseFontSize = parseInt(modal.querySelector('#image-font-size-input, #image-font-size-mobile').value) || 26;
                 const imageWidth = parseInt(modal.querySelector('#image-width-input, #image-width-mobile').value) || 700;
                 const library = modal.querySelector('#image-library-selector, #image-library-mobile').value;
+                const imageFormat = modal.querySelector('#image-format-selector')?.value || 'png';
 
-                // 현재 화면 크기에 따라 올바른 미리보기 선택
-                const isMobile = window.innerWidth <= 768;
                 const targetPreview = isMobile ? (mobilePreviewEl || desktopPreviewEl) : (desktopPreviewEl || mobilePreviewEl);
                 
                 console.log(`[Log Exporter] 이미지 저장 시작: ${isMobile ? '모바일' : '데스크톱'} 미리보기 사용`);
+                console.log('[Log Exporter] 이미지 저장 옵션:', { useHighRes, baseFontSize, imageWidth, library, imageFormat, expandHover });
 
                 const success = await savePreviewAsImage(targetPreview, updateProgress, cancellationToken, charName, chatName, {
                     useHighRes,
                     baseFontSize,
                     imageWidth,
                     library,
-                    expandHover // "호버 펼치기" 옵션 값을 명시적으로 전달
+                    expandHover, // "호버 펼치기" 옵션 값을 명시적으로 전달
+                    imageFormat // [추가] 이미지 포맷 전달
                 });
 
                 if (desktopActionBar) desktopActionBar.style.display = 'flex';
                 if (mobileActionBar) mobileActionBar.style.display = 'flex';
-                progressFooter.style.display = 'none';
+                
+                // [수정] 진행률 UI 숨김
+                if (isMobile) {
+                    mobileProgressContainer.style.display = 'none';
+                } else {
+                    desktopProgressContainer.style.display = 'none';
+                }
 
                 if (success) closeModal();
                 else if (!cancellationToken.cancelled) alert("이미지 저장이 실패했거나 중단되었습니다.", "error");
@@ -6362,7 +6416,9 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                 mobileSaveImageBtn.addEventListener('click', handleImageSave);
             }
 
-            cancelBtn.addEventListener('click', () => {
+            // [수정] 모든 취소 버튼에 이벤트 리스너 추가
+            modal.addEventListener('click', (e) => {
+                if (!e.target.matches('.cancel-image-export-btn')) return;
                 cancellationToken.cancelled = true;
                 console.log('[Log Exporter] Image export cancelled by user.');
             });
