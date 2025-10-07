@@ -381,6 +381,7 @@ const THEMES = {
 
 // --- 캐릭터별 설정 관리 기능 추가 ---
 const SETTINGS_STORAGE_KEY = 'logExporterCharacterSettings';
+const GLOBAL_SETTINGS_STORAGE_KEY = 'logExporterGlobalSettings';
 
 /**
  * 모든 캐릭터의 설정을 불러옵니다.
@@ -393,6 +394,77 @@ function loadAllCharSettings() {
     } catch (e) {
         console.error('[Log Exporter] 설정을 불러오는 데 실패했습니다:', e);
         return {};
+    }
+}
+
+// --- 전역 설정 (커스텀 테마 선택자) 관리 ---
+/**
+ * 현재 페이지의 채팅 메시지에서 사용 중인 모든 클래스를 추출합니다.
+ * @returns {Object} allClasses 배열을 포함한 객체
+ */
+function extractChatClasses() {
+    const allClasses = new Set();
+    
+    // 채팅 메시지 컨테이너에서 모든 클래스 추출
+    const chatContainers = document.querySelectorAll('.chat-message-container, .risu-chat');
+    
+    chatContainers.forEach(container => {
+        // 컨테이너 내부의 모든 요소를 순회
+        const allElements = container.querySelectorAll('*');
+        allElements.forEach(el => {
+            // 각 요소의 모든 클래스를 추출
+            el.classList.forEach(cls => {
+                // log-exporter로 시작하는 클래스는 제외
+                if (cls && !cls.startsWith('log-exporter')) {
+                    allClasses.add(cls);
+                }
+            });
+        });
+    });
+    
+    // 알파벳 순으로 정렬
+    return {
+        allClasses: Array.from(allClasses).sort()
+    };
+}
+
+function loadGlobalSettings() {
+    try {
+        const settings = localStorage.getItem(GLOBAL_SETTINGS_STORAGE_KEY);
+        const parsed = settings ? JSON.parse(settings) : {};
+        // 기본 구조 보장
+        if (!Array.isArray(parsed.profileClasses)) parsed.profileClasses = [];
+        if (!Array.isArray(parsed.participantNameClasses)) parsed.participantNameClasses = [];
+        
+        // 기본 클래스 자동 추가 (한 번만)
+        if (!parsed.defaultClassesAdded) {
+            // RisuAI 기본 프로필 클래스들 (항상 추가)
+            const defaultProfileClasses = ['x-risu-GH_VEX_ST_C', 'x-risu-GH_VEX_ST_U'];
+            const defaultNameClasses = ['x-risu-GH_VEX_Head_C2', 'x-risu-GH_VEX_Head_U2'];
+            
+            parsed.profileClasses = [...new Set([...parsed.profileClasses, ...defaultProfileClasses])];
+            parsed.participantNameClasses = [...new Set([...parsed.participantNameClasses, ...defaultNameClasses])];
+            parsed.defaultClassesAdded = true;
+            
+            // 바로 저장
+            localStorage.setItem(GLOBAL_SETTINGS_STORAGE_KEY, JSON.stringify(parsed));
+        }
+        
+        return parsed;
+    } catch (e) {
+        console.error('[Log Exporter] 전역 설정을 불러오는 데 실패했습니다:', e);
+        return { profileClasses: [], participantNameClasses: [] };
+    }
+}
+
+function saveGlobalSettings(newSettings) {
+    try {
+        const existing = loadGlobalSettings();
+        const merged = { ...existing, ...newSettings };
+        localStorage.setItem(GLOBAL_SETTINGS_STORAGE_KEY, JSON.stringify(merged));
+        console.log('[Log Exporter] 전역 설정 저장 완료:', merged);
+    } catch (e) {
+        console.error('[Log Exporter] 전역 설정 저장 실패:', e);
     }
 }
 
@@ -1929,6 +2001,57 @@ const AVATAR_ATTR = 'data-avatar';
      * @returns {string|null} 아바타 URL 또는 찾지 못한 경우 null.
      */
     function extractAvatarFromNode(node) {
+        // CSS 선택자 이스케이프 함수
+        const escapeSelector = (selector) => {
+            return selector.replace(/[!"#$%&'()*+,.\/:;<=>?@[\\\]^`{|}~]/g, '\\$&');
+        };
+        
+        // 전역 설정의 프로필 클래스 먼저 확인
+        const globalSettings = loadGlobalSettings();
+        if (globalSettings && Array.isArray(globalSettings.profileClasses)) {
+            for (const cls of globalSettings.profileClasses) {
+                if (!cls || typeof cls !== 'string') continue;
+                try {
+                    const escapedCls = escapeSelector(cls);
+                    const avatarEl = node.querySelector(`.${escapedCls}`);
+                    if (avatarEl) {
+                        console.log(`[Log Exporter] 프로필 요소 찾음 (${cls}): tagName=${avatarEl.tagName}, hasStyle=${!!avatarEl.getAttribute('style')}, hasDataOriginalStyle=${!!avatarEl.getAttribute('data-original-style')}`);
+                        
+                        // style 속성에서 background-image URL 추출 (원본 또는 백업된 스타일)
+                        let style = avatarEl.getAttribute('style');
+                        
+                        // 프로필 클래스 자동 필터링으로 숨겨진 경우, 백업된 스타일 사용
+                        if (avatarEl.getAttribute('data-original-style')) {
+                            style = avatarEl.getAttribute('data-original-style');
+                            console.log(`[Log Exporter] 백업된 스타일 사용: ${style.substring(0, 100)}`);
+                        }
+                        
+                        if (style && style.includes('url(')) {
+                            const match = style.match(/url\(["']?([^"')]+)["']?\)/);
+                            if (match && match[1]) {
+                                const url = match[1];
+                                const urlType = url.startsWith('data:') ? 'base64' : 'http';
+                                console.log(`[Log Exporter] 아바타 URL 추출: type=${urlType}, length=${url.length}`);
+                                return match[1];
+                            }
+                        }
+                        // img 태그인 경우 src 추출
+                        if (avatarEl.tagName === 'IMG' && avatarEl.src) {
+                            const srcType = avatarEl.src.startsWith('data:') ? 'base64' : 'http';
+                            console.log(`[Log Exporter] 아바타 IMG src: type=${srcType}, length=${avatarEl.src.length}`);
+                            return avatarEl.src;
+                        }
+                        console.warn(`[Log Exporter] 프로필 요소 찾았지만 이미지 없음: style="${style}"`);
+                    } else {
+                        console.warn(`[Log Exporter] 프로필 클래스 (${cls}) 요소를 찾을 수 없음`);
+                    }
+                } catch (e) {
+                    console.warn(`[Log Exporter] 잘못된 프로필 클래스 선택자: ${cls}`, e);
+                }
+            }
+        }
+        
+        // 기본 클래스 확인 (폴백)
         const avatarEl = node.querySelector('.shadow-lg.rounded-md[style*="background"]');
         if (avatarEl) {
             const style = avatarEl.getAttribute('style');
@@ -1952,17 +2075,44 @@ const AVATAR_ATTR = 'data-avatar';
     async function collectCharacterAvatars(nodes, useBase64 = true) {
         console.log(`[Log Exporter] collectCharacterAvatars: 캐릭터 아바타 수집 시작. Base64 사용: ${useBase64}`);
         const avatarMap = new Map();
+        
+        // CSS 선택자 이스케이프 함수
+        const escapeSelector = (selector) => {
+            return selector.replace(/[!"#$%&'()*+,.\/:;<=>?@[\\\]^`{|}~]/g, '\\$&');
+        };
+        
+        // 노드에서 이름을 가져오는 함수
+        const getNameFromNodeLocal = (node) => {
+            const globalSettings = loadGlobalSettings();
+            // 전역 설정의 참가자 이름 클래스 먼저 확인
+            if (globalSettings && Array.isArray(globalSettings.participantNameClasses)) {
+                for (const cls of globalSettings.participantNameClasses) {
+                    if (!cls || typeof cls !== 'string') continue;
+                    try {
+                        const escapedCls = escapeSelector(cls);
+                        const el = node.querySelector(`.${escapedCls}`);
+                        if (el && el.textContent && el.textContent.trim()) {
+                            return el.textContent.trim();
+                        }
+                    } catch (e) {
+                        console.warn(`[Log Exporter] 잘못된 클래스 선택자: ${cls}`, e);
+                    }
+                }
+            }
+            // 기본 클래스 확인
+            const nameEl = node.querySelector('.unmargin.text-xl');
+            if (nameEl && nameEl.textContent.trim()) return nameEl.textContent.trim();
+            // 폴백
+            return node.classList.contains('justify-end') ? 'User' : 'Assistant';
+        };
 
         for (const node of nodes) {
-            const nameEl = node.querySelector('.unmargin.text-xl');
-            if (nameEl) {
-                const name = nameEl.textContent.trim();
-                if (!avatarMap.has(name)) {
-                    const avatarUrl = extractAvatarFromNode(node);
-                    if (avatarUrl) {
-                        const avatarSrc = useBase64 ? await imageUrlToBase64(avatarUrl) : avatarUrl;
-                        avatarMap.set(name, avatarSrc);
-                    }
+            const name = getNameFromNodeLocal(node);
+            if (name && !avatarMap.has(name)) {
+                const avatarUrl = extractAvatarFromNode(node);
+                if (avatarUrl) {
+                    const avatarSrc = useBase64 ? await imageUrlToBase64(avatarUrl) : avatarUrl;
+                    avatarMap.set(name, avatarSrc);
                 }
             }
         }
@@ -1984,10 +2134,11 @@ const AVATAR_ATTR = 'data-avatar';
          * @param {boolean} [showHeader=true] - 헤더를 표시할지 여부.
          * @param {boolean} [showFooter=true] - 푸터를 표시할지 여부.
          * @param {boolean} [showBubble=true] - 말풍선을 표시할지 여부.
+         * @param {Map<string, string>} [preCollectedAvatarMap=null] - 미리 수집된 아바타 맵 (필터링 전 수집).
          * @returns {Promise<string>} 포맷된 채팅 로그를 나타내는 HTML 문자열.
          */
-        async function generateBasicFormatLog(nodes, charInfo, selectedThemeKey = 'basic', selectedColorKey = 'dark', showAvatar = true, showHeader = true, showFooter = true, showBubble = true, isForArca = false, embedImagesAsBase64 = true) {
-            console.log(`[Log Exporter] generateBasicFormatLog: 테마: ${selectedThemeKey}, 헤더: ${showHeader}, 푸터: ${showFooter}, Base64 임베드: ${embedImagesAsBase64}`);
+        async function generateBasicFormatLog(nodes, charInfo, selectedThemeKey = 'basic', selectedColorKey = 'dark', showAvatar = true, showHeader = true, showFooter = true, showBubble = true, isForArca = false, embedImagesAsBase64 = true, preCollectedAvatarMap = null) {
+            console.log(`[Log Exporter] generateBasicFormatLog: 테마: ${selectedThemeKey}, 헤더: ${showHeader}, 푸터: ${showFooter}, Base64 임베드: ${embedImagesAsBase64}, 미리수집된 아바타: ${preCollectedAvatarMap ? preCollectedAvatarMap.size : 0}개`);
             
             const themeInfo = THEMES[selectedThemeKey] || THEMES.basic;
             const color = (selectedThemeKey === 'basic') ? (COLORS[selectedColorKey] || COLORS.dark) : themeInfo.color;
@@ -2027,14 +2178,46 @@ const AVATAR_ATTR = 'data-avatar';
             };
 
             let log = '';
-            // [수정] 아바타 수집 시 isForArca가 아닐 때만 Base64로 변환
-            const avatarMap = await collectCharacterAvatars(nodes, !isForArca);
+            // [수정] 미리 수집된 아바타 맵이 있으면 사용, 없으면 새로 수집
+            const avatarMap = preCollectedAvatarMap || await collectCharacterAvatars(nodes, !isForArca);
+            console.log(`[Log Exporter] 사용할 아바타 맵: ${avatarMap.size}개 (${preCollectedAvatarMap ? '미리수집' : '새로수집'})`);
             const fantasyFont = `'Nanum Myeongjo', serif`;
 
+            // CSS 선택자 이스케이프 함수
+            const escapeSelector = (selector) => {
+                return selector.replace(/[!"#$%&'()*+,.\/:;<=>?@[\\\]^`{|}~]/g, '\\$&');
+            };
+            
+            // 노드에서 이름을 가져오는 함수
+            const getNameFromNodeLocal = (node) => {
+                const globalSettings = loadGlobalSettings();
+                // 전역 설정의 참가자 이름 클래스 먼저 확인
+                if (globalSettings && Array.isArray(globalSettings.participantNameClasses)) {
+                    for (const cls of globalSettings.participantNameClasses) {
+                        if (!cls || typeof cls !== 'string') continue;
+                        try {
+                            const escapedCls = escapeSelector(cls);
+                            const el = node.querySelector(`.${escapedCls}`);
+                            if (el && el.textContent && el.textContent.trim()) {
+                                return el.textContent.trim();
+                            }
+                        } catch (e) {
+                            console.warn(`[Log Exporter] 잘못된 클래스 선택자: ${cls}`, e);
+                        }
+                    }
+                }
+                // 기본 클래스 확인
+                const nameEl = node.querySelector('.unmargin.text-xl');
+                if (nameEl && nameEl.textContent.trim()) return nameEl.textContent.trim();
+                // 폴백
+                if (node.classList.contains('justify-end')) return 'User';
+                return charInfo.name || 'Assistant';
+            };
+            
             for (const [index, node] of nodes.entries()) {
                 if (node.querySelector('textarea')) continue;
     
-                let name = node.querySelector('.unmargin.text-xl')?.textContent.trim() || (node.classList.contains('justify-end') ? 'User' : 'Assistant');
+                let name = getNameFromNodeLocal(node);
                 const originalMessageEl = node.querySelector('.prose, .chattext');
                 if (!originalMessageEl) continue;
     
@@ -3347,25 +3530,106 @@ function downloadImage(dataUrl, charName, chatName, options = {}) {
         return result;
     }
 
+/**
+ * 노드를 복제하고 선택된 CSS 클래스를 가진 요소들을 제거하여 필터링합니다. (최종 수정 버전 2)
+ * @param {HTMLElement} node - 필터링할 원본 노드.
+ * @param {string[]} selectedClasses - 제거할 요소의 CSS 클래스 이름 배열.
+ * @returns {HTMLElement} 필터링된 복제 노드.
+ */
+function filterWithCustomClasses(node, selectedClasses) {
+    const tempEl = node.cloneNode(true);
+    const globalSettings = loadGlobalSettings();
+    const profileClasses = globalSettings.profileClasses || [];
+
+    const IMAGE_PROTECTED_CLASSES = [
+        'x-risu-image-container', 'x-risu-image-cell',
+        'x-risu-asset-table', 'x-risu-in-table'
+    ];
+
     /**
-     * 노드를 복제하고 선택된 CSS 클래스를 가진 요소들을 제거하여 필터링합니다.
-     * @param {HTMLElement} node - 필터링할 원본 노드.
-     * @param {string[]} selectedClasses - 제거할 요소의 CSS 클래스 이름 배열.
-     * @returns {HTMLElement} 필터링된 복제 노드.
+     * 메시지 노드에서 '주 아바타' 요소를 정확하게 찾아 반환합니다.
+     * 메시지 내용(.prose, .chattext) 안에 있지 않은 요소만을 주 아바타 후보로 간주합니다.
+     * @param {HTMLElement} parentNode - 검사할 메시지 노드.
+     * @returns {HTMLElement|null} 찾아낸 주 아바타 요소 또는 null.
      */
-    function filterWithCustomClasses(node, selectedClasses) {
-        const tempEl = node.cloneNode(true);
-
-        if (selectedClasses.length > 0) {
-            selectedClasses.forEach(className => {
-                tempEl.querySelectorAll(`.${className}`).forEach(el => {
-                    el.remove();
-                });
-            });
+    const findMainAvatarElement = (parentNode) => {
+        if (profileClasses && Array.isArray(profileClasses)) {
+            for (const cls of profileClasses) {
+                const candidates = parentNode.querySelectorAll(`.${CSS.escape(cls)}`);
+                for (const candidate of candidates) {
+                    if (!candidate.closest('.prose, .chattext')) {
+                        return candidate;
+                    }
+                }
+            }
         }
+        const fallbackAvatarEl = parentNode.querySelector('.shadow-lg.rounded-md[style*="background"]');
+        if (fallbackAvatarEl && !fallbackAvatarEl.closest('.prose, .chattext')) {
+            return fallbackAvatarEl;
+        }
+        return null;
+    };
 
-        return tempEl;
+    const mainAvatarElement = findMainAvatarElement(tempEl);
+
+    // [핵심 수정 1] 주 아바타 요소에 보호 태그를 추가합니다.
+    // 이 태그는 필터링 과정에서 아바타와 그 부모를 식별하는 데 사용됩니다.
+    if (mainAvatarElement) {
+        mainAvatarElement.setAttribute('data-protected-avatar', 'true');
     }
+
+    if (selectedClasses.length > 0) {
+        selectedClasses.forEach(className => {
+            const matchedElements = tempEl.querySelectorAll(`.${CSS.escape(className)}`);
+            matchedElements.forEach(el => {
+                // [핵심 수정 2] 삭제하려는 요소(el)가 보호된 아바타를 포함하고 있는지 확인합니다.
+                // 이렇게 하면 아바타의 부모 컨테이너가 필터링 대상이 되어도 아바타가 함께 삭제되는 것을 완벽하게 방지합니다.
+                if (mainAvatarElement && el.contains(mainAvatarElement)) {
+                    // 이 요소는 주 아바타를 포함하고 있으므로, 절대 삭제하지 않고 건너뜁니다.
+                    return;
+                }
+                
+                // [핵심 수정 3] 요소 자체가 주 아바타인 경우도 보호합니다.
+                if (el.hasAttribute('data-protected-avatar')) {
+                    return;
+                }
+                
+                // [추가] data-tolog-avatar 속성을 가진 요소는 보호합니다.
+                if (el.hasAttribute('data-tolog-avatar')) {
+                    console.log(`[Log Exporter] data-tolog-avatar 요소 보호: 클래스="${className}"`);
+                    return;
+                }
+                
+                // [추가] data-tolog-avatar 속성을 가진 요소를 포함하는 경우도 보호합니다.
+                if (el.querySelector('[data-tolog-avatar]')) {
+                    console.log(`[Log Exporter] data-tolog-avatar를 포함하는 요소 보호: 클래스="${className}"`);
+                    return;
+                }
+                
+                // 주 아바타가 아닌 다른 프로필 클래스 요소 (즉, 내용 안의 프로필)는 제거합니다.
+                if (profileClasses.includes(className)) {
+                    console.log(`[Log Exporter] 내용(content) 안의 프로필 클래스 제거: ${className}`);
+                    el.remove();
+                    return;
+                }
+
+                if (IMAGE_PROTECTED_CLASSES.includes(className)) {
+                    return;
+                }
+
+                console.log(`[Log Exporter] UI 요소 제거: 클래스="${className}", tagName=${el.tagName}`);
+                el.remove();
+            });
+        });
+    }
+
+    // [핵심 수정 4] 함수가 끝나기 전에 임시로 추가했던 보호 태그를 다시 제거합니다.
+    if (mainAvatarElement) {
+        mainAvatarElement.removeAttribute('data-protected-avatar');
+    }
+
+    return tempEl;
+}
 
     // --- 아카라이브 연동 기능 추가 ---
     /**
@@ -3608,10 +3872,10 @@ function downloadImage(dataUrl, charName, chatName, options = {}) {
      * [수정] innerHTML 재파싱으로 인한 스타일 손실을 방지하기 위해 문자열 기반 처리로 변경
      * [핵심 수정] 아바타와 일반 이미지를 구분하여 순차적으로 교체
      */
-    async function generateArcaLiveTemplate(nodes, charInfo, themeKey = 'basic', colorKey = 'dark', showAvatar = true, showHeader = true) {
-        console.log('[Log Exporter] generateArcaLiveTemplate: 아카라이브용 템플릿 생성 시작. 헤더 표시:', showHeader);
+    async function generateArcaLiveTemplate(nodes, charInfo, themeKey = 'basic', colorKey = 'dark', showAvatar = true, showHeader = true, preCollectedAvatarMap = null) {
+        console.log('[Log Exporter] generateArcaLiveTemplate: 아카라이브용 템플릿 생성 시작. 헤더 표시:', showHeader, ', 미리수집된 아바타:', preCollectedAvatarMap ? preCollectedAvatarMap.size : 0);
 
-        let baseHtml = await generateBasicFormatLog(nodes, charInfo, themeKey, colorKey, showAvatar, showHeader, false, true, true, false);
+        let baseHtml = await generateBasicFormatLog(nodes, charInfo, themeKey, colorKey, showAvatar, showHeader, false, true, true, false, preCollectedAvatarMap);
 
         const mediaMatches = [];
         const tempDiv = document.createElement('div');
@@ -3689,6 +3953,7 @@ function downloadImage(dataUrl, charName, chatName, options = {}) {
             const charId = String(character.chaId); // 문자열로 명시적 변환
             console.log(`[Log Exporter] 캐릭터 정보:`, { charId, charName, chaId: character.chaId });
             const savedSettings = getCharSettings(charId);
+            const globalSettings = loadGlobalSettings();
             console.log(`[Log Exporter] 불러온 설정 (charId: ${charId}):`, savedSettings);
 
             /**
@@ -3736,6 +4001,39 @@ function downloadImage(dataUrl, charName, chatName, options = {}) {
 
             const participants = new Set();
             const getNameFromNode = (node) => {
+                // CSS 선택자 이스케이프 함수
+                const escapeSelector = (selector) => {
+                    return selector.replace(/[!"#$%&'()*+,.\/:;<=>?@[\\\]^`{|}~]/g, '\\$&');
+                };
+                
+                if (globalSettings && Array.isArray(globalSettings.participantNameClasses)) {
+                    for (const cls of globalSettings.participantNameClasses) {
+                        if (!cls || typeof cls !== 'string') continue;
+                        try {
+                            const escapedCls = escapeSelector(cls);
+                            const el = node.querySelector(`.${escapedCls}`);
+                            if (el && el.textContent && el.textContent.trim()) {
+                                return el.textContent.trim();
+                            }
+                        } catch (e) {
+                            console.warn(`[Log Exporter] 잘못된 클래스 선택자: ${cls}`, e);
+                        }
+                    }
+                }
+                if (globalSettings && Array.isArray(globalSettings.profileClasses)) {
+                    for (const cls of globalSettings.profileClasses) {
+                        if (!cls || typeof cls !== 'string') continue;
+                        try {
+                            const escapedCls = escapeSelector(cls);
+                            const el = node.querySelector(`.${escapedCls}`);
+                            if (el && el.textContent && el.textContent.trim()) {
+                                return el.textContent.trim();
+                            }
+                        } catch (e) {
+                            console.warn(`[Log Exporter] 잘못된 클래스 선택자: ${cls}`, e);
+                        }
+                    }
+                }
                 const nameEl = node.querySelector('.unmargin.text-xl');
                 if (nameEl) return nameEl.textContent.trim();
                 if (node.classList.contains('justify-end')) return '사용자';
@@ -3770,13 +4068,29 @@ const customFilterHtml = `
                             </div>
                         </div>
                         <div style="max-height: 150px; overflow-y: auto; border: 1px solid #2a2f41; padding: 8px; margin-top: 5px; background: #1a1b26;">
-                            ${uiClasses.map(classInfo => `
+                            ${uiClasses.map(classInfo => {
+                                // 기본으로 체크할 클래스들 (메시지 내용 안의 이미지/텍스트 제거용)
+                                const defaultCheckedClasses = ['x-risu-GH_VEX_Text_C', 'x-risu-GH_VEX_Text_U', 'x-risu-GH_VEX_XT'];
+                                const isDefaultChecked = defaultCheckedClasses.includes(classInfo.name);
+                                
+                                // 체크 상태 결정
+                                let isChecked;
+                                if (savedSettings.customFilters && savedSettings.customFilters[classInfo.name] !== undefined) {
+                                    isChecked = savedSettings.customFilters[classInfo.name];
+                                } else if (isDefaultChecked) {
+                                    isChecked = true;
+                                } else {
+                                    isChecked = !classInfo.hasImage;
+                                }
+                                
+                                return `
                                 <label style="display: block; margin-bottom: 4px; cursor: pointer;">
                                     <input type="checkbox" class="custom-filter-class" data-setting-key="customFilters" data-class="${classInfo.name}" 
-                                        ${(savedSettings.customFilters && savedSettings.customFilters[classInfo.name] !== undefined) ? (savedSettings.customFilters[classInfo.name] ? 'checked' : '') : (!classInfo.hasImage ? 'checked' : '')}>
+                                        ${isChecked ? 'checked' : ''}>
                                     <span style="font-size: 0.85em; margin-left: 5px; font-family: monospace;">${classInfo.displayName}</span>
                                 </label>
-                            `).join('')}
+                            `;
+                            }).join('')}
                         </div>
                     ` : `
                         <div style="text-align: center; color: #8a98c9; padding: 20px 0;">필터링할 UI 요소가 없습니다.</div>
@@ -4548,15 +4862,31 @@ const customFilterHtml = `
                                         <button id="deselect-all-filters-mobile" class="log-exporter-modal-btn" style="flex: 1; padding: 8px; font-size: 0.85em; background: #f7768e; color: #1a1b26;">✗ 전체 해제</button>
                                     </div>
                                     <div style="max-height: 250px; overflow-y: auto; -webkit-overflow-scrolling: touch;">
-                                        ${uiClasses.map(classInfo => `
+                                        ${uiClasses.map(classInfo => {
+                                            // 기본으로 체크할 클래스들 (메시지 내용 안의 이미지/텍스트 제거용)
+                                            const defaultCheckedClasses = ['x-risu-GH_VEX_Text_C', 'x-risu-GH_VEX_Text_U', 'x-risu-GH_VEX_XT'];
+                                            const isDefaultChecked = defaultCheckedClasses.includes(classInfo.name);
+                                            
+                                            // 체크 상태 결정
+                                            let isChecked;
+                                            if (savedSettings.customFilters && savedSettings.customFilters[classInfo.name] !== undefined) {
+                                                isChecked = savedSettings.customFilters[classInfo.name];
+                                            } else if (isDefaultChecked) {
+                                                isChecked = true;
+                                            } else {
+                                                isChecked = !classInfo.hasImage;
+                                            }
+                                            
+                                            return `
                                             <label style="display: flex; align-items: center; padding: 10px; margin-bottom: 6px; background: #24283b; border-radius: 6px; border: 1px solid #414868; cursor: pointer; transition: all 0.2s; -webkit-tap-highlight-color: transparent;">
                                                 <input type="checkbox" class="custom-filter-class" data-setting-key="customFilters" data-class="${classInfo.name}" 
-                                                    ${(savedSettings.customFilters && savedSettings.customFilters[classInfo.name] !== undefined) ? (savedSettings.customFilters[classInfo.name] ? 'checked' : '') : (!classInfo.hasImage ? 'checked' : '')}
+                                                    ${isChecked ? 'checked' : ''}
                                                     style="width: 18px; height: 18px; margin-right: 12px; cursor: pointer; accent-color: #7aa2f7;">
                                                 <span style="font-size: 0.9em; flex: 1; color: #c0caf5;">${classInfo.displayName}</span>
                                                 ${classInfo.hasImage ? '<span style="font-size: 0.75em; color: #565f89; background: #1a1b26; padding: 3px 6px; border-radius: 4px;">🖼️</span>' : ''}
                                             </label>
-                                        `).join('')}
+                                        `;
+                                        }).join('')}
                                     </div>
                                 ` : `
                                     <div style="text-align: center; color: #8a98c9; padding: 20px 0;">필터링할 UI 요소가 없습니다.</div>
@@ -4784,15 +5114,31 @@ const customFilterHtml = `
                                         <button id="deselect-all-filters" class="desktop-btn desktop-btn-secondary" style="flex: 1; padding: 8px 12px; font-size: 0.85em;">✗ 전체 해제</button>
                                     </div>
                                     <div style="max-height: 300px; overflow-y: auto; padding: 4px;">
-                                        ${uiClasses.map(classInfo => `
+                                        ${uiClasses.map(classInfo => {
+                                            // 기본으로 체크할 클래스들 (메시지 내용 안의 이미지/텍스트 제거용)
+                                            const defaultCheckedClasses = ['x-risu-GH_VEX_Text_C', 'x-risu-GH_VEX_Text_U', 'x-risu-GH_VEX_XT'];
+                                            const isDefaultChecked = defaultCheckedClasses.includes(classInfo.name);
+                                            
+                                            // 체크 상태 결정
+                                            let isChecked;
+                                            if (savedSettings.customFilters && savedSettings.customFilters[classInfo.name] !== undefined) {
+                                                isChecked = savedSettings.customFilters[classInfo.name];
+                                            } else if (isDefaultChecked) {
+                                                isChecked = true;
+                                            } else {
+                                                isChecked = !classInfo.hasImage;
+                                            }
+                                            
+                                            return `
                                             <label class="filter-checkbox-label" style="display: flex; align-items: center; cursor: pointer; padding: 8px 12px; margin-bottom: 6px; border-radius: 6px; transition: all 0.2s; background: #1a1b26; border: 1px solid #414868;" onmouseover="this.style.background='#24283b'; this.style.borderColor='#7aa2f7'" onmouseout="this.style.background='#1a1b26'; this.style.borderColor='#414868'">
                                                 <input type="checkbox" class="custom-filter-class" data-setting-key="customFilters" data-class="${classInfo.name}" 
-                                                    ${(savedSettings.customFilters && savedSettings.customFilters[classInfo.name] !== undefined) ? (savedSettings.customFilters[classInfo.name] ? 'checked' : '') : (!classInfo.hasImage ? 'checked' : '')}
+                                                    ${isChecked ? 'checked' : ''}
                                                     style="width: 16px; height: 16px; margin-right: 10px; cursor: pointer; accent-color: #7aa2f7;">
                                                 <span style="font-size: 0.9em; flex: 1; color: #c0caf5;">${classInfo.displayName}</span>
                                                 ${classInfo.hasImage ? '<span style="font-size: 0.75em; color: #565f89; background: #24283b; padding: 2px 6px; border-radius: 3px;">🖼️</span>' : ''}
                                             </label>
-                                        `).join('')}
+                                        `;
+                                        }).join('')}
                                     </div>
                                 ` : `
                                     <div style="text-align: center; color: #8a98c9; padding: 20px 0;">필터링할 UI 요소가 없습니다.</div>
@@ -4809,6 +5155,60 @@ const customFilterHtml = `
                             <div id="participant-filter-container" style="display: flex; flex-direction: column; gap: 8px;">
                                 ${participantCheckboxesHtml.replace(/<label/g, '<label style="display: flex; align-items: center; padding: 6px; background: #1a1b26; border-radius: 6px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background=\'#24283b\'" onmouseout="this.style.background=\'#1a1b26\'"')}
                             </div>
+                        </div>
+                        
+                        <!-- 전역 커스텀 테마 선택자 설정 -->
+                        <div class="desktop-section">
+                            <div class="desktop-section-header">
+                                <span class="desktop-section-icon">⚙️</span>
+                                <span class="desktop-section-title">커스텀 테마용 선택자 (전역)</span>
+                            </div>
+                            <div class="desktop-option-row">
+                                <span class="desktop-option-label">프로필 클래스 자동 필터링</span>
+                                <div class="desktop-toggle ${savedSettings.filterProfileClasses ? 'active' : ''}" id="filter-profile-classes-checkbox-wrapper" data-setting-key="filterProfileClasses">
+                                    <input type="checkbox" id="filter-profile-classes-checkbox" data-setting-key="filterProfileClasses" ${savedSettings.filterProfileClasses ? 'checked' : ''} style="display: none;">
+                                </div>
+                            </div>
+                            <div style="color:#8a98c9; font-size:0.85em; margin-bottom: 12px;">- 프로필 이미지 클래스를 미리보기에서 자동으로 제거합니다</div>
+                            <div class="desktop-option-row" style="align-items: flex-start; gap: 12px;">
+                                <div style="flex:1;">
+                                    <div class="desktop-option-label">프로필 클래스 추가</div>
+                                    <div style="display:flex; gap:8px; margin:6px 0;">
+                                        <select id="global-profile-class-select" class="desktop-input" style="flex:1;">
+                                            <option value="">채팅에서 클래스 선택...</option>
+                                        </select>
+                                        <button id="add-global-profile-class-from-select" class="desktop-btn desktop-btn-secondary">추가</button>
+                                        <button id="refresh-profile-classes" class="desktop-btn desktop-btn-secondary" title="채팅에서 클래스 다시 불러오기">🔄</button>
+                                    </div>
+                                    <div style="display:flex; gap:8px; margin:6px 0;">
+                                        <input type="text" id="global-profile-class-input" class="desktop-input" placeholder="또는 직접 입력: my-profile" style="flex:1;">
+                                        <button id="add-global-profile-class" class="desktop-btn desktop-btn-secondary">추가</button>
+                                    </div>
+                                    <div id="global-profile-class-list" style="display:flex; flex-wrap:wrap; gap:6px;">
+                                        ${(globalSettings.profileClasses||[]).map(c=>`<span class=\"desktop-badge\" data-type=\"profile\" data-class=\"${c}\" style=\"background:#1a1b26; border:1px solid #414868; border-radius:12px; padding:4px 8px;\">.${c} <button title=\"삭제\" data-remove-class=\"${c}\" data-remove-type=\"profile\" style=\"margin-left:6px; cursor:pointer;\">✕</button></span>`).join('')}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="desktop-option-row" style="align-items: flex-start; gap: 12px;">
+                                <div style="flex:1;">
+                                    <div class="desktop-option-label">참가자 이름 클래스 추가</div>
+                                    <div style="display:flex; gap:8px; margin:6px 0;">
+                                        <select id="global-participant-name-class-select" class="desktop-input" style="flex:1;">
+                                            <option value="">채팅에서 클래스 선택...</option>
+                                        </select>
+                                        <button id="add-global-participant-name-class-from-select" class="desktop-btn desktop-btn-secondary">추가</button>
+                                        <button id="refresh-participant-name-classes" class="desktop-btn desktop-btn-secondary" title="채팅에서 클래스 다시 불러오기">🔄</button>
+                                    </div>
+                                    <div style="display:flex; gap:8px; margin:6px 0;">
+                                        <input type="text" id="global-participant-name-class-input" class="desktop-input" placeholder="또는 직접 입력: my-name" style="flex:1;">
+                                        <button id="add-global-participant-name-class" class="desktop-btn desktop-btn-secondary">추가</button>
+                                    </div>
+                                    <div id="global-participant-name-class-list" style="display:flex; flex-wrap:wrap; gap:6px;">
+                                        ${(globalSettings.participantNameClasses||[]).map(c=>`<span class=\"desktop-badge\" data-type=\"participant\" data-class=\"${c}\" style=\"background:#1a1b26; border:1px solid #414868; border-radius:12px; padding:4px 8px;\">.${c} <button title=\"삭제\" data-remove-class=\"${c}\" data-remove-type=\"participant\" style=\"margin-left:6px; cursor:pointer;\">✕</button></span>`).join('')}
+                                    </div>
+                                </div>
+                            </div>
+                            <div style="color:#8a98c9; font-size:0.85em;">- 여기서 추가한 클래스는 모든 캐릭터에 공통 적용됩니다. (전역 저장)<br>- 🔄 버튼을 클릭하면 현재 채팅 화면에서 사용 중인 클래스를 자동으로 불러옵니다.</div>
                         </div>
                         
                         <!-- 아카라이브 변환기 (숨김 상태) -->
@@ -5455,6 +5855,225 @@ const customFilterHtml = `
                 });
             });
             
+            // 커스텀 필터 체크박스에 이벤트 연결
+            const attachCustomFilterListeners = () => {
+                modal.querySelectorAll('.custom-filter-class').forEach(checkbox => {
+                    checkbox.addEventListener('change', (e) => {
+                        handleSettingChange(e);
+                        updatePreview();
+                    });
+                });
+            };
+            attachCustomFilterListeners();
+
+            // 전역 커스텀 클래스: 추가/삭제 이벤트
+            const refreshGlobalBadgeLists = () => {
+                const gs = loadGlobalSettings();
+                const profList = modal.querySelector('#global-profile-class-list');
+                const nameList = modal.querySelector('#global-participant-name-class-list');
+                if (profList) {
+                    profList.innerHTML = (gs.profileClasses||[]).map(c=>`<span class="desktop-badge" data-type="profile" data-class="${c}" style="background:#1a1b26; border:1px solid #414868; border-radius:12px; padding:4px 8px;">.${c} <button title="삭제" data-remove-class="${c}" data-remove-type="profile" style="margin-left:6px; cursor:pointer;">✕</button></span>`).join('');
+                }
+                if (nameList) {
+                    nameList.innerHTML = (gs.participantNameClasses||[]).map(c=>`<span class="desktop-badge" data-type="participant" data-class="${c}" style="background:#1a1b26; border:1px solid #414868; border-radius:12px; padding:4px 8px;">.${c} <button title="삭제" data-remove-class="${c}" data-remove-type="participant" style="margin-left:6px; cursor:pointer;">✕</button></span>`).join('');
+                }
+                // 삭제 핸들러 재바인딩
+                modal.querySelectorAll('[data-remove-class]').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const cls = e.currentTarget.getAttribute('data-remove-class');
+                        const type = e.currentTarget.getAttribute('data-remove-type');
+                        const cur = loadGlobalSettings();
+                        if (type === 'profile') {
+                            cur.profileClasses = (cur.profileClasses||[]).filter(x=>x!==cls);
+                        } else {
+                            cur.participantNameClasses = (cur.participantNameClasses||[]).filter(x=>x!==cls);
+                        }
+                        saveGlobalSettings(cur);
+                        refreshGlobalBadgeLists();
+                        updatePreview();
+                    });
+                });
+            };
+
+            // 프로필 클래스 관련 요소들
+            const profileSelect = modal.querySelector('#global-profile-class-select');
+            const refreshProfileBtn = modal.querySelector('#refresh-profile-classes');
+            const addProfileFromSelectBtn = modal.querySelector('#add-global-profile-class-from-select');
+            const addProfileBtn = modal.querySelector('#add-global-profile-class');
+            const profileInput = modal.querySelector('#global-profile-class-input');
+            
+            // 참가자 이름 클래스 관련 요소들
+            const nameSelect = modal.querySelector('#global-participant-name-class-select');
+            const refreshNameBtn = modal.querySelector('#refresh-participant-name-classes');
+            const addNameFromSelectBtn = modal.querySelector('#add-global-participant-name-class-from-select');
+            const addNameBtn = modal.querySelector('#add-global-participant-name-class');
+            const nameInput = modal.querySelector('#global-participant-name-class-input');
+            
+            // 채팅에서 클래스를 추출하여 셀렉트 박스에 채우는 함수
+            const populateClassSelectors = () => {
+                const extracted = extractChatClasses();
+                const classList = extracted.allClasses;
+                
+                // 프로필 클래스 셀렉트 박스 채우기
+                if (profileSelect) {
+                    const currentValue = profileSelect.value;
+                    profileSelect.innerHTML = '<option value="">채팅에서 클래스 선택...</option>';
+                    if (classList.length === 0) {
+                        profileSelect.innerHTML += '<option value="" disabled>채팅에서 클래스를 찾을 수 없습니다</option>';
+                    } else {
+                        classList.forEach(cls => {
+                            const option = document.createElement('option');
+                            option.value = cls;
+                            option.textContent = '.' + cls;
+                            profileSelect.appendChild(option);
+                        });
+                    }
+                    // 이전 값 복원 시도
+                    if (currentValue && classList.includes(currentValue)) {
+                        profileSelect.value = currentValue;
+                    }
+                }
+                
+                // 참가자 이름 클래스 셀렉트 박스 채우기 (동일한 리스트 사용)
+                if (nameSelect) {
+                    const currentValue = nameSelect.value;
+                    nameSelect.innerHTML = '<option value="">채팅에서 클래스 선택...</option>';
+                    if (classList.length === 0) {
+                        nameSelect.innerHTML += '<option value="" disabled>채팅에서 클래스를 찾을 수 없습니다</option>';
+                    } else {
+                        classList.forEach(cls => {
+                            const option = document.createElement('option');
+                            option.value = cls;
+                            option.textContent = '.' + cls;
+                            nameSelect.appendChild(option);
+                        });
+                    }
+                    // 이전 값 복원 시도
+                    if (currentValue && classList.includes(currentValue)) {
+                        nameSelect.value = currentValue;
+                    }
+                }
+            };
+            
+            // 초기 로드 시 클래스 추출
+            populateClassSelectors();
+            
+            // 프로필 클래스 새로고침 버튼
+            if (refreshProfileBtn) {
+                refreshProfileBtn.addEventListener('click', () => {
+                    populateClassSelectors();
+                });
+            }
+            
+            // 참가자 이름 클래스 새로고침 버튼
+            if (refreshNameBtn) {
+                refreshNameBtn.addEventListener('click', () => {
+                    populateClassSelectors();
+                });
+            }
+            
+            // 프로필 클래스: 셀렉트에서 선택하여 추가
+            if (addProfileFromSelectBtn && profileSelect) {
+                addProfileFromSelectBtn.addEventListener('click', () => {
+                    const val = profileSelect.value;
+                    if (!val) return;
+                    const cur = loadGlobalSettings();
+                    const set = new Set(cur.profileClasses||[]);
+                    set.add(val);
+                    saveGlobalSettings({ profileClasses: Array.from(set) });
+                    profileSelect.value = '';
+                    refreshGlobalBadgeLists();
+                    updatePreview();
+                });
+            }
+            
+            // 프로필 클래스: 직접 입력으로 추가
+            if (addProfileBtn && profileInput) {
+                addProfileBtn.addEventListener('click', () => {
+                    const val = (profileInput.value||'').trim().replace(/^\./,'');
+                    if (!val) return;
+                    const cur = loadGlobalSettings();
+                    const set = new Set(cur.profileClasses||[]);
+                    set.add(val);
+                    saveGlobalSettings({ profileClasses: Array.from(set) });
+                    profileInput.value = '';
+                    refreshGlobalBadgeLists();
+                    updatePreview();
+                });
+            }
+            
+            // 참가자 필터를 새로고침하는 함수
+            const refreshParticipantFilter = () => {
+                const participantFilterContainer = modal.querySelector('#participant-filter-container');
+                if (!participantFilterContainer) return;
+                
+                // 현재 체크된 참가자들의 이름을 저장
+                const checkedNames = new Set(
+                    Array.from(modal.querySelectorAll('.participant-filter-checkbox:checked'))
+                        .map(cb => cb.dataset.name)
+                );
+                
+                // 참가자 목록 재생성
+                const participants = new Set();
+                messageNodes.forEach(node => {
+                    const name = getNameFromNode(node);
+                    if (name) participants.add(name);
+                });
+                
+                // 참가자 필터 HTML 재생성
+                let participantCheckboxesHtml = '';
+                participants.forEach(name => {
+                    const safeName = name.replace(/"/g, '&quot;');
+                    const isChecked = checkedNames.size === 0 || checkedNames.has(name);
+                    participantCheckboxesHtml += `
+                    <label style="display: flex; align-items: center; padding: 6px; background: #1a1b26; border-radius: 6px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#24283b'" onmouseout="this.style.background='#1a1b26'">
+                        <input type="checkbox" class="participant-filter-checkbox" data-name="${safeName}" ${isChecked ? 'checked' : ''}> ${name}
+                    </label>
+                `;
+                });
+                
+                participantFilterContainer.innerHTML = participantCheckboxesHtml;
+                
+                // 참가자 필터 체크박스 이벤트 재등록
+                participantFilterContainer.querySelectorAll('.participant-filter-checkbox').forEach(cb => {
+                    cb.addEventListener('change', updatePreview);
+                });
+            };
+            
+            // 참가자 이름 클래스: 셀렉트에서 선택하여 추가
+            if (addNameFromSelectBtn && nameSelect) {
+                addNameFromSelectBtn.addEventListener('click', () => {
+                    const val = nameSelect.value;
+                    if (!val) return;
+                    const cur = loadGlobalSettings();
+                    const set = new Set(cur.participantNameClasses||[]);
+                    set.add(val);
+                    saveGlobalSettings({ participantNameClasses: Array.from(set) });
+                    nameSelect.value = '';
+                    refreshGlobalBadgeLists();
+                    refreshParticipantFilter(); // 참가자 필터 새로고침
+                    updatePreview();
+                });
+            }
+            
+            // 참가자 이름 클래스: 직접 입력으로 추가
+            if (addNameBtn && nameInput) {
+                addNameBtn.addEventListener('click', () => {
+                    const val = (nameInput.value||'').trim().replace(/^\./,'');
+                    if (!val) return;
+                    const cur = loadGlobalSettings();
+                    const set = new Set(cur.participantNameClasses||[]);
+                    set.add(val);
+                    saveGlobalSettings({ participantNameClasses: Array.from(set) });
+                    nameInput.value = '';
+                    refreshGlobalBadgeLists();
+                    refreshParticipantFilter(); // 참가자 필터 새로고침
+                    updatePreview();
+                });
+            }
+            // 초기 뱃지 렌더링
+            refreshGlobalBadgeLists();
+            
             handleDesktopFormatChange();
             
             // 모바일 형식 변경 시 옵션 표시/숨김
@@ -5975,6 +6594,14 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                     bubbleToggleLabel.style.cursor = isBasicTheme ? 'pointer' : 'not-allowed';
                 }
 
+                // [추가] 프로필 클래스 자동 필터링 옵션 상태 가져오기
+                const filterProfileClassesCheckbox = modal.querySelector('#filter-profile-classes-checkbox');
+                const isProfileFilteringActive = filterProfileClassesCheckbox && filterProfileClassesCheckbox.checked;
+
+                // [수정] 아바타 표시 여부를 결정할 때 프로필 필터링 상태도 고려
+                const shouldShowAvatar = avatarToggleCheckbox.checked;
+
+
                 console.log('[Log Exporter] updatePreview: 미리보기 업데이트 시작');
                 arcaHelperSection.style.display = 'none';
                 // 데스크톱과 모바일 모두 확인
@@ -6015,12 +6642,62 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                 
                 syncedPreview.innerHTML = `<div style="text-align:center;color:#8a98c9;">미리보기 생성 중...</div>`;
                 let filteredNodes = getFilteredNodes();
+                console.log('[Log Exporter] 원본 노드 개수:', filteredNodes.length);
+
+                // [추가] 필터링 전에 원본 노드에서 아바타 맵을 미리 수집
+                // 이렇게 하면 프로필 클래스가 필터링되어도 아바타 정보는 보존됩니다
+                const preCollectedAvatarMap = await collectCharacterAvatars(filteredNodes, true);
+                console.log('[Log Exporter] 필터링 전 아바타 수집 완료:', preCollectedAvatarMap.size, '개');
 
                 const customFilterSection = modal.querySelector('#custom-filter-section');
+                console.log('[Log Exporter] UI 필터링 상태:', {
+                    format: selectedFormat,
+                    filterToggleChecked: filterToggleCheckbox?.checked,
+                    customFilterSectionExists: !!customFilterSection
+                });
+                
                 if (selectedFormat !== 'html' && filterToggleCheckbox.checked && customFilterSection) {
-                    const selectedClasses = Array.from(modal.querySelectorAll('.custom-filter-class:checked')).map(cb => cb.dataset.class);
+                    let selectedClasses = Array.from(modal.querySelectorAll('.custom-filter-class:checked')).map(cb => cb.dataset.class);
+                    console.log('[Log Exporter] UI 필터링 체크된 클래스:', selectedClasses);
+                    
+                    // 이미지 관련 필수 클래스 제외 (항상)
+                    const IMAGE_RELATED_CLASSES = [
+                        'x-risu-image-container',
+                        'x-risu-image-cell', 
+                        'x-risu-asset-table',
+                        'x-risu-in-table'
+                    ];
+                    selectedClasses = selectedClasses.filter(cls => !IMAGE_RELATED_CLASSES.includes(cls));
+                    console.log('[Log Exporter] 이미지 클래스 제외 후:', selectedClasses);
+                    
+                    // 프로필 클래스 자동 필터링 옵션 확인
+                    const filterProfileClassesCheckbox = modal.querySelector('#filter-profile-classes-checkbox');
+                    console.log('[Log Exporter] 프로필 클래스 자동 필터링:', {
+                        checkboxExists: !!filterProfileClassesCheckbox,
+                        checked: filterProfileClassesCheckbox?.checked
+                    });
+                    
+                    if (filterProfileClassesCheckbox && filterProfileClassesCheckbox.checked) {
+                        const globalSettings = loadGlobalSettings();
+                        console.log('[Log Exporter] 프로필 클래스 목록:', globalSettings.profileClasses);
+                        
+                        if (globalSettings.profileClasses && Array.isArray(globalSettings.profileClasses)) {
+                            // 프로필 클래스도 추가하되, 이미지 관련 클래스는 제외
+                            const profileClassesToFilter = globalSettings.profileClasses.filter(cls => !IMAGE_RELATED_CLASSES.includes(cls));
+                            console.log('[Log Exporter] 추가할 프로필 클래스:', profileClassesToFilter);
+                            selectedClasses.push(...profileClassesToFilter);
+                            console.log('[Log Exporter] 프로필 클래스 추가 후 전체:', selectedClasses);
+                        }
+                    }
+                    
                     if (selectedClasses.length > 0) {
+                        console.log('[Log Exporter] 필터링 실행: 클래스 개수', selectedClasses.length);
                         filteredNodes = filteredNodes.map(node => filterWithCustomClasses(node, selectedClasses));
+                        console.log('[Log Exporter] 필터링 후 노드 개수:', filteredNodes.length);
+                        // 각 노드의 내용 확인
+                        filteredNodes.forEach((node, idx) => {
+                            console.log(`[Log Exporter] 필터링 후 노드 ${idx}: innerHTML 길이=${node.innerHTML?.length || 0}`);
+                        });
                     }
                 }
 
@@ -6091,15 +6768,19 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                     saveFileBtn.style.display = 'none';
                     // [수정] 헤더에 필요한 캐릭터 정보를 객체로 묶음
                     const charInfo = { name: charName, chatName: chatName, avatarUrl: charAvatarUrl };
+                    
                     const content = await generateBasicFormatLog(
                         filteredNodes, 
                         charInfo, // 캐릭터 정보 전달
                         selectedThemeKey, 
-                        selectedColorKey, 
-                        avatarToggleCheckbox.checked,
+                        selectedColorKey,
+                        shouldShowAvatar, // 수정된 아바타 표시 여부 전달
                         headerToggleCheckbox.checked,
                         footerToggleCheckbox.checked,
-                        bubbleToggleCheckbox.checked
+                        bubbleToggleCheckbox.checked,
+                        false, // isForArca
+                        true, // embedImagesAsBase64
+                        preCollectedAvatarMap // [추가] 미리 수집한 아바타 맵 전달
                     );
                     lastGeneratedHtml = content;
                     const themeInfo = THEMES[selectedThemeKey] || THEMES.basic;
@@ -6273,8 +6954,15 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
             
 
             // [수정] 각 컨트롤에 data-setting-key 속성 추가 및 이벤트 리스너 통합
-            modal.querySelectorAll('[data-setting-key]').forEach(el => {
-                el.addEventListener('change', handleSettingChange);
+            // 이벤트 델리게이션 사용: 모달 전체에 change 이벤트 리스너 추가
+            modal.addEventListener('change', (e) => {
+                if (e.target.dataset.settingKey) {
+                    handleSettingChange(e);
+                    // custom-filter-class인 경우 미리보기 업데이트
+                    if (e.target.classList.contains('custom-filter-class')) {
+                        updatePreview();
+                    }
+                }
             });
             
             // [수정] 최초 로드 시, 라디오 버튼 상태에 따라 UI를 먼저 갱신
@@ -6564,6 +7252,10 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                     // 템플릿 생성
                     const filteredNodes = getFilteredNodes();
 
+                    // [추가] 필터링 전에 원본 노드에서 아바타 맵을 미리 수집 (아카라이브용)
+                    const arcaAvatarMap = await collectCharacterAvatars(filteredNodes, false); // URL 그대로 사용
+                    console.log('[Arca] 필터링 전 아바타 수집 완료:', arcaAvatarMap.size, '개');
+
                     const customFilterSection = modal.querySelector('#custom-filter-section');
                     let nodesForTemplate = filteredNodes;
                     if (filterToggleCheckbox && filterToggleCheckbox.checked && customFilterSection) {
@@ -6594,7 +7286,8 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                             selectedThemeKey, 
                             selectedColorKey, 
                             showAvatar,
-                            showHeader // [핵심 수정] 읽어온 헤더 상태를 함수에 전달합니다.
+                            showHeader, // [핵심 수정] 읽어온 헤더 상태를 함수에 전달합니다.
+                            arcaAvatarMap // [추가] 미리 수집한 아바타 맵 전달
                         );
                         console.log('[Arca] 템플릿 생성 완료, 길이:', template?.length);
                         console.log('[Arca] 템플릿 미리보기 (첫 200자):', template?.substring(0, 200));
@@ -6830,7 +7523,8 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                         const charInfo = { name: charName, chatName: chatName, avatarUrl: charAvatarUrl };
                         htmlContent = await generateBasicFormatLog(
                             nodes, charInfo, selectedThemeKey, theme, showAvatar,
-                            headerToggleCheckbox.checked, footerToggleCheckbox.checked, bubbleToggleCheckbox.checked
+                            headerToggleCheckbox.checked, footerToggleCheckbox.checked, bubbleToggleCheckbox.checked,
+                            false, true, preCollectedAvatarMap // [추가] 미리 수집한 아바타 맵 전달
                         );
                     } else {
                         return '';
