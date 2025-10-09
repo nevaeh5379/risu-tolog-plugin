@@ -2135,63 +2135,79 @@ const AVATAR_ATTR = 'data-avatar';
          * @param {boolean} [showFooter=true] - 푸터를 표시할지 여부.
          * @param {boolean} [showBubble=true] - 말풍선을 표시할지 여부.
          * @param {Map<string, string>} [preCollectedAvatarMap=null] - 미리 수집된 아바타 맵 (필터링 전 수집).
+         * @param {boolean} [allowHtmlRendering=false] - HTML을 필터링 없이 그대로 렌더링할지 여부.
          * @returns {Promise<string>} 포맷된 채팅 로그를 나타내는 HTML 문자열.
          */
-        async function generateBasicFormatLog(nodes, charInfo, selectedThemeKey = 'basic', selectedColorKey = 'dark', showAvatar = true, showHeader = true, showFooter = true, showBubble = true, isForArca = false, embedImagesAsBase64 = true, preCollectedAvatarMap = null) {
-            console.log(`[Log Exporter] generateBasicFormatLog: 테마: ${selectedThemeKey}, 헤더: ${showHeader}, 푸터: ${showFooter}, Base64 임베드: ${embedImagesAsBase64}, 미리수집된 아바타: ${preCollectedAvatarMap ? preCollectedAvatarMap.size : 0}개`);
+        async function generateBasicFormatLog(nodes, charInfo, selectedThemeKey = 'basic', selectedColorKey = 'dark', showAvatar = true, showHeader = true, showFooter = true, showBubble = true, isForArca = false, embedImagesAsBase64 = true, preCollectedAvatarMap = null, allowHtmlRendering = false) { // eslint-disable-line no-unused-vars
+            console.log(`[Log Exporter] generateBasicFormatLog: 테마: ${selectedThemeKey}, HTML 렌더링 허용: ${allowHtmlRendering}`);
             
             const themeInfo = THEMES[selectedThemeKey] || THEMES.basic;
             const color = (selectedThemeKey === 'basic') ? (COLORS[selectedColorKey] || COLORS.dark) : themeInfo.color;
-
+        
             const baseTagStyles = `
-            p { margin: 0.75em 0; }
-            a { color: ${color.nameColor}; text-decoration: none; }
-            a:hover { text-decoration: underline; }
-            ul, ol { padding-left: 1.5em; margin: 0.75em 0; }
-            li { margin-bottom: 0.25em; }
-            blockquote { border-left: 3px solid ${color.border}; padding-left: 1em; margin-left: 0; color: inherit; opacity: 0.8; }
-            strong, b { font-weight: bold; color: ${color.nameColor}; }
-            em, i { font-style: italic; }
-            hr { border: 0; height: 1px; background-color: ${color.border}; margin: 1.5em 0; }
-            code, pre { font-family: 'Nanum Gothic Coding', 'D2Coding', 'Fira Code', 'JetBrains Mono', monospace, sans-serif; }
-        `;
-
-            // [핵심 수정] 헤더 생성 로직이 embedImagesAsBase64 플래그를 존중하도록 변경
+                p { margin: 0.75em 0; }
+                a { color: ${color.nameColor}; text-decoration: none; } 
+                a:hover { text-decoration: underline; }
+                ul, ol { padding-left: 1.5em; margin: 0.75em 0; }
+                li { margin-bottom: 0.25em; }
+                blockquote { border-left: 3px solid ${color.border}; padding-left: 1em; margin-left: 0; color: inherit; opacity: 0.8; }
+                strong, b { font-weight: bold; color: ${color.nameColor}; }
+                em, i { font-style: italic; }
+                hr { border: 0; height: 1px; background-color: ${color.border}; margin: 1.5em 0; } 
+                code, pre { font-family: 'Nanum Gothic Coding', 'D2Coding', 'Fira Code', 'JetBrains Mono', monospace, sans-serif; }
+                .x-risu-GH_VEX_Head_C3, .x-risu-GH_VEX_FT, .x-risu-GH_VEX_DLP { display: none !important; }
+            `;
+        
+            // 공통 헤더 생성 함수
             const generateHeaderHtml = async (embedAsBase64) => {
                 if (!showHeader) return '';
-                // 플래그 값에 따라 Base64 변환 여부 결정
                 const avatarSrc = embedAsBase64 
                     ? await imageUrlToBase64(charInfo.avatarUrl) 
                     : charInfo.avatarUrl;
-
+        
                 const headerStyles = `
                     text-align:center; padding-bottom:1.5em; margin-bottom:2em;
                     border-bottom: 2px solid ${color.border};
                 `;
                 return `
-                    <header style="${headerStyles}">
-                        <img src="${avatarSrc}" style="width:80px; height:80px; border-radius:50%; object-fit:cover; margin:0 auto 1em; display:block; border: 3px solid ${color.avatarBorder}; box-shadow: ${color.shadow};">
-                        <h1 style="color: ${color.nameColor}; margin: 0 0 0.25em 0; font-size: 1.8em; letter-spacing: 1px;">${charInfo.name}</h1>
-                        <p style="color: ${color.text}; opacity: 0.8; margin: 0; font-size: 0.9em;">${charInfo.chatName}</p>
-                    </header>
+                    <header style="${headerStyles}"><img src="${avatarSrc}" style="width:80px; height:80px; border-radius:50%; object-fit:cover; margin:0 auto 1em; display:block; border: 3px solid ${color.avatarBorder}; box-shadow: ${color.shadow};"><h1 style="color: ${color.nameColor}; margin: 0 0 0.25em 0; font-size: 1.8em; letter-spacing: 1px;">${charInfo.name}</h1><p style="color: ${color.text}; opacity: 0.8; margin: 0; font-size: 0.9em;">${charInfo.chatName}</p></header>
                 `;
             };
-
-            let log = '';
-            // [수정] 미리 수집된 아바타 맵이 있으면 사용, 없으면 새로 수집
-            const avatarMap = preCollectedAvatarMap || await collectCharacterAvatars(nodes, !isForArca);
-            console.log(`[Log Exporter] 사용할 아바타 맵: ${avatarMap.size}개 (${preCollectedAvatarMap ? '미리수집' : '새로수집'})`);
-            const fantasyFont = `'Nanum Myeongjo', serif`;
-
-            // CSS 선택자 이스케이프 함수
-            const escapeSelector = (selector) => {
-                return selector.replace(/[!"#$%&'()*+,.\/:;<=>?@[\\\]^`{|}~]/g, '\\$&');
+        
+            // 공통 푸터 생성 함수
+            const generateFooterHtml = () => {
+                if (!showFooter) return '';
+                return `<footer style="text-align: center; margin-top: 3em; padding-top: 1.5em; border-top: 1px solid ${color.border}; font-size: 0.8em; color: ${color.text}; opacity: 0.6;">Created by Log Plugin</footer>`;
             };
-            
-            // 노드에서 이름을 가져오는 함수
-            const getNameFromNodeLocal = (node) => {
+        
+            // 공통 아바타 생성 함수
+            const createAvatarHtml = (avatarSrc, name, isUser, isForArcaFlag) => {
+                if (!showAvatar) return '';
+                
+                const baseStyle = `width:48px;height:48px;min-width:48px;border-radius:50%;box-shadow:${color.shadow || 'none'};border:2px solid ${color.avatarBorder};`;
+                const marginStyle = isUser ? 'margin-left:12px;' : 'margin-right:12px;';
+                const fullStyle = baseStyle + marginStyle;
+        
+                if (isForArcaFlag) {
+                    return `<img ${AVATAR_ATTR} data-user="${isUser}" style="${fullStyle}" src="${avatarSrc}">`;
+                } else {
+                    if (avatarSrc) {
+                        return `<div ${AVATAR_ATTR} style="${fullStyle}background:url('${avatarSrc}');background-size:cover;background-position:center;"></div>`;
+                    } else {
+                        const letter = isUser ? 'U' : name.charAt(0).toUpperCase();
+                        return `<div ${AVATAR_ATTR} style="${fullStyle}background-color:${color.avatarBorder};display:flex;align-items:center;justify-content:center;"><span style="color:${color.background};font-weight:bold;font-size:1.2em;">${letter}</span></div>`;
+                    }
+                }
+            };
+        
+            // 공통 이름 추출 함수
+            const getNameFromNode = (node) => {
                 const globalSettings = loadGlobalSettings();
-                // 전역 설정의 참가자 이름 클래스 먼저 확인
+                
+                const escapeSelector = (selector) => {
+                    return selector.replace(/[!"#$%&'()*+,.\/:;<=>?@[\\\]^`{|}~]/g, '\\$&');
+                };
+        
                 if (globalSettings && Array.isArray(globalSettings.participantNameClasses)) {
                     for (const cls of globalSettings.participantNameClasses) {
                         if (!cls || typeof cls !== 'string') continue;
@@ -2206,134 +2222,169 @@ const AVATAR_ATTR = 'data-avatar';
                         }
                     }
                 }
-                // 기본 클래스 확인
+        
                 const nameEl = node.querySelector('.unmargin.text-xl');
                 if (nameEl && nameEl.textContent.trim()) return nameEl.textContent.trim();
-                // 폴백
+                
                 if (node.classList.contains('justify-end')) return 'User';
                 return charInfo.name || 'Assistant';
             };
-            
-            for (const [index, node] of nodes.entries()) {
-                if (node.querySelector('textarea')) continue;
-    
-                let name = getNameFromNodeLocal(node);
-                const originalMessageEl = node.querySelector('.prose, .chattext');
-                if (!originalMessageEl) continue;
-    
+        
+            // 공통 메시지 처리 함수
+            const processMessageContent = async (originalMessageEl, embedImagesFlag) => {
                 let contentSourceEl = originalMessageEl.cloneNode(true);
+                
+                // 불필요한 요소 제거
                 contentSourceEl.querySelectorAll('script, style, .log-exporter-msg-btn-group').forEach(el => el.remove());
-
+                
+                // 배경 이미지 처리
                 const bgImagePromises = Array.from(contentSourceEl.querySelectorAll('[style*="background-image"]')).map(async (el) => {
                     const style = el.getAttribute('style');
-                    const urlMatch = style.match(/url\(["']?(.+?)["']?\)/);
-                    if (urlMatch && urlMatch[1]) {
+                    const urlMatch = style?.match(/url\(["']?(.+?)["']?\)/);
+                    if (urlMatch?.[1]) {
                         const img = document.createElement('img');
-                        if (embedImagesAsBase64) {
-                            img.src = await imageUrlToBase64(urlMatch[1]);
-                        } else {
-                            img.src = urlMatch[1];
-                        }
+                        img.src = embedImagesFlag ? await imageUrlToBase64(urlMatch[1]) : urlMatch[1];
                         el.parentNode.insertBefore(img, el);
                         el.remove();
                     }
                 });
                 await Promise.all(bgImagePromises);
                 
+                // 이미지 처리
                 const imagePromises = Array.from(contentSourceEl.querySelectorAll('img')).map(async (img) => {
-                    if (img.src && embedImagesAsBase64 && !img.src.startsWith('data:')) {
-                        if (img.src) {
-                            try {
-                                const base64Src = await imageUrlToBase64(img.src);
-                                img.src = base64Src;
-                            } catch (e) {
-                                console.warn(`[Log Exporter] 이미지 Base64 변환 실패: ${img.src}`, e);
-                            }
-                        }
+                    if (img.src && embedImagesFlag && !img.src.startsWith('data:')) {
+                        try {
+                            img.src = await imageUrlToBase64(img.src);
+                        } catch (e) { /* ignore */ }
                     }
-                    Object.assign(img.style, { maxWidth: '100%', height: 'auto', borderRadius: '8px', display: 'block', margin: '12px 0' });
+                    Object.assign(img.style, { 
+                        maxWidth: '100%', 
+                        height: 'auto', 
+                        borderRadius: '8px', 
+                        display: 'block', 
+                        margin: '12px 0' 
+                    });
                 });
                 await Promise.all(imagePromises);
-
+        
+                // 스타일 블록 처리
                 const styleBlock = (el, bg, textColor, border = null) => {
                     const newBlock = document.createElement('div');
                     newBlock.innerHTML = `<div style="padding:0; margin:0;">${el.innerHTML}</div>`;
-                    newBlock.setAttribute('bgcolor', bg);
-                    Object.assign(newBlock.style, {
-                        padding: '0.75em 1em', margin: '0.75em 0',
-                        borderRadius: '4px', borderLeft: `3px solid ${border || 'transparent'}`
+                    Object.assign(newBlock.style, { 
+                        padding: '0.75em 1em', 
+                        margin: '0.75em 0', 
+                        borderRadius: '4px', 
+                        borderLeft: `3px solid ${border || 'transparent'}`, 
+                        backgroundColor: bg, 
+                        color: textColor 
                     });
-                    newBlock.style.setProperty('background-color', bg );
-                    newBlock.style.setProperty('color', textColor);
                     el.replaceWith(newBlock);
                 };
                 
-                contentSourceEl.querySelectorAll('.x-risu-regex-quote-block').forEach(el => styleBlock(el, color.quoteBg, color.quoteText, color.quoteText));
-                contentSourceEl.querySelectorAll('.x-risu-regex-thought-block').forEach(el => styleBlock(el, color.thoughtBg, color.thoughtText));
-    
+                contentSourceEl.querySelectorAll('.x-risu-regex-quote-block').forEach(el => 
+                    styleBlock(el, color.quoteBg, color.quoteText, color.quoteText));
+                contentSourceEl.querySelectorAll('.x-risu-regex-thought-block').forEach(el => 
+                    styleBlock(el, color.thoughtBg, color.thoughtText));
+                
                 contentSourceEl.querySelectorAll('mark[risu-mark^="quote"]').forEach(markEl => {
                     Object.assign(markEl.style, {
-                        backgroundColor: color.quoteBg,
-                        color: color.quoteText,
-                        padding: '0.1em 0.3em',
-                        borderRadius: '3px',
+                        backgroundColor: color.quoteBg, 
+                        color: color.quoteText, 
+                        padding: '0.1em 0.3em', 
+                        borderRadius: '3px', 
                         textDecoration: 'none'
                     });
                 });
                 
-                let messageHtml = contentSourceEl.innerHTML.trim();
+                return contentSourceEl.innerHTML.trim();
+            };
+        
+            let log = '';
+            const avatarMap = preCollectedAvatarMap || await collectCharacterAvatars(nodes, !isForArca);
+            console.log(`[Log Exporter] 사용할 아바타 맵: ${avatarMap.size}개 (${preCollectedAvatarMap ? '미리수집' : '새로수집'})`);
+        
+            // HTML 렌더링 허용 모드
+            if (allowHtmlRendering) {
+                console.log("[Log Exporter] 'HTML 렌더링 허용' 모드로 실행합니다. 노드 전체를 복제합니다.");
+                let logHtml = '';
+                for (const node of nodes) {
+                    const clonedNode = node.cloneNode(true);
+                    const chattextProseNode = clonedNode.querySelector('.chattext.prose');
+                    if (chattextProseNode) {
+                        chattextProseNode.querySelectorAll('button, .log-exporter-msg-btn-group').forEach(btn => btn.remove());
+                        
+                        const mediaPromises = Array.from(chattextProseNode.querySelectorAll('img, [style*="background-image"]')).map(async (el) => {
+                            if (el.tagName === 'IMG') {
+                                if (el.src && embedImagesAsBase64 && !el.src.startsWith('data:')) {
+                                    try { el.src = await imageUrlToBase64(el.src); } catch (e) { /* ignore */ }
+                                }
+                            } else {
+                                const style = el.getAttribute('style');
+                                const urlMatch = style?.match(/url\(["']?(.+?)["']?\)/);
+                                if (urlMatch?.[1] && embedImagesAsBase64 && !urlMatch[1].startsWith('data:')) {
+                                    try {
+                                        const base64Url = await imageUrlToBase64(urlMatch[1]);
+                                        el.style.backgroundImage = `url("${base64Url}")`;
+                                    } catch (e) { /* ignore */ }
+                                }
+                            }
+                        });
+                        await Promise.all(mediaPromises);
+                        logHtml += chattextProseNode.outerHTML;
+                    } else {
+                        console.error('하위 클래스인 chattext prose를 찾을 수 없습니다.')
+                    }
+                }
+                
+                const headerHtml = await generateHeaderHtml(embedImagesAsBase64);
+                const footerHtml = generateFooterHtml();
+                const containerStyle = `margin: 16px auto; max-width: 900px; background-color: ${color.background}; border-radius: 12px; overflow: hidden; border: 1px solid ${color.border}; box-shadow: ${color.shadow || 'none'}; padding: 24px 32px;`;
+                
+                return `<div style="${containerStyle}"><style>${baseTagStyles}</style>${headerHtml}${logHtml}${footerHtml}</div>`;
+            }
+        
+            // 일반 모드 - 테마별 렌더링
+            for (const [index, node] of nodes.entries()) {
+                if (node.querySelector('textarea')) continue;
+        
+                let name = getNameFromNode(node);
+                const originalMessageEl = node.querySelector('.prose, .chattext');
+                if (!originalMessageEl) continue;
+        
+                let messageHtml = await processMessageContent(originalMessageEl, embedImagesAsBase64);
                 if (messageHtml.length === 0) continue;
-    
+        
                 const isUser = node.classList.contains('justify-end');
                 const avatarSrc = avatarMap.get(name);
-                let avatarHtml = '';
-
-                if (isForArca && showAvatar && avatarSrc) {
-                    avatarHtml = `<img ${AVATAR_ATTR} data-user="${isUser}" style="" src="${avatarSrc}">`;
-                } else 
-                if (showAvatar && selectedThemeKey !== 'log' && selectedThemeKey !== 'fantasy') {
-                    const createAvatarDiv = (src, isUser) => {
-                        const margin = isUser ? 'margin-left:12px;' : 'margin-right:12px;';
-                        const baseStyle = `width:48px;height:48px;min-width:48px;border-radius:50%;box-shadow:${color.shadow || 'none'};border:2px solid ${color.avatarBorder};${margin}`;
-                        if (src) {
-                            return `<div ${AVATAR_ATTR} style="${baseStyle}background:url('${src}');background-size:cover;background-position:center;"></div>`;
-                        } else {
-                            const letter = isUser ? 'U' : name.charAt(0).toUpperCase();
-                            return `<div ${AVATAR_ATTR} style="${baseStyle}background-color:${color.avatarBorder};display:flex;align-items:center;justify-content:center;"><span style="color:${color.background};font-weight:bold;font-size:1.2em;">${letter}</span></div>`;
-                        }
-                    };
-                    avatarHtml = createAvatarDiv(avatarSrc, isUser);
-                }
-    
+                const avatarHtml = createAvatarHtml(avatarSrc, name, isUser, isForArca);
+        
                 let logEntry = '';
-                // ( ... switch (selectedThemeKey) { ... } 부분은 변경 없음 ... )
-                // ... 기존 switch 문 코드를 여기에 그대로 유지 ...
+                
+                // 테마별 렌더링 로직
                 switch (selectedThemeKey) {
-                     case 'modern':
-                         const modernCardBg = isUser 
-                             ? `linear-gradient(135deg, ${color.cardBgUser} 0%, #3a3e44 100%)` 
-                             : color.cardBg;
-                         logEntry += `<div class="chat-message-container" style="display:flex; align-items:flex-start; margin-bottom:20px; gap: 16px; ${isUser ? 'flex-direction:row-reverse;' : ''}">`;
-                         logEntry += avatarHtml;
-                         logEntry += `<div style="flex:1; border-radius: 8px; background: ${modernCardBg}; box-shadow:${color.shadow}; overflow:hidden;">`;
-                         logEntry += `<strong style="color:${color.nameColor}; font-weight:600; font-size:0.9em; display:block; padding: 10px 14px; background-color: rgba(0,0,0,0.15); text-align:${isUser ? 'right;' : 'left;'}">${name}</strong>`;
-                         logEntry += `<div style="padding: 14px; color:${color.text}; line-height:1.8; word-wrap:break-word;">${messageHtml}</div>`;
-                         logEntry += '</div></div>';
-                         break;
-
-                    case 'fantasy': { // 중괄호로 스코프를 만들어 변수 충돌 방지
+                    case 'modern':
+                        const modernCardBg = isUser 
+                            ? `linear-gradient(135deg, ${color.cardBgUser} 0%, #3a3e44 100%)`
+                            : color.cardBg;
+                        logEntry += `<div class="chat-message-container" style="display:flex; align-items:flex-start; margin-bottom:20px; gap: 16px; ${isUser ? 'flex-direction:row-reverse;' : ''}">`;
+                        logEntry += avatarHtml;
+                        logEntry += `<div style="flex:1; border-radius: 8px; background: ${modernCardBg}; box-shadow:${color.shadow}; overflow:hidden;">`;
+                        logEntry += `<strong style="color:${color.nameColor}; font-weight:600; font-size:0.9em; display:block; padding: 10px 14px; background-color: rgba(0,0,0,0.15); text-align:${isUser ? 'right;' : 'left;'}">${name}</strong>`;
+                        logEntry += `<div style="padding: 14px; color:${color.text}; line-height:1.8; word-wrap:break-word;">${messageHtml}</div>`;
+                        logEntry += '</div></div>';
+                        break;
+        
+                    case 'fantasy': {
+                        const fantasyFont = `'Nanum Myeongjo', serif`;
                         let fantasyAvatarHtml = '';
                         if (showAvatar) {
                             if (isForArca) {
-                                // 아카라이브용: <img> 태그 사용 (data-user 속성 포함)
                                 const avatarStyle = 'width:52px;height:52px;min-width:52px;border-radius:50%;border:2px solid ' + color.avatarBorder + '; box-shadow: 0 0 12px rgba(255, 201, 120, 0.5); margin-left: auto; margin-right: auto;';
-                                if (avatarHtml.includes('style="')) {
-                                    fantasyAvatarHtml = avatarHtml.replace('style="', `style="${avatarStyle}`);
-                                } else {
-                                    fantasyAvatarHtml = avatarHtml.replace('<img', `<img style="${avatarStyle}"`);
-                                }
+                                fantasyAvatarHtml = avatarHtml.includes('style="') 
+                                    ? avatarHtml.replace('style="', `style="${avatarStyle}`)
+                                    : avatarHtml.replace('<img', `<img style="${avatarStyle}"`);
                             } else {
-                                // 미리보기용: <div> 태그 사용
                                 const baseStyle = `width:52px;height:52px;min-width:52px;border-radius:50%;border:2px solid ${color.avatarBorder}; box-shadow: 0 0 12px rgba(255, 201, 120, 0.5); margin-left: auto; margin-right: auto;`;
                                 if (avatarSrc) {
                                     fantasyAvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background:url('${avatarSrc}');background-size:cover;background-position:center;"></div>`;
@@ -2345,11 +2396,11 @@ const AVATAR_ATTR = 'data-avatar';
                         }
                         if (index > 0) {
                             logEntry += `
-        <div style="display:flex; align-items: center; text-align: center; margin: 2.2em auto; max-width: 50%;">
-            <div style="flex-grow: 1; height: 1px; background: linear-gradient(to right, transparent, ${color.separator}, transparent);width:100%;margin: auto;"></div>
-            <span style="padding: 0 0.8em; color: ${color.separator}; font-size: 1.3em; font-family: 'Nanum Myeongjo', serif; text-shadow: 0 0 8px rgba(175,192,255,0.4); margin-left: auto; margin-right: auto;">✦</span>
-            <div style="flex-grow: 1; height: 1px; background: linear-gradient(to left, transparent, ${color.separator}, transparent);width:100%;margin: auto;"></div>
-        </div>`;
+                                <div style="display:flex; align-items: center; text-align: center; margin: 2.2em auto; max-width: 50%;">
+                                    <div style="flex-grow: 1; height: 1px; background: linear-gradient(to right, transparent, ${color.separator}, transparent);width:100%;margin: auto;"></div>
+                                    <span style="padding: 0 0.8em; color: ${color.separator}; font-size: 1.3em; font-family: 'Nanum Myeongjo', serif; text-shadow: 0 0 8px rgba(175,192,255,0.4); margin-left: auto; margin-right: auto;">✦</span>
+                                    <div style="flex-grow: 1; height: 1px; background: linear-gradient(to left, transparent, ${color.separator}, transparent);width:100%;margin: auto;"></div>
+                                </div>`;
                         }
                         logEntry += `<div class="chat-message-container" style="display:flex; flex-direction:column; align-items: center; ${!isForArca ? `font-family: ${fantasyFont};` : ''} text-align:center; margin-bottom:28px;">`;
                         logEntry += fantasyAvatarHtml;
@@ -2357,23 +2408,18 @@ const AVATAR_ATTR = 'data-avatar';
                         logEntry += `<div style="color:${color.text}; line-height: 1.85; font-size: 1.1em; text-align: justify; margin-top: 1.2em; max-width: 95%; margin-left: auto; margin-right: auto; background-color: ${isUser ? color.cardBgUser : color.cardBg}; padding: 14px 18px; border: 1px solid ${color.border}; box-shadow: ${color.shadow};">${messageHtml}</div>`;
                         logEntry += `</div>`;
                         break;
-                    } // case 'fantasy' 종료
-                    case 'fantasy2': // 엘프의 숲
+                    }
+        
+                    case 'fantasy2': {
                         const elfFont = `'Nanum Myeongjo', serif`;
-                        let elfAvatarHtml = '';
-                        if (showAvatar) {
-                            if (isForArca) {
-                                // 아카라이브용: <img> 태그 사용 (data-user 속성 포함)
-                                elfAvatarHtml = avatarHtml;
+                        let elfAvatarHtml = avatarHtml;
+                        if (showAvatar && !isForArca) {
+                            const baseStyle = `width:50px;height:50px;min-width:50px;border-radius:50%;border:3px solid ${color.avatarBorder}; box-shadow: ${color.shadow}; position: relative;`;
+                            if (avatarSrc) {
+                                elfAvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background:url('${avatarSrc}');background-size:cover;background-position:center; overflow: hidden;"><div style="position: absolute; inset: 0; background: radial-gradient(circle at center, transparent 60%, rgba(52, 211, 153, 0.3) 100%);"></div></div>`;
                             } else {
-                                // 미리보기용: <div> 태그 사용
-                                const baseStyle = `width:50px;height:50px;min-width:50px;border-radius:50%;border:3px solid ${color.avatarBorder}; box-shadow: ${color.shadow}; position: relative;`;
-                                if (avatarSrc) {
-                                    elfAvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background:url('${avatarSrc}');background-size:cover;background-position:center; overflow: hidden;"><div style="position: absolute; inset: 0; background: radial-gradient(circle at center, transparent 60%, rgba(52, 211, 153, 0.3) 100%);"></div></div>`;
-                                } else {
-                                    const letter = isUser ? '🌿' : name.charAt(0).toUpperCase();
-                                    elfAvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background: linear-gradient(135deg, #059669, #10b981); display:flex;align-items:center;justify-content:center;"><span style="color: #d1fae5;font-weight:bold;font-size:1.3em; text-shadow: 0 0 8px rgba(52, 211, 153, 0.8);">${letter}</span></div>`;
-                                }
+                                const letter = isUser ? '🌿' : name.charAt(0).toUpperCase();
+                                elfAvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background: linear-gradient(135deg, #059669, #10b981); display:flex;align-items:center;justify-content:center;"><span style="color: #d1fae5;font-weight:bold;font-size:1.3em; text-shadow: 0 0 8px rgba(52, 211, 153, 0.8);">${letter}</span></div>`;
                             }
                         }
                         
@@ -2390,7 +2436,7 @@ const AVATAR_ATTR = 'data-avatar';
                                     <div style="flex-grow: 1; height: 2px; background: linear-gradient(to left, transparent, ${color.separator}, transparent); border-radius: 1px;"></div>
                                 </div>`;
                         }
-
+        
                         logEntry += `<div class="chat-message-container" style="display:flex; align-items:flex-start; gap: 16px; ${!isForArca ? `font-family: ${elfFont};` : ''} margin-bottom:2em; ${isUser ? 'flex-direction:row-reverse;' : ''}">`;
                         logEntry += elfAvatarHtml;
                         logEntry += `<div style="flex:1; position: relative;">`;
@@ -2401,28 +2447,18 @@ const AVATAR_ATTR = 'data-avatar';
                         logEntry += `<div style="color:${color.text}; line-height: 1.7; font-size: 1.05em; position: relative; z-index: 1;">${messageHtml}</div>`;
                         logEntry += `</div></div></div>`;
                         break;
-
-                    case 'royal': // 로얄 테마
+                    }
+        
+                    case 'royal': {
                         const royalFont = `'Nanum Myeongjo', serif`;
-                        let royalAvatarHtml = '';
-                        if (showAvatar) {
-                            if (isForArca) {
-                                // 아카라이브용: <img> 태그 사용 (data-user 속성 포함)
-                                const avatarStyle = 'width:55px;height:55px;min-width:55px;border-radius:50%;border:3px solid ' + color.avatarBorder + '; box-shadow: ' + color.shadow + '; position: relative; margin-left: auto; margin-right: auto;';
-                                if (avatarHtml.includes('style="')) {
-                                    royalAvatarHtml = avatarHtml.replace('style="', `style="${avatarStyle}`);
-                                } else {
-                                    royalAvatarHtml = avatarHtml.replace('<img', `<img style="${avatarStyle}"`);
-                                }
+                        let royalAvatarHtml = avatarHtml;
+                        if (showAvatar && !isForArca) {
+                            const baseStyle = `width:55px;height:55px;min-width:55px;border-radius:50%;border:3px solid ${color.avatarBorder}; box-shadow: ${color.shadow}; position: relative;`;
+                            if (avatarSrc) {
+                                royalAvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background:url('${avatarSrc}');background-size:cover;background-position:center;"></div>`;
                             } else {
-                                // 미리보기용: <div> 태그 사용
-                                const baseStyle = `width:55px;height:55px;min-width:55px;border-radius:50%;border:3px solid ${color.avatarBorder}; box-shadow: ${color.shadow}; position: relative;`;
-                                if (avatarSrc) {
-                                    royalAvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background:url('${avatarSrc}');background-size:cover;background-position:center;"></div>`;
-                                } else {
-                                    const letter = isUser ? '👑' : name.charAt(0).toUpperCase();
-                                    royalAvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background: linear-gradient(135deg, #7c3aed, #a855f7); display:flex;align-items:center;justify-content:center;"><span style="color: #fbbf24;font-weight:bold;font-size:1.4em; text-shadow: 0 0 10px rgba(251, 191, 36, 0.8);">${letter}</span></div>`;
-                                }
+                                const letter = isUser ? '👑' : name.charAt(0).toUpperCase();
+                                royalAvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background: linear-gradient(135deg, #7c3aed, #a855f7); display:flex;align-items:center;justify-content:center;"><span style="color: #fbbf24;font-weight:bold;font-size:1.4em; text-shadow: 0 0 10px rgba(251, 191, 36, 0.8);">${letter}</span></div>`;
                             }
                         }
                         
@@ -2434,7 +2470,7 @@ const AVATAR_ATTR = 'data-avatar';
                                     <div style="flex-grow: 1; height: 1px; background: linear-gradient(to left, transparent, ${color.separator}, transparent);"></div>
                                 </div>`;
                         }
-
+        
                         logEntry += `<div class="chat-message-container" style="display:flex; flex-direction:column; align-items: center; ${!isForArca ? `font-family: ${royalFont};` : ''} text-align:center; margin-bottom:3em; position: relative;">`;
                         logEntry += `<div style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); width: 80%; height: 2px; background: linear-gradient(90deg, transparent, ${color.nameColor}, transparent); opacity: 0.6;"></div>`;
                         logEntry += royalAvatarHtml;
@@ -2444,35 +2480,12 @@ const AVATAR_ATTR = 'data-avatar';
                         logEntry += `${messageHtml}</div>`;
                         logEntry += `</div>`;
                         break;
-
-                    case 'ocean': // 심해 테마
-                        let oceanAvatarHtml = '';
-                        if (showAvatar) {
-                            if (isForArca) {
-                                // 아카라이브용: <img> 태그 사용 (data-user 속성 포함)
-                                const margin = isUser ? 'margin-left:14px;' : 'margin-right:14px;';
-                                if (avatarHtml.includes('style="')) {
-                                    oceanAvatarHtml = avatarHtml.replace('style="', `style="${margin}`);
-                                } else {
-                                    oceanAvatarHtml = avatarHtml.replace('<img', `<img style="${margin}"`);
-                                }
-                            } else {
-                                // 미리보기용: <div> 태그 사용
-                                const baseStyle = `width:48px;height:48px;min-width:48px;border-radius:50%;border:2px solid ${color.avatarBorder}; box-shadow: ${color.shadow}; position: relative;`;
-                                if (avatarSrc) {
-                                    oceanAvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background:url('${avatarSrc}');background-size:cover;background-position:center;"></div>`;
-                                } else {
-                                    const letter = isUser ? '🌊' : name.charAt(0).toUpperCase();
-                                    oceanAvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background: radial-gradient(circle, #0891b2, #0c4a6e); display:flex;align-items:center;justify-content:center;"><span style="color: #22d3ee;font-weight:bold;font-size:1.2em; text-shadow: 0 0 8px rgba(34, 211, 238, 0.8);">${letter}</span></div>`;
-                                }
-                                const margin = isUser ? 'margin-left:14px;' : 'margin-right:14px;';
-                                oceanAvatarHtml = oceanAvatarHtml.replace('style="', `style="${margin}`);
-                            }
-                        }
-
+                    }
+        
+                    case 'ocean':
                         logEntry += `<div class="chat-message-container" style="display:flex; align-items:flex-start; margin-bottom:2em; position: relative; ${isUser ? 'flex-direction:row-reverse;' : ''}">`;
                         logEntry += `<div style="position: absolute; ${isUser ? 'right: 0;' : 'left: 0;'} top: 0; bottom: 0; width: 2px; background: linear-gradient(to bottom, ${color.nameColor}, transparent); opacity: 0.5;"></div>`;
-                        logEntry += oceanAvatarHtml;
+                        logEntry += avatarHtml;
                         logEntry += `<div style="flex:1; position: relative;">`;
                         logEntry += `<strong style="color:${color.nameColor}; font-weight:600; font-size:1em; display:block; margin-bottom:10px; text-align:${isUser ? 'right;' : 'left;'} text-shadow: 0 0 8px rgba(34, 211, 238, 0.4);">${name}</strong>`;
                         logEntry += `<div style="background: ${isUser ? color.cardBgUser : color.cardBg}; border-radius:18px; padding:16px 20px; box-shadow:${color.shadow}; border:1px solid rgba(34, 211, 238, 0.3); color:${color.text}; line-height:1.75; word-wrap:break-word; position:relative; overflow: hidden;">`;
@@ -2480,32 +2493,8 @@ const AVATAR_ATTR = 'data-avatar';
                         logEntry += `<div style="position: relative; z-index: 1;">${messageHtml}</div>`;
                         logEntry += `</div></div></div>`;
                         break;
-
-                    case 'sakura': // 벚꽃 테마
-                        let sakuraAvatarHtml = '';
-                        if (showAvatar) {
-                            if (isForArca) {
-                                // 아카라이브용: <img> 태그 사용 (data-user 속성 포함)
-                                const margin = isUser ? 'margin-left:12px;' : 'margin-right:12px;';
-                                if (avatarHtml.includes('style="')) {
-                                    sakuraAvatarHtml = avatarHtml.replace('style="', `style="${margin}`);
-                                } else {
-                                    sakuraAvatarHtml = avatarHtml.replace('<img', `<img style="${margin}"`);
-                                }
-                            } else {
-                                // 미리보기용: <div> 태그 사용
-                                const baseStyle = `width:46px;height:46px;min-width:46px;border-radius:50%;border:2px solid ${color.avatarBorder}; box-shadow: ${color.shadow}; position: relative;`;
-                                if (avatarSrc) {
-                                    sakuraAvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background:url('${avatarSrc}');background-size:cover;background-position:center;"></div>`;
-                                } else {
-                                    const letter = isUser ? '🌸' : name.charAt(0).toUpperCase();
-                                    sakuraAvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background: linear-gradient(135deg, #f472b6, #ec4899); display:flex;align-items:center;justify-content:center;"><span style="color: #fdf2f8;font-weight:bold;font-size:1.2em; text-shadow: 0 0 6px rgba(244, 114, 182, 0.6);">${letter}</span></div>`;
-                                }
-                                const margin = isUser ? 'margin-left:12px;' : 'margin-right:12px;';
-                                sakuraAvatarHtml = sakuraAvatarHtml.replace('style="', `style="${margin}`);
-                            }
-                        }
-
+        
+                    case 'sakura':
                         if (index > 0) {
                             logEntry += `
                                 <div style="display:flex; align-items: center; text-align: center; margin: 1.8em auto; max-width: 65%;">
@@ -2514,9 +2503,9 @@ const AVATAR_ATTR = 'data-avatar';
                                     <div style="flex-grow: 1; height: 1px; background: linear-gradient(to left, transparent, ${color.separator}, transparent);"></div>
                                 </div>`;
                         }
-
+        
                         logEntry += `<div class="chat-message-container" style="display:flex; align-items:flex-start; margin-bottom:2em; ${isUser ? 'flex-direction:row-reverse;' : ''}">`;
-                        logEntry += sakuraAvatarHtml;
+                        logEntry += avatarHtml;
                         logEntry += `<div style="flex:1;">`;
                         logEntry += `<strong style="color:${color.nameColor}; font-weight:600; font-size:0.95em; display:block; margin-bottom:8px; text-align:${isUser ? 'right;' : 'left;'} text-shadow: 0 0 6px rgba(244, 114, 182, 0.3);">${name}</strong>`;
                         logEntry += `<div style="background: ${isUser ? color.cardBgUser : color.cardBg}; border-radius:20px; padding:15px 18px; box-shadow:${color.shadow}; border:1px solid rgba(244, 114, 182, 0.2); color:${color.text}; line-height:1.7; word-wrap:break-word; position: relative; overflow: hidden;">`;
@@ -2524,45 +2513,22 @@ const AVATAR_ATTR = 'data-avatar';
                         logEntry += `<div style="position: relative; z-index: 1;">${messageHtml}</div>`;
                         logEntry += `</div></div></div>`;
                         break;
-
-                    case 'matrix': // 매트릭스 테마
-                        let matrixAvatarHtml = '';
-                        if (showAvatar) {
-                            if (isForArca) {
-                                // 아카라이브용: <img> 태그 사용 (data-user 속성 포함)
-                                const margin = isUser ? 'margin-left:10px;' : 'margin-right:10px;';
-                                if (avatarHtml.includes('style="')) {
-                                    matrixAvatarHtml = avatarHtml.replace('style="', `style="${margin}`);
-                                } else {
-                                    matrixAvatarHtml = avatarHtml.replace('<img', `<img style="${margin}"`);
-                                }
-                            } else {
-                                // 미리보기용: <div> 태그 사용
-                                const baseStyle = `width:44px;height:44px;min-width:44px;border-radius:4px;border:1px solid ${color.avatarBorder}; box-shadow: ${color.shadow}; font-family: 'Courier New', monospace;`;
-                                if (avatarSrc) {
-                                    matrixAvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background:url('${avatarSrc}');background-size:cover;background-position:center; filter: hue-rotate(120deg) saturate(0.8);"></div>`;
-                                } else {
-                                    const letter = isUser ? '[U]' : `[${name.charAt(0).toUpperCase()}]`;
-                                    matrixAvatarHtml = `<div ${AVATAR_ATTR} style="${baseStyle}background: #000000; display:flex;align-items:center;justify-content:center;"><span style="color: ${color.nameColor};font-weight:bold;font-size:0.8em; text-shadow: 0 0 8px ${color.nameColor};">${letter}</span></div>`;
-                                }
-                                const margin = isUser ? 'margin-left:10px;' : 'margin-right:10px;';
-                                matrixAvatarHtml = matrixAvatarHtml.replace('style="', `style="${margin}`);
-                            }
-                        }
-
+        
+                    case 'matrix':
                         logEntry += `<div class="chat-message-container" style="display:flex; align-items:flex-start; margin-bottom:1.5em; font-family: 'Courier New', monospace; ${isUser ? 'flex-direction:row-reverse;' : ''}">`;
-                        logEntry += matrixAvatarHtml;
+                        logEntry += avatarHtml;
                         logEntry += `<div style="flex:1;">`;
                         logEntry += `<div style="color:${color.nameColor}; font-weight:bold; font-size:0.9em; margin-bottom:5px; text-align:${isUser ? 'right;' : 'left;'} text-shadow: 0 0 5px ${color.nameColor}; font-family: 'Courier New', monospace;">&gt; ${name.toUpperCase()}</div>`;
                         logEntry += `<div style="background: ${isUser ? color.cardBgUser : color.cardBg}; border:1px solid ${color.border}; padding:12px 15px; color:${color.text}; line-height:1.6; word-wrap:break-word; font-family: 'Courier New', monospace; font-size: 0.9em; text-shadow: 0 0 3px ${color.text}; position: relative;">`;
                         logEntry += `<div style="position: absolute; top: 0; left: 0; right: 0; height: 1px; background: ${color.nameColor}; opacity: 0.6;"></div>`;
                         logEntry += `${messageHtml}</div></div></div>`;
                         break;
-                    case 'log': // 개선된 로그 테마
+        
+                    case 'log':
                         const lineNumber = String(index + 1).padStart(4, '0');
                         const logBg = isUser ? color.cardBgUser : color.cardBg;
                         const statusIcon = isUser ? '→' : '←';
-
+        
                         logEntry += `<div class="chat-message-container" style="
                             display: flex;
                             align-items: flex-start;
@@ -2577,7 +2543,6 @@ const AVATAR_ATTR = 'data-avatar';
                             transition: all 0.2s ease;
                         ">`;
                         
-                        // 라인 번호
                         logEntry += `<div style="
                             color: ${color.textSecondary};
                             font-size: 0.8em;
@@ -2589,7 +2554,6 @@ const AVATAR_ATTR = 'data-avatar';
                             opacity: 0.6;
                         ">${lineNumber}</div>`;
                         
-                        // 상태 아이콘
                         logEntry += `<div style="
                             color: ${color.nameColor};
                             font-size: 0.9em;
@@ -2599,7 +2563,6 @@ const AVATAR_ATTR = 'data-avatar';
                             font-weight: bold;
                         ">${statusIcon}</div>`;
                         
-                        // 이름 (더 작게)
                         logEntry += `<div style="
                             color: ${color.nameColor};
                             font-weight: bold;
@@ -2611,7 +2574,6 @@ const AVATAR_ATTR = 'data-avatar';
                             font-size: 0.85em;
                         ">[${name.toUpperCase()}]</div>`;
                         
-                        // 메시지 내용
                         logEntry += `<div style="
                             color: ${color.text};
                             flex: 1;
@@ -2629,9 +2591,9 @@ const AVATAR_ATTR = 'data-avatar';
                         logEntry += tempMessageDiv.innerHTML;
                         logEntry += `</div></div>`;
                         break;
-
+        
                     case 'basic':
-                    default: // ... (기존 기본 테마와 동일) ...
+                    default:
                         const cardBgColor = isUser ? color.cardBgUser : color.cardBg;
                         logEntry += `<div class="chat-message-container" style="display:flex;align-items:flex-start;margin-bottom:28px; ${isUser ? 'flex-direction:row-reverse;' : ''}">`;
                         logEntry += avatarHtml;
@@ -2645,10 +2607,11 @@ const AVATAR_ATTR = 'data-avatar';
                         logEntry += '</div></div>';
                         break;
                 }
-    
+        
                 log += logEntry;
             }
-    
+        
+            // 컨테이너 스타일 및 최종 HTML 생성
             let containerStyle = `
                 margin: 16px auto;
                 max-width: 900px;
@@ -2656,69 +2619,65 @@ const AVATAR_ATTR = 'data-avatar';
                 border-radius: ${selectedThemeKey === 'log' ? '8px' : '12px'};
                 overflow: hidden;
             `;
-
+        
             if (selectedThemeKey === 'log') {
                 containerStyle += `padding: 0; border: none; box-shadow: none;`;
             } else {
                 containerStyle += `border: 1px solid ${color.border}; box-shadow: ${color.shadow || 'none'}; padding: 24px 32px;`;
             }
-
+        
             const containerIdSuffix = Date.now();
             let extraStyles = '';
-            if (selectedThemeKey === 'modern') containerStyle += `background-image: linear-gradient(145deg, ${color.background}, #2c2f33);`;
-            if (isForArca && selectedThemeKey === 'fantasy') {
-                const gradient = `radial-gradient(ellipse at top, rgba(74, 85, 140, 0.3), transparent 60%), radial-gradient(ellipse at bottom, rgba(74, 85, 140, 0.2), transparent 70%)`;
-                containerStyle += ` background-image: ${gradient};`;
-            }
-            if (selectedThemeKey === 'fantasy') {
-                containerStyle += `${!isForArca ? `font-family:${fantasyFont};` : ''} border-image: linear-gradient(to bottom, ${color.border}, ${color.separator}) 1; border-width: 2px; border-style: solid; position: relative; overflow: hidden; z-index: 0;`;
-                extraStyles = `#tolog-fantasy-container-${containerIdSuffix}::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-image: radial-gradient(ellipse at top, rgba(74, 85, 140, 0.3), transparent 60%), radial-gradient(ellipse at bottom, rgba(74, 85, 140, 0.2), transparent 70%); pointer-events: none; z-index: -1; }`;
-            }
-            if (selectedThemeKey === 'fantasy2') {
-                containerStyle += `${!isForArca ? `font-family: 'Nanum Myeongjo', serif;` : ''} background: ${color.background}; border: 2px solid transparent; background-clip: padding-box; position: relative; overflow: hidden;`;
-                extraStyles = `#tolog-fantasy2-container-${containerIdSuffix}::before { content: ''; position: absolute; inset: -2px; background: linear-gradient(45deg, #10b981, #34d399, #10b981); border-radius: 14px; z-index: -1; } @keyframes pulse { 0%, 100% { opacity: 0.5; transform: scale(1); } 50% { opacity: 0.8; transform: scale(1.05); } } @keyframes float { 0%, 100% { transform: translateY(0px) rotate(0deg); } 33% { transform: translateY(-10px) rotate(1deg); } 66% { transform: translateY(5px) rotate(-1deg); } }`;
-            }
-            if (selectedThemeKey === 'royal') {
-                containerStyle += `${!isForArca ? `font-family: 'Nanum Myeongjo', serif;` : ''} background: ${color.background}; border: 3px solid transparent; background-clip: padding-box; position: relative;`;
-                extraStyles = `#tolog-royal-container-${containerIdSuffix}::before { content: ''; position: absolute; inset: -3px; background: linear-gradient(45deg, #7c3aed, #fbbf24, #a855f7, #fbbf24, #7c3aed); border-radius: 15px; z-index: -1; animation: royalShine 4s linear infinite; } @keyframes royalShine { 0% { background-position: 0% 50%; } 100% { background-position: 200% 50%; } }`;
-            }
-            if (selectedThemeKey === 'ocean') {
-                containerStyle += `background: ${color.background}; border: 1px solid rgba(34, 211, 238, 0.3); position: relative; overflow: hidden;`;
-                extraStyles = `#tolog-ocean-container-${containerIdSuffix}::before { content: ''; position: absolute; top: 0; left: -100%; width: 200%; height: 100%; background: linear-gradient(90deg, transparent, rgba(34, 211, 238, 0.1), transparent); animation: wave 3s ease-in-out infinite; z-index: -1; } @keyframes wave { 0% { left: -100%; } 100% { left: 100%; } }`;
-            }
-            if (selectedThemeKey === 'sakura') {
-                containerStyle += `background: ${color.background}; border: 1px solid rgba(244, 114, 182, 0.2); position: relative; overflow: hidden;`;
-                extraStyles = `@keyframes float { 0%, 100% { transform: translateY(0px) rotate(0deg); } 33% { transform: translateY(-8px) rotate(2deg); } 66% { transform: translateY(4px) rotate(-1deg); } }`;
-            }
-            if (selectedThemeKey === 'matrix') {
-                containerStyle += `background: ${color.background}; border: 1px solid ${color.border}; font-family: 'Courier New', monospace; position: relative;`;
-                extraStyles = `#tolog-matrix-container-${containerIdSuffix}::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent, ${color.nameColor}, transparent); animation: scan 2s linear infinite; } @keyframes scan { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }`;
-            }
-
-            const generateFooterHtml = () => {
-                if (!showFooter) return '';
-                return `<footer style="text-align: center; margin-top: 3em; padding-top: 1.5em; border-top: 1px solid ${color.border}; font-size: 0.8em; color: ${color.text}; opacity: 0.6;">Created by Log Plugin</footer>`;
+            
+            // 테마별 추가 스타일
+            const themeStyles = {
+                'modern': `background-image: linear-gradient(145deg, ${color.background}, #2c2f33);`,
+                'fantasy': `${!isForArca ? `font-family: 'Nanum Myeongjo', serif;` : ''} border-image: linear-gradient(to bottom, ${color.border}, ${color.separator}) 1; border-width: 2px; border-style: solid; position: relative; overflow: hidden; z-index: 0;`,
+                'fantasy2': `${!isForArca ? `font-family: 'Nanum Myeongjo', serif;` : ''} background: ${color.background}; border: 2px solid transparent; background-clip: padding-box; position: relative; overflow: hidden;`,
+                'royal': `${!isForArca ? `font-family: 'Nanum Myeongjo', serif;` : ''} background: ${color.background}; border: 3px solid transparent; background-clip: padding-box; position: relative;`,
+                'ocean': `background: ${color.background}; border: 1px solid rgba(34, 211, 238, 0.3); position: relative; overflow: hidden;`,
+                'sakura': `background: ${color.background}; border: 1px solid rgba(244, 114, 182, 0.2); position: relative; overflow: hidden;`,
+                'matrix': `background: ${color.background}; border: 1px solid ${color.border}; font-family: 'Courier New', monospace; position: relative;`
             };
-
-            // [핵심 수정] 헤더 생성 시 embedImagesAsBase64 플래그를 전달
+        
+            if (themeStyles[selectedThemeKey]) {
+                containerStyle += themeStyles[selectedThemeKey];
+            }
+        
+            // 테마별 추가 CSS
+            const extraStylesMap = {
+                'fantasy': `#tolog-fantasy-container-${containerIdSuffix}::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-image: radial-gradient(ellipse at top, rgba(74, 85, 140, 0.3), transparent 60%), radial-gradient(ellipse at bottom, rgba(74, 85, 140, 0.2), transparent 70%); pointer-events: none; z-index: -1; }`,
+                'fantasy2': `#tolog-fantasy2-container-${containerIdSuffix}::before { content: ''; position: absolute; inset: -2px; background: linear-gradient(45deg, #10b981, #34d399, #10b981); border-radius: 14px; z-index: -1; } @keyframes pulse { 0%, 100% { opacity: 0.5; transform: scale(1); } 50% { opacity: 0.8; transform: scale(1.05); } } @keyframes float { 0%, 100% { transform: translateY(0px) rotate(0deg); } 33% { transform: translateY(-10px) rotate(1deg); } 66% { transform: translateY(5px) rotate(-1deg); } }`,
+                'royal': `#tolog-royal-container-${containerIdSuffix}::before { content: ''; position: absolute; inset: -3px; background: linear-gradient(45deg, #7c3aed, #fbbf24, #a855f7, #fbbf24, #7c3aed); border-radius: 15px; z-index: -1; animation: royalShine 4s linear infinite; } @keyframes royalShine { 0% { background-position: 0% 50%; } 100% { background-position: 200% 50%; } }`,
+                'ocean': `#tolog-ocean-container-${containerIdSuffix}::before { content: ''; position: absolute; top: 0; left: -100%; width: 200%; height: 100%; background: linear-gradient(90deg, transparent, rgba(34, 211, 238, 0.1), transparent); animation: wave 3s ease-in-out infinite; z-index: -1; } @keyframes wave { 0% { left: -100%; } 100% { left: 100%; } }`,
+                'sakura': `@keyframes float { 0%, 100% { transform: translateY(0px) rotate(0deg); } 33% { transform: translateY(-8px) rotate(2deg); } 66% { transform: translateY(4px) rotate(-1deg); } }`,
+                'matrix': `#tolog-matrix-container-${containerIdSuffix}::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent, ${color.nameColor}, transparent); animation: scan 2s linear infinite; } @keyframes scan { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }`
+            };
+        
+            extraStyles = extraStylesMap[selectedThemeKey] || '';
+        
             const headerHtml = await generateHeaderHtml(embedImagesAsBase64);
             const footerHtml = generateFooterHtml();
+            
             const containerIdMap = {
                 'fantasy': `tolog-fantasy-container-${containerIdSuffix}`,
                 'fantasy2': `tolog-fantasy2-container-${containerIdSuffix}`,
-                'modern': `tolog-modern-container-${containerIdSuffix}`,
                 'royal': `tolog-royal-container-${containerIdSuffix}`,
                 'ocean': `tolog-ocean-container-${containerIdSuffix}`,
                 'matrix': `tolog-matrix-container-${containerIdSuffix}`
             };
+            
             const containerId = containerIdMap[selectedThemeKey] ? ` id="${containerIdMap[selectedThemeKey]}"` : '';
+            
             let finalHtml = `<div${containerId} style="${containerStyle}">
                                 <style>${baseTagStyles}${extraStyles}</style>${headerHtml}${log}${footerHtml}
                              </div>`;
+                             
             if (['fantasy', 'fantasy2', 'royal'].includes(selectedThemeKey)) {
                 const fontLink = `<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700&display=swap">`;
                 finalHtml = fontLink + finalHtml;
             }
+            
             return finalHtml;
         }
 
@@ -4849,6 +4808,10 @@ const customFilterHtml = `
                         <div class="mobile-section" id="mobile-filter-section">
                             <div class="mobile-section-title">🔍 필터링</div>
                             <label class="mobile-option-row">
+                                <span class="mobile-option-label">📜 HTML 렌더링 허용</span>
+                                <input type="checkbox" id="allow-html-checkbox-mobile" data-setting-key="allowHtmlRendering" ${savedSettings.allowHtmlRendering ? 'checked' : ''}>
+                            </label>
+                            <label class="mobile-option-row" id="mobile-ui-filter-toggle-wrapper">
                                 <span class="mobile-option-label">UI 필터링</span>
                                 <input type="checkbox" id="filter-toggle-mobile" data-setting-key="useUiFilter" ${savedSettings.useUiFilter !== false ? 'checked' : ''}>
                             </label>
@@ -4926,7 +4889,7 @@ const customFilterHtml = `
                                 <li><b>이미지 준비:</b> 아래 <b>'1. 이미지 ZIP 다운로드'</b> 버튼을 눌러 로그에 포함된 이미지들을 모두 다운로드하세요.</li>
                                 <li><b>이미지 업로드:</b> 아카라이브 글쓰기 에디터를 <b>'HTML 모드'</b>로 변경하고, 다운로드한 이미지들을 모두 업로드하세요.</li>
                                 <li><b>소스 붙여넣기:</b> 이미지 업로드 후, 에디터의 <b>HTML 소스 전체</b>를 복사하여 아래 <b>'3. 아카라이브 소스'</b> 칸에 붙여넣으세요.</li>
-                                <li><b>변환 및 완료:</b> <b>'변환'</b> 버튼을 누르세요. 생성된 <b>'4. 최종 결과물'</b>을 복사하여 아카라이브 에디터에 붙여넣으면 완료됩니다.</li>
+                                <li><b>변환 및 완료:</b> <b>'변환'</b> 버튼을 누르세요. 생성된 <b>'4. 최종 결과물'</b>을 복사하여 아카라이브 에디터에 붙여넣으면 완료됩니다. (<b>참고:</b> 'HTML 렌더링 허용' 옵션은 비권장됩니다)</li>
                             </ol>
                             <label class="mobile-option-row" style="margin-bottom: 10px; padding: 12px; background: #24283b; border-radius: 8px;">
                                 <span class="mobile-option-label">🎬 비디오에서 움짤로 변환</span>
@@ -5098,6 +5061,12 @@ const customFilterHtml = `
                                 <span class="desktop-section-title">필터링</span>
                             </div>
                             <div class="desktop-option-row">
+                                <span class="desktop-option-label">📜 HTML 렌더링 허용</span>
+                                <div class="desktop-toggle ${savedSettings.allowHtmlRendering ? 'active' : ''}" id="allow-html-toggle-wrapper" data-setting-key="allowHtmlRendering">
+                                    <input type="checkbox" id="allow-html-checkbox" data-setting-key="allowHtmlRendering" ${savedSettings.allowHtmlRendering ? 'checked' : ''} style="display: none;">
+                                </div>
+                            </div>
+                            <div class="desktop-option-row" id="ui-filter-toggle-wrapper">
                                 <span class="desktop-option-label">UI 필터링</span>
                                 <div class="desktop-toggle ${savedSettings.useUiFilter !== false ? 'active' : ''}" id="filter-toggle-checkbox-wrapper" data-setting-key="useUiFilter">
                                     <input type="checkbox" id="filter-toggle-checkbox" data-setting-key="useUiFilter" ${savedSettings.useUiFilter !== false ? 'checked' : ''} style="display: none;">
@@ -5149,11 +5118,14 @@ const customFilterHtml = `
                         <!-- 참가자 필터 -->
                         <div class="desktop-section">
                             <div class="desktop-section-header">
-                                <span class="desktop-section-icon">👥</span>
-                                <span class="desktop-section-title">참가자 필터</span>
+                                <span class="desktop-section-icon">🔍</span>
+                                <span class="desktop-section-title">필터링</span>
                             </div>
-                            <div id="participant-filter-container" style="display: flex; flex-direction: column; gap: 8px;">
-                                ${participantCheckboxesHtml.replace(/<label/g, '<label style="display: flex; align-items: center; padding: 6px; background: #1a1b26; border-radius: 6px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background=\'#24283b\'" onmouseout="this.style.background=\'#1a1b26\'"')}
+                            <div class="desktop-option-row">
+                                <span class="desktop-option-label">UI 필터링</span>
+                                <div class="desktop-toggle ${savedSettings.useUiFilter !== false ? 'active' : ''}" id="filter-toggle-checkbox-wrapper" data-setting-key="useUiFilter">
+                                    <input type="checkbox" id="filter-toggle-checkbox" data-setting-key="useUiFilter" ${savedSettings.useUiFilter !== false ? 'checked' : ''} style="display: none;">
+                                </div>
                             </div>
                         </div>
                         
@@ -5217,11 +5189,11 @@ const customFilterHtml = `
                                 <span class="desktop-section-icon">🎨</span>
                                 <span class="desktop-section-title">아카라이브 HTML 변환기</span>
                             </div>
-                            <ol style="font-size: 0.85em; padding-left: 20px; margin: 0 0 12px 0; line-height: 1.6; color: #a9b1d6;">
-                                <li><b>이미지 준비:</b> 아래 <b>'1. 이미지 ZIP 다운로드'</b> 버튼으로 이미지를 다운로드하세요.</li>
-                                <li><b>이미지 업로드:</b> 아카라이브 에디터를 HTML 모드로 전환하고 이미지를 업로드하세요.</li>
-                                <li><b>소스 붙여넣기:</b> 에디터의 HTML 소스를 아래 '아카라이브 소스'에 붙여넣으세요.</li>
-                                <li><b>변환 완료:</b> '변환' 버튼을 누르고 '최종 결과물'을 복사하세요.</li>
+                            <ol style="font-size: 0.9em; padding-left: 20px; margin: 0 0 8px 0; line-height: 1.6;">
+                                <li><b>이미지 준비:</b> 아래 <b>'1. 이미지 ZIP 다운로드'</b> 버튼을 눌러 로그에 포함된 이미지들을 모두 다운로드하세요.</li>
+                                <li><b>이미지 업로드:</b> 아카라이브 글쓰기 에디터를 <b>'HTML 모드'</b>로 변경하고, 다운로드한 이미지들을 모두 업로드하세요.</li>
+                                <li><b>소스 붙여넣기:</b> 이미지 업로드 후, 에디터의 <b>HTML 소스 전체</b>를 복사하여 아래 <b>'3. 아카라이브 소스'</b> 칸에 붙여넣으세요.</li>
+                                <li><b>변환 및 완료:</b> <b>'변환'</b> 버튼을 누르세요. 생성된 <b>'4. 최종 결과물'</b>을 복사하여 아카라이브 에디터에 붙여넣으면 완료됩니다. (<b>참고:</b> 'HTML 렌더링 허용' 옵션은 비권장됩니다)</li>
                             </ol>
                             <div class="desktop-option-row" style="margin-bottom: 12px;">
                                 <span class="desktop-option-label">🎬 비디오에서 움짤로 변환</span>
@@ -5735,6 +5707,69 @@ const customFilterHtml = `
             };
             
             syncMobileSettings();
+
+            // ▼▼▼ [수정 1] 이 코드를 showCopyPreviewModal 함수 내의 `syncMobileSettings();` 바로 아래에 추가하세요. ▼▼▼
+
+            // [신규] 'HTML 렌더링 허용'과 'UI 필터링' 상호작용 로직
+            const setupFilterInteractions = () => {
+                const allowHtmlCheckbox = modal.querySelector('#allow-html-checkbox');
+                const allowHtmlCheckboxMobile = modal.querySelector('#allow-html-checkbox-mobile');
+                
+                const uiFilterWrapper = modal.querySelector('#ui-filter-toggle-wrapper');
+                const customFilterToggle = modal.querySelector('#custom-filter-toggle');
+                const uiFilterWrapperMobile = modal.querySelector('#mobile-ui-filter-toggle-wrapper');
+                const customFilterToggleMobile = modal.querySelector('#custom-filter-toggle-mobile');
+
+                const updateFilterState = () => {
+                    const allowHtmlRendering = allowHtmlCheckbox.checked;
+                    const isDisabled = allowHtmlRendering;
+                    const opacity = isDisabled ? '0.5' : '1';
+                    const pointerEvents = isDisabled ? 'none' : 'auto';
+
+                    const elementsToToggle = [
+                        uiFilterWrapper, customFilterToggle, uiFilterWrapperMobile, customFilterToggleMobile
+                    ];
+
+                    elementsToToggle.forEach(el => {
+                        if (el) {
+                            el.style.opacity = opacity;
+                            el.style.pointerEvents = pointerEvents;
+                        }
+                    });
+
+                    // UI 필터링 체크박스 자체도 비활성화
+                    const filterCheckboxes = [
+                        modal.querySelector('#filter-toggle-checkbox'),
+                        modal.querySelector('#filter-toggle-mobile')
+                    ];
+                    filterCheckboxes.forEach(cb => {
+                        if (cb) {
+                            cb.disabled = isDisabled;
+                            // HTML 렌더링이 켜지면 UI 필터링은 강제로 끔
+                            if (isDisabled && cb.checked) {
+                                cb.checked = false;
+                                cb.dispatchEvent(new Event('change', { bubbles: true })); // 상태 변경 전파
+                            }
+                        }
+                    });
+                };
+
+                allowHtmlCheckbox.addEventListener('change', () => {
+                    allowHtmlCheckboxMobile.checked = allowHtmlCheckbox.checked;
+                    updateFilterState();
+                    updatePreview(); // 상태 변경 후 즉시 미리보기 업데이트
+                });
+                allowHtmlCheckboxMobile.addEventListener('change', () => {
+                    allowHtmlCheckbox.checked = allowHtmlCheckboxMobile.checked;
+                    updateFilterState();
+                    updatePreview(); // 상태 변경 후 즉시 미리보기 업데이트
+                });
+
+                // 초기 로드 시 상태 적용
+                updateFilterState();
+            };
+
+            setupFilterInteractions();
             
             // 데스크톱 라디오 버튼 스타일 핸들러
             modal.querySelectorAll('.desktop-radio-label').forEach(label => {
@@ -6594,13 +6629,11 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                     bubbleToggleLabel.style.cursor = isBasicTheme ? 'pointer' : 'not-allowed';
                 }
 
-                // [추가] 프로필 클래스 자동 필터링 옵션 상태 가져오기
+                const allowHtmlCheckbox = modal.querySelector('#allow-html-checkbox');
+                const allowHtmlRendering = allowHtmlCheckbox.checked;
+
                 const filterProfileClassesCheckbox = modal.querySelector('#filter-profile-classes-checkbox');
-                const isProfileFilteringActive = filterProfileClassesCheckbox && filterProfileClassesCheckbox.checked;
-
-                // [수정] 아바타 표시 여부를 결정할 때 프로필 필터링 상태도 고려
                 const shouldShowAvatar = avatarToggleCheckbox.checked;
-
 
                 console.log('[Log Exporter] updatePreview: 미리보기 업데이트 시작');
                 arcaHelperSection.style.display = 'none';
@@ -6656,10 +6689,10 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                     customFilterSectionExists: !!customFilterSection
                 });
                 
-                if (selectedFormat !== 'html' && filterToggleCheckbox.checked && customFilterSection) {
+                // [핵심 수정] allowHtmlRendering이 true일 때는 UI 필터링을 건너뛰도록 조건 추가
+                if (selectedFormat !== 'html' && !allowHtmlRendering && filterToggleCheckbox.checked && customFilterSection) { // eslint-disable-line no-constant-condition
                     let selectedClasses = Array.from(modal.querySelectorAll('.custom-filter-class:checked')).map(cb => cb.dataset.class);
                     console.log('[Log Exporter] UI 필터링 체크된 클래스:', selectedClasses);
-                    
                     // 이미지 관련 필수 클래스 제외 (항상)
                     const IMAGE_RELATED_CLASSES = [
                         'x-risu-image-container',
@@ -6668,7 +6701,6 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                         'x-risu-in-table'
                     ];
                     selectedClasses = selectedClasses.filter(cls => !IMAGE_RELATED_CLASSES.includes(cls));
-                    console.log('[Log Exporter] 이미지 클래스 제외 후:', selectedClasses);
                     
                     // 프로필 클래스 자동 필터링 옵션 확인
                     const filterProfileClassesCheckbox = modal.querySelector('#filter-profile-classes-checkbox');
@@ -6679,14 +6711,11 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                     
                     if (filterProfileClassesCheckbox && filterProfileClassesCheckbox.checked) {
                         const globalSettings = loadGlobalSettings();
-                        console.log('[Log Exporter] 프로필 클래스 목록:', globalSettings.profileClasses);
                         
                         if (globalSettings.profileClasses && Array.isArray(globalSettings.profileClasses)) {
                             // 프로필 클래스도 추가하되, 이미지 관련 클래스는 제외
                             const profileClassesToFilter = globalSettings.profileClasses.filter(cls => !IMAGE_RELATED_CLASSES.includes(cls));
-                            console.log('[Log Exporter] 추가할 프로필 클래스:', profileClassesToFilter);
                             selectedClasses.push(...profileClassesToFilter);
-                            console.log('[Log Exporter] 프로필 클래스 추가 후 전체:', selectedClasses);
                         }
                     }
                     
@@ -6694,10 +6723,6 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                         console.log('[Log Exporter] 필터링 실행: 클래스 개수', selectedClasses.length);
                         filteredNodes = filteredNodes.map(node => filterWithCustomClasses(node, selectedClasses));
                         console.log('[Log Exporter] 필터링 후 노드 개수:', filteredNodes.length);
-                        // 각 노드의 내용 확인
-                        filteredNodes.forEach((node, idx) => {
-                            console.log(`[Log Exporter] 필터링 후 노드 ${idx}: innerHTML 길이=${node.innerHTML?.length || 0}`);
-                        });
                     }
                 }
 
@@ -6780,7 +6805,8 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                         bubbleToggleCheckbox.checked,
                         false, // isForArca
                         true, // embedImagesAsBase64
-                        preCollectedAvatarMap // [추가] 미리 수집한 아바타 맵 전달
+                        preCollectedAvatarMap, // [추가] 미리 수집한 아바타 맵 전달
+                        allowHtmlRendering // ▼▼▼ [수정] 새 파라미터 전달
                     );
                     lastGeneratedHtml = content;
                     const themeInfo = THEMES[selectedThemeKey] || THEMES.basic;
