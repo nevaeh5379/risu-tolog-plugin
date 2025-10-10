@@ -1127,7 +1127,6 @@ const AVATAR_ATTR = 'data-avatar';
             @media (max-width: 992px) { /* Tablet breakpoint: revert to column layout */
                 .log-exporter-modal-content { flex-direction: column; overflow-y: auto; } /* 컨텐츠 영역 스크롤 */
                 .log-exporter-left-panel, .log-exporter-right-panel { max-height: none; overflow-y: visible; flex: none; width: 100%; } /* 패널 높이 제한 해제 */
-                .log-exporter-modal-preview { max-height: 40vh; } /* 세로 모드에서 미리보기 높이 제한 */
             }
             .log-exporter-modal-btn.image-save { background-color: #9ece6a; color: #1a1b26; }
             .log-exporter-modal-btn.image-save:hover { background-color: #b8e090; }
@@ -3044,6 +3043,13 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
             borderWrapper.style.fontSize = `${baseFontSize}px`; // [추가] borderWrapper에도 폰트 크기 적용
         }
         
+        // [추가] Shadow DOM 내부의 요소들에도 폰트 크기와 너비 적용
+        const chatLogWrapper = captureTarget.querySelector('.chat-log-wrapper');
+        if (chatLogWrapper) {
+            chatLogWrapper.style.fontSize = `${baseFontSize}px`;
+            chatLogWrapper.style.maxWidth = `${imageWidth}px`;
+        }
+        
         // [추가] 모든 메시지 컨테이너와 내용 요소에 폰트 크기 명시적으로 적용
         // em 단위가 baseFontSize를 기준으로 계산되도록 보장
         const allMessageContainers = captureTarget.querySelectorAll('.chat-message-container');
@@ -3052,6 +3058,19 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
             if (!container.style.fontSize) {
                 container.style.fontSize = `${baseFontSize}px`;
             }
+        });
+        
+        // [추가] 메시지 내용(.chattext, .prose)에도 폰트 크기 명시적으로 적용
+        const allChatTexts = captureTarget.querySelectorAll('.chattext, .prose');
+        allChatTexts.forEach(textEl => {
+            textEl.style.fontSize = `${baseFontSize}px`;
+            // 내부의 모든 요소에도 적용
+            const innerElements = textEl.querySelectorAll('*');
+            innerElements.forEach(el => {
+                if (!el.style.fontSize || el.style.fontSize === '0.95em') {
+                    el.style.fontSize = 'inherit';
+                }
+            });
         });
         
         await new Promise(r => requestAnimationFrame(r));
@@ -3898,6 +3917,9 @@ function filterWithCustomClasses(node, selectedClasses) {
             const savedSettings = getCharSettings(charId);
             const globalSettings = loadGlobalSettings();
             console.log(`[Log Exporter] 불러온 설정 (charId: ${charId}):`, savedSettings);
+            
+            // [수정] preCollectedAvatarMap을 더 넓은 스코프에 선언하여 setupCopyButtons에서도 접근 가능하도록 함
+            let preCollectedAvatarMap = null;
 
             /**
              * 모든 설정 변경을 감지하고, 설정을 저장한 뒤 미리보기를 업데이트하는 통합 핸들러입니다.
@@ -6670,7 +6692,7 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
 
                 // [추가] 필터링 전에 원본 노드에서 아바타 맵을 미리 수집
                 // 이렇게 하면 프로필 클래스가 필터링되어도 아바타 정보는 보존됩니다
-                const preCollectedAvatarMap = await collectCharacterAvatars(filteredNodes, true);
+                preCollectedAvatarMap = await collectCharacterAvatars(filteredNodes, true);
                 console.log('[Log Exporter] 필터링 전 아바타 수집 완료:', preCollectedAvatarMap.size, '개');
 
                 const customFilterSection = modal.querySelector('#custom-filter-section');
@@ -6748,6 +6770,10 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                         syncedPreview.innerHTML = '';
 
                         // Shadow DOM을 각 미리보기에 개별적으로 생성
+                        // [수정] 사용자 설정 폰트 크기와 너비를 가져옴
+                        const baseFontSize = parseInt(modal.querySelector('#image-font-size-input, #image-font-size-mobile')?.value) || 26;
+                        const imageWidth = parseInt(modal.querySelector('#image-width-input, #image-width-mobile')?.value) || 700;
+                        
                         const createShadowPreview = (container) => {
                             if (!container) return;
                             
@@ -6756,13 +6782,25 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
 
                             shadowRoot.innerHTML = `
                                 <style>
+                                    /* [수정] Shadow DOM 전체에 폰트 크기를 먼저 설정 */
+                                    * {
+                                        font-size: inherit !important;
+                                    }
+                                    :host {
+                                        font-size: ${baseFontSize}px !important;
+                                    }
                                     ${fullCss}
                                     ${extraCss}
                                     .preview-wrapper {
                                         background-color: ${themeBgColor};
                                         padding: 20px;
+                                        font-size: ${baseFontSize}px;
                                     }
-                                    .chat-log-wrapper { max-width: 900px; margin: 0 auto; }
+                                    /* [수정] 너비를 사용자 설정값으로 변경 */
+                                    .chat-log-wrapper { 
+                                        max-width: ${imageWidth}px; 
+                                        margin: 0 auto;
+                                    }
                                     .log-exporter-msg-btn-group { display: none !important; }
                                 </style>
                                 <div class="preview-wrapper ${expandHoverCheckbox.checked ? 'expand-hover-globally' : ''}">
@@ -6784,6 +6822,10 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                     saveFileBtn.style.display = 'none';
                     // [수정] 헤더에 필요한 캐릭터 정보를 객체로 묶음
                     const charInfo = { name: charName, chatName: chatName, avatarUrl: charAvatarUrl };
+                    
+                    // [추가] 사용자 설정 폰트 크기와 너비를 가져옴
+                    const baseFontSize = parseInt(modal.querySelector('#image-font-size-input, #image-font-size-mobile')?.value) || 26;
+                    const imageWidth = parseInt(modal.querySelector('#image-width-input, #image-width-mobile')?.value) || 700;
                     
                     const content = await generateBasicFormatLog(
                         filteredNodes, 
@@ -6807,7 +6849,17 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                     if (isRawMode) {
                         syncedPreview.innerHTML = `<pre style="white-space: pre-wrap; word-wrap: break-word; font-family: monospace; font-size: 0.85em;">${content.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre>`;
                     } else {
-                        syncedPreview.innerHTML = content;
+                        // [수정] 폰트 크기와 너비를 적용한 래퍼로 감싸기
+                        syncedPreview.innerHTML = `
+                            <style>
+                                .tolog-basic-preview-wrapper * {
+                                    font-size: inherit !important;
+                                }
+                            </style>
+                            <div class="tolog-basic-preview-wrapper" style="font-size: ${baseFontSize}px; max-width: ${imageWidth}px; margin: 0 auto;">
+                                ${content}
+                            </div>
+                        `;
                     }
                 } else { // Text / Markdown
                     // ... (이 부분은 수정 없음)
