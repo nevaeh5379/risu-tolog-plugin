@@ -4815,7 +4815,7 @@ const customFilterHtml = `
                         <div class="mobile-section" id="mobile-filter-section">
                             <div class="mobile-section-title">🔍 필터링</div>
                             <label class="mobile-option-row">
-                                <span class="mobile-option-label">📜 HTML 렌더링 허용</span>
+                                <span class="mobile-option-label">📜 HTML 렌더링 허용 <span style="color:red; margin-left:4px;">⚠</span></span>
                                 <input type="checkbox" id="allow-html-checkbox-mobile" data-setting-key="allowHtmlRendering" ${savedSettings.allowHtmlRendering ? 'checked' : ''}>
                             </label>
                             <label class="mobile-option-row" id="mobile-ui-filter-toggle-wrapper">
@@ -5068,7 +5068,7 @@ const customFilterHtml = `
                                 <span class="desktop-section-title">필터링</span>
                             </div>
                             <div class="desktop-option-row">
-                                <span class="desktop-option-label">📜 HTML 렌더링 허용</span>
+                                <span class="desktop-option-label">📜 HTML 렌더링 허용 <span style="color:red; margin-left:4px;">⚠</span></span>
                                 <div class="desktop-toggle ${savedSettings.allowHtmlRendering ? 'active' : ''}" id="allow-html-toggle-wrapper" data-setting-key="allowHtmlRendering">
                                     <input type="checkbox" id="allow-html-checkbox" data-setting-key="allowHtmlRendering" ${savedSettings.allowHtmlRendering ? 'checked' : ''} style="display: none;">
                                 </div>
