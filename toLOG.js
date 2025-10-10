@@ -2230,14 +2230,11 @@ const AVATAR_ATTR = 'data-avatar';
                 return charInfo.name || 'Assistant';
             };
         
-            // 공통 메시지 처리 함수
+            // (기존) 메시지 내용 '정제' 함수
             const processMessageContent = async (originalMessageEl, embedImagesFlag) => {
                 let contentSourceEl = originalMessageEl.cloneNode(true);
-                
-                // 불필요한 요소 제거
                 contentSourceEl.querySelectorAll('script, style, .log-exporter-msg-btn-group').forEach(el => el.remove());
-                
-                // 배경 이미지 처리
+        
                 const bgImagePromises = Array.from(contentSourceEl.querySelectorAll('[style*="background-image"]')).map(async (el) => {
                     const style = el.getAttribute('style');
                     const urlMatch = style?.match(/url\(["']?(.+?)["']?\)/);
@@ -2249,102 +2246,62 @@ const AVATAR_ATTR = 'data-avatar';
                     }
                 });
                 await Promise.all(bgImagePromises);
-                
-                // 이미지 처리
+        
                 const imagePromises = Array.from(contentSourceEl.querySelectorAll('img')).map(async (img) => {
                     if (img.src && embedImagesFlag && !img.src.startsWith('data:')) {
-                        try {
-                            img.src = await imageUrlToBase64(img.src);
-                        } catch (e) { /* ignore */ }
+                        try { img.src = await imageUrlToBase64(img.src); } catch (e) { /* ignore */ }
                     }
-                    Object.assign(img.style, { 
-                        maxWidth: '100%', 
-                        height: 'auto', 
-                        borderRadius: '8px', 
-                        display: 'block', 
-                        margin: '12px 0' 
-                    });
+                    Object.assign(img.style, { maxWidth: '100%', height: 'auto', borderRadius: '8px', display: 'block', margin: '12px 0' });
                 });
                 await Promise.all(imagePromises);
         
-                // 스타일 블록 처리
                 const styleBlock = (el, bg, textColor, border = null) => {
                     const newBlock = document.createElement('div');
                     newBlock.innerHTML = `<div style="padding:0; margin:0;">${el.innerHTML}</div>`;
-                    Object.assign(newBlock.style, { 
-                        padding: '0.75em 1em', 
-                        margin: '0.75em 0', 
-                        borderRadius: '4px', 
-                        borderLeft: `3px solid ${border || 'transparent'}`, 
-                        backgroundColor: bg, 
-                        color: textColor 
-                    });
+                    Object.assign(newBlock.style, { padding: '0.75em 1em', margin: '0.75em 0', borderRadius: '4px', borderLeft: `3px solid ${border || 'transparent'}`, backgroundColor: bg, color: textColor });
                     el.replaceWith(newBlock);
                 };
-                
-                contentSourceEl.querySelectorAll('.x-risu-regex-quote-block').forEach(el => 
-                    styleBlock(el, color.quoteBg, color.quoteText, color.quoteText));
-                contentSourceEl.querySelectorAll('.x-risu-regex-thought-block').forEach(el => 
-                    styleBlock(el, color.thoughtBg, color.thoughtText));
+                contentSourceEl.querySelectorAll('.x-risu-regex-quote-block').forEach(el => styleBlock(el, color.quoteBg, color.quoteText, color.quoteText));
+                contentSourceEl.querySelectorAll('.x-risu-regex-thought-block').forEach(el => styleBlock(el, color.thoughtBg, color.thoughtText));
                 
                 contentSourceEl.querySelectorAll('mark[risu-mark^="quote"]').forEach(markEl => {
-                    Object.assign(markEl.style, {
-                        backgroundColor: color.quoteBg, 
-                        color: color.quoteText, 
-                        padding: '0.1em 0.3em', 
-                        borderRadius: '3px', 
-                        textDecoration: 'none'
-                    });
+                    Object.assign(markEl.style, { backgroundColor: color.quoteBg, color: color.quoteText, padding: '0.1em 0.3em', borderRadius: '3px', textDecoration: 'none' });
                 });
                 
                 return contentSourceEl.innerHTML.trim();
             };
         
+            // (신규) 원본 HTML을 최소한으로 처리하는 함수
+            const processRawHtmlContent = async (originalMessageEl, embedImagesFlag) => {
+                const clonedContentEl = originalMessageEl.cloneNode(true);
+                clonedContentEl.querySelectorAll('button, .log-exporter-msg-btn-group').forEach(btn => btn.remove());
+                
+                const mediaPromises = Array.from(clonedContentEl.querySelectorAll('img, [style*="background-image"]')).map(async (el) => {
+                    if (el.tagName === 'IMG') {
+                        if (el.src && embedImagesFlag && !el.src.startsWith('data:')) {
+                            try { el.src = await imageUrlToBase64(el.src); } catch (e) { /* ignore */ }
+                        }
+                    } else {
+                        const style = el.getAttribute('style');
+                        const urlMatch = style?.match(/url\(["']?(.+?)["']?\)/);
+                        if (urlMatch?.[1] && embedImagesFlag && !urlMatch[1].startsWith('data:')) {
+                            try {
+                                const base64Url = await imageUrlToBase64(urlMatch[1]);
+                                el.style.backgroundImage = `url("${base64Url}")`;
+                            } catch (e) { /* ignore */ }
+                        }
+                    }
+                });
+                await Promise.all(mediaPromises);
+                return clonedContentEl.outerHTML.trim();
+            };
+        
+        
             let log = '';
             const avatarMap = preCollectedAvatarMap || await collectCharacterAvatars(nodes, !isForArca);
             console.log(`[Log Exporter] 사용할 아바타 맵: ${avatarMap.size}개 (${preCollectedAvatarMap ? '미리수집' : '새로수집'})`);
         
-            // HTML 렌더링 허용 모드
-            if (allowHtmlRendering) {
-                console.log("[Log Exporter] 'HTML 렌더링 허용' 모드로 실행합니다. 노드 전체를 복제합니다.");
-                let logHtml = '';
-                for (const node of nodes) {
-                    const clonedNode = node.cloneNode(true);
-                    const chattextProseNode = clonedNode.querySelector('.chattext.prose');
-                    if (chattextProseNode) {
-                        chattextProseNode.querySelectorAll('button, .log-exporter-msg-btn-group').forEach(btn => btn.remove());
-                        
-                        const mediaPromises = Array.from(chattextProseNode.querySelectorAll('img, [style*="background-image"]')).map(async (el) => {
-                            if (el.tagName === 'IMG') {
-                                if (el.src && embedImagesAsBase64 && !el.src.startsWith('data:')) {
-                                    try { el.src = await imageUrlToBase64(el.src); } catch (e) { /* ignore */ }
-                                }
-                            } else {
-                                const style = el.getAttribute('style');
-                                const urlMatch = style?.match(/url\(["']?(.+?)["']?\)/);
-                                if (urlMatch?.[1] && embedImagesAsBase64 && !urlMatch[1].startsWith('data:')) {
-                                    try {
-                                        const base64Url = await imageUrlToBase64(urlMatch[1]);
-                                        el.style.backgroundImage = `url("${base64Url}")`;
-                                    } catch (e) { /* ignore */ }
-                                }
-                            }
-                        });
-                        await Promise.all(mediaPromises);
-                        logHtml += chattextProseNode.outerHTML;
-                    } else {
-                        console.error('하위 클래스인 chattext prose를 찾을 수 없습니다.')
-                    }
-                }
-                
-                const headerHtml = await generateHeaderHtml(embedImagesAsBase64);
-                const footerHtml = generateFooterHtml();
-                const containerStyle = `margin: 16px auto; max-width: 900px; background-color: ${color.background}; border-radius: 12px; overflow: hidden; border: 1px solid ${color.border}; box-shadow: ${color.shadow || 'none'}; padding: 24px 32px;`;
-                
-                return `<div style="${containerStyle}"><style>${baseTagStyles}</style>${headerHtml}${logHtml}${footerHtml}</div>`;
-            }
-        
-            // 일반 모드 - 테마별 렌더링
+            // 메인 렌더링 루프
             for (const [index, node] of nodes.entries()) {
                 if (node.querySelector('textarea')) continue;
         
@@ -2352,8 +2309,12 @@ const AVATAR_ATTR = 'data-avatar';
                 const originalMessageEl = node.querySelector('.prose, .chattext');
                 if (!originalMessageEl) continue;
         
-                let messageHtml = await processMessageContent(originalMessageEl, embedImagesAsBase64);
-                if (messageHtml.length === 0) continue;
+                // 메시지 내용 처리 분기
+                const messageHtml = allowHtmlRendering 
+                    ? await processRawHtmlContent(originalMessageEl, embedImagesAsBase64)
+                    : await processMessageContent(originalMessageEl, embedImagesAsBase64);
+                
+                if (messageHtml.trim().length === 0) continue;
         
                 const isUser = node.classList.contains('justify-end');
                 const avatarSrc = avatarMap.get(name);
@@ -2586,7 +2547,6 @@ const AVATAR_ATTR = 'data-avatar';
                         tempMessageDiv.querySelectorAll('p').forEach(p => { 
                             p.style.margin = '0'; 
                             p.style.padding = '0';
-                            p.style.display = 'inline';
                         });
                         logEntry += tempMessageDiv.innerHTML;
                         logEntry += `</div></div>`;
@@ -3058,17 +3018,41 @@ async function savePreviewAsImage(previewContainer, onProgress, cancellationToke
         onProgress('렌더링 준비 중...', 10, 100);
         await document.fonts.ready;
         const pixelRatio = useHighRes ? (window.devicePixelRatio || 2) : 1;
-        const commonOptions = { quality: 1.0, pixelRatio, backgroundColor: getComputedStyle(captureTarget).backgroundColor || '#1a1b26' };
+        const commonOptions = { 
+            quality: 1.0, 
+            pixelRatio, 
+            backgroundColor: getComputedStyle(captureTarget).backgroundColor || '#1a1b26',
+            // [추가] 캡처 시 명시적으로 스타일 적용
+            style: {
+                fontSize: `${baseFontSize}px`,
+                width: `${imageWidth}px`
+            }
+        };
 
         // [수정] 기본 스타일만 적용 (높이/오버플로우 제한은 유지)
         Object.assign(previewContainer.style, { 
             padding: '0', 
             width: `${imageWidth}px`,
             overflowY: 'hidden',
-            overflowX: 'hidden'
+            overflowX: 'hidden',
+            fontSize: `${baseFontSize}px` // [추가] previewContainer에도 폰트 크기 적용
         });
         captureTarget.style.fontSize = `${baseFontSize}px`; // [수정] 캡처 대상에만 폰트 크기 적용
-        (borderWrapper || captureTarget).style.width = `${imageWidth}px`;
+        captureTarget.style.width = `${imageWidth}px`; // [추가] captureTarget에도 명시적으로 너비 적용
+        if (borderWrapper) {
+            borderWrapper.style.width = `${imageWidth}px`; // [추가] borderWrapper가 있으면 너비 적용
+            borderWrapper.style.fontSize = `${baseFontSize}px`; // [추가] borderWrapper에도 폰트 크기 적용
+        }
+        
+        // [추가] 모든 메시지 컨테이너와 내용 요소에 폰트 크기 명시적으로 적용
+        // em 단위가 baseFontSize를 기준으로 계산되도록 보장
+        const allMessageContainers = captureTarget.querySelectorAll('.chat-message-container');
+        allMessageContainers.forEach(container => {
+            // 컨테이너 자체에도 폰트 크기 적용하여 em 단위가 올바르게 계산되도록 함
+            if (!container.style.fontSize) {
+                container.style.fontSize = `${baseFontSize}px`;
+            }
+        });
         
         await new Promise(r => requestAnimationFrame(r));
         
@@ -5115,19 +5099,7 @@ const customFilterHtml = `
                                 </div>
                         </div>
                         
-                        <!-- 참가자 필터 -->
-                        <div class="desktop-section">
-                            <div class="desktop-section-header">
-                                <span class="desktop-section-icon">🔍</span>
-                                <span class="desktop-section-title">필터링</span>
-                            </div>
-                            <div class="desktop-option-row">
-                                <span class="desktop-option-label">UI 필터링</span>
-                                <div class="desktop-toggle ${savedSettings.useUiFilter !== false ? 'active' : ''}" id="filter-toggle-checkbox-wrapper" data-setting-key="useUiFilter">
-                                    <input type="checkbox" id="filter-toggle-checkbox" data-setting-key="useUiFilter" ${savedSettings.useUiFilter !== false ? 'checked' : ''} style="display: none;">
-                                </div>
-                            </div>
-                        </div>
+                        
                         
                         <!-- 전역 커스텀 테마 선택자 설정 -->
                         <div class="desktop-section">
@@ -5145,14 +5117,14 @@ const customFilterHtml = `
                             <div class="desktop-option-row" style="align-items: flex-start; gap: 12px;">
                                 <div style="flex:1;">
                                     <div class="desktop-option-label">프로필 클래스 추가</div>
-                                    <div style="display:flex; gap:8px; margin:6px 0;">
+                                    <div style=" gap:8px; margin:6px 0;">
                                         <select id="global-profile-class-select" class="desktop-input" style="flex:1;">
                                             <option value="">채팅에서 클래스 선택...</option>
                                         </select>
                                         <button id="add-global-profile-class-from-select" class="desktop-btn desktop-btn-secondary">추가</button>
                                         <button id="refresh-profile-classes" class="desktop-btn desktop-btn-secondary" title="채팅에서 클래스 다시 불러오기">🔄</button>
                                     </div>
-                                    <div style="display:flex; gap:8px; margin:6px 0;">
+                                    <div style=" gap:8px; margin:6px 0;">
                                         <input type="text" id="global-profile-class-input" class="desktop-input" placeholder="또는 직접 입력: my-profile" style="flex:1;">
                                         <button id="add-global-profile-class" class="desktop-btn desktop-btn-secondary">추가</button>
                                     </div>
@@ -5164,18 +5136,18 @@ const customFilterHtml = `
                             <div class="desktop-option-row" style="align-items: flex-start; gap: 12px;">
                                 <div style="flex:1;">
                                     <div class="desktop-option-label">참가자 이름 클래스 추가</div>
-                                    <div style="display:flex; gap:8px; margin:6px 0;">
+                                    <div style="gap:8px; margin:6px 0;">
                                         <select id="global-participant-name-class-select" class="desktop-input" style="flex:1;">
                                             <option value="">채팅에서 클래스 선택...</option>
                                         </select>
                                         <button id="add-global-participant-name-class-from-select" class="desktop-btn desktop-btn-secondary">추가</button>
                                         <button id="refresh-participant-name-classes" class="desktop-btn desktop-btn-secondary" title="채팅에서 클래스 다시 불러오기">🔄</button>
                                     </div>
-                                    <div style="display:flex; gap:8px; margin:6px 0;">
+                                    <div style=" gap:8px; margin:6px 0;">
                                         <input type="text" id="global-participant-name-class-input" class="desktop-input" placeholder="또는 직접 입력: my-name" style="flex:1;">
                                         <button id="add-global-participant-name-class" class="desktop-btn desktop-btn-secondary">추가</button>
                                     </div>
-                                    <div id="global-participant-name-class-list" style="display:flex; flex-wrap:wrap; gap:6px;">
+                                    <div id="global-participant-name-class-list" style="display: flex;flex-wrap:wrap; gap:6px;">
                                         ${(globalSettings.participantNameClasses||[]).map(c=>`<span class=\"desktop-badge\" data-type=\"participant\" data-class=\"${c}\" style=\"background:#1a1b26; border:1px solid #414868; border-radius:12px; padding:4px 8px;\">.${c} <button title=\"삭제\" data-remove-class=\"${c}\" data-remove-type=\"participant\" style=\"margin-left:6px; cursor:pointer;\">✕</button></span>`).join('')}
                                     </div>
                                 </div>
@@ -5711,65 +5683,82 @@ const customFilterHtml = `
             // ▼▼▼ [수정 1] 이 코드를 showCopyPreviewModal 함수 내의 `syncMobileSettings();` 바로 아래에 추가하세요. ▼▼▼
 
             // [신규] 'HTML 렌더링 허용'과 'UI 필터링' 상호작용 로직
-            const setupFilterInteractions = () => {
-                const allowHtmlCheckbox = modal.querySelector('#allow-html-checkbox');
-                const allowHtmlCheckboxMobile = modal.querySelector('#allow-html-checkbox-mobile');
-                
-                const uiFilterWrapper = modal.querySelector('#ui-filter-toggle-wrapper');
-                const customFilterToggle = modal.querySelector('#custom-filter-toggle');
-                const uiFilterWrapperMobile = modal.querySelector('#mobile-ui-filter-toggle-wrapper');
-                const customFilterToggleMobile = modal.querySelector('#custom-filter-toggle-mobile');
-
+            const setupFilterInteractions = (modalRoot = window.modal || document) => {
+                if (!modalRoot) {
+                  console.warn('setupFilterInteractions: modalRoot 없음');
+                  return;
+                }
+              
+                const allowHtmlCheckbox = modalRoot.querySelector('#allow-html-checkbox');
+                const allowHtmlCheckboxMobile = modalRoot.querySelector('#allow-html-checkbox-mobile');
+              
+                console.log('테스트: allowHtmlCheckbox ->', allowHtmlCheckbox, 'mobile ->', allowHtmlCheckboxMobile);
+              
+                if (!allowHtmlCheckbox || !allowHtmlCheckboxMobile) {
+                  console.warn('체크박스 요소를 찾을 수 없습니다. (아직 DOM에 없음 또는 ID가 다름)');
+                  return;
+                }
+              
+                const uiFilterWrapper = modalRoot.querySelector('#ui-filter-toggle-wrapper');
+                const customFilterToggle = modalRoot.querySelector('#custom-filter-toggle');
+                const uiFilterWrapperMobile = modalRoot.querySelector('#mobile-ui-filter-toggle-wrapper');
+                const customFilterToggleMobile = modalRoot.querySelector('#custom-filter-toggle-mobile');
+              
                 const updateFilterState = () => {
-                    const allowHtmlRendering = allowHtmlCheckbox.checked;
-                    const isDisabled = allowHtmlRendering;
-                    const opacity = isDisabled ? '0.5' : '1';
-                    const pointerEvents = isDisabled ? 'none' : 'auto';
-
-                    const elementsToToggle = [
-                        uiFilterWrapper, customFilterToggle, uiFilterWrapperMobile, customFilterToggleMobile
-                    ];
-
-                    elementsToToggle.forEach(el => {
-                        if (el) {
-                            el.style.opacity = opacity;
-                            el.style.pointerEvents = pointerEvents;
-                        }
-                    });
-
-                    // UI 필터링 체크박스 자체도 비활성화
-                    const filterCheckboxes = [
-                        modal.querySelector('#filter-toggle-checkbox'),
-                        modal.querySelector('#filter-toggle-mobile')
-                    ];
-                    filterCheckboxes.forEach(cb => {
-                        if (cb) {
-                            cb.disabled = isDisabled;
-                            // HTML 렌더링이 켜지면 UI 필터링은 강제로 끔
-                            if (isDisabled && cb.checked) {
-                                cb.checked = false;
-                                cb.dispatchEvent(new Event('change', { bubbles: true })); // 상태 변경 전파
-                            }
-                        }
-                    });
+                  const allowHtmlRendering = !!allowHtmlCheckbox.checked;
+                  console.log('updateFilterState - allowHtmlRendering:', allowHtmlRendering);
+                  const isDisabled = allowHtmlRendering;
+                  const opacity = isDisabled ? '0.5' : '1';
+                  const pointerEvents = isDisabled ? 'none' : 'auto';
+              
+                  [uiFilterWrapper, customFilterToggle, uiFilterWrapperMobile, customFilterToggleMobile].forEach(el => {
+                    if (el) {
+                      el.style.opacity = opacity;
+                      el.style.pointerEvents = pointerEvents;
+                    }
+                  });
+              
+                  const filterCheckboxes = [
+                    modalRoot.querySelector('#filter-toggle-checkbox'),
+                    modalRoot.querySelector('#filter-toggle-mobile')
+                  ];
+                  filterCheckboxes.forEach(cb => {
+                    if (cb) {
+                      cb.disabled = isDisabled;
+                      if (isDisabled && cb.checked) {
+                        cb.checked = false;
+                        cb.dispatchEvent(new Event('change', { bubbles: true }));
+                      }
+                    }
+                  });
                 };
-
-                allowHtmlCheckbox.addEventListener('change', () => {
-                    allowHtmlCheckboxMobile.checked = allowHtmlCheckbox.checked;
-                    updateFilterState();
-                    updatePreview(); // 상태 변경 후 즉시 미리보기 업데이트
+              
+                const handleAllowHtmlChange = (source, target) => {
+                  console.log('handleAllowHtmlChange called - source:', source?.id, 'checked:', source?.checked);
+                  if (!source || !target) return;
+                  if (target.checked !== source.checked) {
+                    target.checked = source.checked;
+                  }
+                  updateFilterState();
+                  if (typeof updatePreview === 'function') updatePreview();
+                };
+              
+                // change 이벤트 리스너 (데스크톱과 모바일 양쪽 모두)
+                allowHtmlCheckbox.addEventListener('change', e => {
+                  console.log('desktop change event fired', allowHtmlCheckbox.checked);
+                  handleAllowHtmlChange(allowHtmlCheckbox, allowHtmlCheckboxMobile);
                 });
-                allowHtmlCheckboxMobile.addEventListener('change', () => {
-                    allowHtmlCheckbox.checked = allowHtmlCheckboxMobile.checked;
-                    updateFilterState();
-                    updatePreview(); // 상태 변경 후 즉시 미리보기 업데이트
+                allowHtmlCheckboxMobile.addEventListener('change', e => {
+                  console.log('mobile change event fired', allowHtmlCheckboxMobile.checked);
+                  handleAllowHtmlChange(allowHtmlCheckboxMobile, allowHtmlCheckbox);
                 });
-
-                // 초기 로드 시 상태 적용
+              
+                // 초기 상태 설정
                 updateFilterState();
-            };
+              };
+              
 
-            setupFilterInteractions();
+            setupFilterInteractions(modal);
             
             // 데스크톱 라디오 버튼 스타일 핸들러
             modal.querySelectorAll('.desktop-radio-label').forEach(label => {
@@ -5794,6 +5783,8 @@ const customFilterHtml = `
                     if (checkbox) {
                         checkbox.checked = !checkbox.checked;
                         toggle.classList.toggle('active', checkbox.checked);
+                        // change 이벤트 발생시켜서 다른 리스너들이 반응하도록
+                        checkbox.dispatchEvent(new Event('change', { bubbles: true }));
                         // arca-toggle-only 클래스가 있으면 설정 저장 및 미리보기 업데이트 건너뛰기
                         if (!toggle.classList.contains('arca-toggle-only')) {
                             // handleSettingChange와 updatePreview 모두 호출
