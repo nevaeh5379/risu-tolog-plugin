@@ -2144,6 +2144,7 @@ const AVATAR_ATTR = 'data-avatar';
             const color = (selectedThemeKey === 'basic') ? (COLORS[selectedColorKey] || COLORS.dark) : themeInfo.color;
         
             const baseTagStyles = `
+                * { word-break: keep-all; word-wrap: break-word; overflow-wrap: break-word; }
                 p { margin: 0.75em 0; }
                 a { color: ${color.nameColor}; text-decoration: none; } 
                 a:hover { text-decoration: underline; }
@@ -6762,7 +6763,7 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                         extraCss = await generateForceHoverCss();
                     }
 
-                    lastGeneratedHtml = `<!DOCTYPE html><html lang="ko" style="${htmlTagStyle}"><head><meta charset="UTF-8"><title>Chat Log</title><style>${fullCss} ${extraCss}</style></head><body ${expandHoverCheckbox.checked ? 'class="expand-hover-globally"' : ''}><div class="chat-log-wrapper">${headerHtml}${messagesHtml}</div></body></html>`;
+                    lastGeneratedHtml = `<!DOCTYPE html><html lang="ko" style="${htmlTagStyle}"><head><meta charset="UTF-8"><title>Chat Log</title><style>* { word-break: keep-all; word-wrap: break-word; overflow-wrap: break-word; } ${fullCss} ${extraCss}</style></head><body ${expandHoverCheckbox.checked ? 'class="expand-hover-globally"' : ''}><div class="chat-log-wrapper">${headerHtml}${messagesHtml}</div></body></html>`;
 
                     if (isRawMode) {
                         syncedPreview.innerHTML = `<pre style="white-space: pre-wrap; word-wrap: break-word; font-family: monospace; font-size: 0.85em;">${lastGeneratedHtml.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre>`;
@@ -6785,6 +6786,9 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                                     /* [수정] Shadow DOM 전체에 폰트 크기를 먼저 설정 */
                                     * {
                                         font-size: inherit !important;
+                                        word-break: keep-all !important;
+                                        word-wrap: break-word !important;
+                                        overflow-wrap: break-word !important;
                                     }
                                     :host {
                                         font-size: ${baseFontSize}px !important;
@@ -6854,6 +6858,9 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                             <style>
                                 .tolog-basic-preview-wrapper * {
                                     font-size: inherit !important;
+                                    word-break: keep-all !important;
+                                    word-wrap: break-word !important;
+                                    overflow-wrap: break-word !important;
                                 }
                             </style>
                             <div class="tolog-basic-preview-wrapper" style="font-size: ${baseFontSize}px; max-width: ${imageWidth}px; margin: 0 auto;">
