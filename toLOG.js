@@ -6782,35 +6782,37 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                             const shadowRoot = shadowHost.attachShadow({ mode: 'open' });
 
                             shadowRoot.innerHTML = `
-                                <style>
-                                    /* [수정] Shadow DOM 전체에 폰트 크기를 먼저 설정 */
-                                    * {
-                                        font-size: inherit !important;
-                                        word-break: keep-all !important;
-                                        word-wrap: break-word !important;
-                                        overflow-wrap: break-word !important;
-                                    }
-                                    :host {
-                                        font-size: ${baseFontSize}px !important;
-                                    }
-                                    ${fullCss}
-                                    ${extraCss}
-                                    .preview-wrapper {
-                                        background-color: ${themeBgColor};
-                                        padding: 20px;
-                                        font-size: ${baseFontSize}px;
-                                    }
-                                    /* [수정] 너비를 사용자 설정값으로 변경 */
-                                    .chat-log-wrapper { 
-                                        max-width: ${imageWidth}px; 
-                                        margin: 0 auto;
-                                    }
-                                    .log-exporter-msg-btn-group { display: none !important; }
-                                </style>
-                                <div class="preview-wrapper ${expandHoverCheckbox.checked ? 'expand-hover-globally' : ''}">
-                                    <div class="chat-log-wrapper">${headerHtml}${messagesHtml}</div>
-                                </div>
-                            `;
+                            <style>
+                                /* [핵심 수정] :host에 기본 폰트 크기를 설정하여 Shadow DOM의 기준을 잡습니다. */
+                                :host {
+                                    font-size: ${baseFontSize}px !important;
+                                }
+                                /* [핵심 수정] 모든 하위 요소(*)가 폰트 크기를 강제로 상속받도록 하여,
+                                   기존 CSS 규칙에 의해 폰트 크기가 재정의되는 것을 방지합니다. */
+                                .preview-wrapper * {
+                                    font-size: inherit !important;
+                                    word-break: keep-all !important;
+                                    word-wrap: break-word !important;
+                                    overflow-wrap: break-word !important;
+                                }
+                                ${fullCss}
+                                ${extraCss}
+                                .preview-wrapper {
+                                    background-color: ${themeBgColor};
+                                    padding: 20px;
+                                    /* 이 font-size는 :host에 의해 이미 설정되었으므로 유지하거나 제거해도 됩니다. */
+                                    font-size: ${baseFontSize}px;
+                                }
+                                .chat-log-wrapper { 
+                                    max-width: ${imageWidth}px; 
+                                    margin: 0 auto;
+                                }
+                                .log-exporter-msg-btn-group { display: none !important; }
+                            </style>
+                            <div class="preview-wrapper ${expandHoverCheckbox.checked ? 'expand-hover-globally' : ''}">
+                                <div class="chat-log-wrapper">${headerHtml}${messagesHtml}</div>
+                            </div>
+                        `;
                             container.appendChild(shadowHost);
                         };
                         
