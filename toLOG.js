@@ -2360,8 +2360,8 @@ function ensureHtml2canvas() {
                         logEntry += `<div class="chat-message-container" style="display:flex; align-items:flex-start; margin-bottom:2em; ${isUser ? 'flex-direction:row-reverse;' : ''}">`;
                         logEntry += avatarHtml;
                         logEntry += `<div style="flex:1;">`;
-                        logEntry += `<strong style="color:${color.nameColor}; font-weight:600; font-size:0.95em; display:block; margin-bottom:8px; text-align:${isUser ? 'right;' : 'left;'} text-shadow: 0 0 6px rgba(244, 114, 182, 0.3);">${name}</strong>`;
-                        logEntry += `<div style="background: ${isUser ? color.cardBgUser : color.cardBg}; border-radius:20px; padding:15px 18px; box-shadow:${color.shadow}; border:1px solid rgba(244, 114, 182, 0.2); color:${color.text}; line-height:1.7; word-wrap:break-word; position: relative; overflow: hidden;">`;
+                        logEntry += `<strong style="color:${color.nameColor} !important; font-weight:600; font-size:0.95em; display:block; margin-bottom:8px; text-align:${isUser ? 'right;' : 'left;'} text-shadow: 0 0 6px rgba(244, 114, 182, 0.3);">${name}</strong>`;
+                        logEntry += `<div style="background: ${isUser ? color.cardBgUser : color.cardBg}; border-radius:20px; padding:15px 18px; box-shadow:${color.shadow}; border:1px solid rgba(244, 114, 182, 0.2); color:${color.text} !important; line-height:1.7; word-wrap:break-word; position: relative; overflow: hidden;">`;
                         logEntry += `<div style="position: absolute; top: -50%; right: -50%; width: 100%; height: 200%; background: radial-gradient(circle, rgba(244, 114, 182, 0.05), transparent 60%); pointer-events: none; animation: float 6s ease-in-out infinite;"></div>`;
                         logEntry += `<div style="position: relative; z-index: 1;">${messageHtml}</div>`;
                         logEntry += `</div></div></div>`;
@@ -2450,7 +2450,7 @@ function ensureHtml2canvas() {
                         logEntry += `<div class="chat-message-container" style="display:flex;align-items:flex-start;margin-bottom:28px; ${isUser ? 'flex-direction:row-reverse;' : ''}">`;
                         logEntry += avatarHtml;
                         logEntry += `<div style="flex:1;">`;
-                        logEntry += `<strong style="color:${color.nameColor};font-weight:600;font-size:0.95em;display:block;margin-bottom:8px;text-align:${isUser ? 'right;' : 'left;'}">${name}</strong>`;
+                        logEntry += `<strong style="color:${color.nameColor} !important;font-weight:600;font-size:0.95em;display:block;margin-bottom:8px;text-align:${isUser ? 'right;' : 'left;'}">${name}</strong>`;
                         if (showBubble) {
                             logEntry += `<div style="background-color:${cardBgColor};border-radius:16px;padding:14px 18px;box-shadow:${color.shadow};border:1px solid ${color.border};color:${color.text};line-height:1.8;word-wrap:break-word;position:relative;">${messageHtml}</div>`;
                         } else {
@@ -7181,6 +7181,9 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                     console.warn('[Arca Convert] post-process failed:', e);
                 }
 
+                // [추가] 아카라이브에서 문단 간격을 유지하기 위해 </p> 뒤에 <br /> 추가
+                finalHtml = finalHtml.replace(/<\/p>/g, '</p><br />');
+
                 arcaFinalHtml.value = finalHtml;
                 alert(`변환 완료! ${usedUrlCount}개의 미디어 위치가 교체되었습니다. 최종 결과물을 복사하여 사용하세요.`, 'success');
             });
@@ -7266,6 +7269,9 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                     } catch (e) {
                         console.warn('[Arca Convert] post-process failed:', e);
                     }
+
+                    // [추가] 아카라이브에서 문단 간격을 유지하기 위해 </p> 뒤에 <br /> 추가
+                    finalHtml = finalHtml.replace(/<\/p>/g, '</p><br />');
 
                     desktopArcaFinalHtml.value = finalHtml;
                     alert(`변환 완료! ${usedUrlCount}개의 미디어 위치가 교체되었습니다. 최종 결과물을 복사하여 사용하세요.`, 'success');
@@ -7570,10 +7576,12 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
             if (rangeSelectionState.active && mutations.some(m => m.target.closest('.risu-sidebar'))) {
                 resetRangeSelection();
             }
-            setTimeout(injectButtons, 300);
+        // [수정] UI 렌더링을 위한 지연 시간 증가
+        setTimeout(injectButtons, 500);
         });
         observer.observe(document.body, { childList: true, subtree: true });
-        setTimeout(injectButtons, 500);
+    // [수정] 초기 로드 지연 시간 증가
+    setTimeout(injectButtons, 800);
     }
 
     onUnload(() => {
