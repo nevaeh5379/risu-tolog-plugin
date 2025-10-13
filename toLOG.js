@@ -550,14 +550,15 @@ const AVATAR_ATTR = 'data-avatar';
 
         let messageNodes = [...containers, ...standaloneMessageChats];
 
+        // [핵심 수정] 정렬 순서를 (위->아래) 정상적인 문서 순서로 변경
         messageNodes.sort((a, b) => {
             const position = a.compareDocumentPosition(b);
-            if (position & Node.DOCUMENT_POSITION_FOLLOWING) return -1;
-            if (position & Node.DOCUMENT_POSITION_PRECEDING) return 1;
+            if (position & Node.DOCUMENT_POSITION_FOLLOWING) return 1;
+            if (position & Node.DOCUMENT_POSITION_PRECEDING) return -1;
             return 0;
         });
 
-        console.log(`[Log Exporter] getAllMessageNodes: 총 ${messageNodes.length}개의 메시지 노드 발견`);
+        console.log(`[Log Exporter] getAllMessageNodes: 총 ${messageNodes.length}개의 메시지 노드 발견 (정상 순서)`);
         return messageNodes;
     }
 
@@ -626,255 +627,143 @@ const AVATAR_ATTR = 'data-avatar';
     let rangeSelectionState = { active: false, startIndex: -1, chatIndex: -1 };
 
     /**
-     * html-to-image 라이브러리가 로드되었는지 확인하고, 로드되지 않았다면 CDN에서 동적으로 로드합니다.
-     * AMD 로더와의 충돌을 피하기 위해 `define`과 `require`를 일시적으로 비활성화합니다.
-     * @returns {Promise<void>} 라이브러리 로드가 완료되면 resolve되는 Promise.
-     */
-    function ensureHtmlToImage() {
-        console.log('[Log Exporter] ensureHtmlToImage: html-to-image 라이브러리 확인/로드 시작');
-        if (typeof window.__htmlToImageLib !== 'undefined' && window.__htmlToImageLib) {
-            console.log('[Log Exporter] ensureHtmlToImage: 이미 로드됨 (캐시된 라이브러리 사용)');
-            return Promise.resolve();
-        }
-        if (typeof window.htmlToImage !== 'undefined' && !window.__htmlToImageLib) {
-            window.__htmlToImageLib = window.htmlToImage;
-            return Promise.resolve();
-        }
-        if (htmlToImagePromise) {
-            return htmlToImagePromise;
-        }
+ * 외부 라이브러리를 동적으로 로드하는 통합 함수
+ * AMD 로더와의 충돌을 피하기 위해 `define`과 `require`를 일시적으로 비활성화합니다.
+ * @param {Object} config 라이브러리 설정 객체
+ * @param {string} config.name 라이브러리 이름 (로깅용)
+ * @param {string} config.url CDN URL
+ * @param {string} config.globalName window 객체에 할당되는 전역 변수명
+ * @param {string} [config.cacheKey] 캐시용 대체 키 (선택사항)
+ * @returns {Promise<void>} 라이브러리 로드가 완료되면 resolve되는 Promise
+ */
+const libraryPromises = new Map();
 
-        htmlToImagePromise = new Promise(async (resolve, reject) => {
-            console.log('[Log Exporter] html-to-image 라이브러리 로드 시작...');
-            try {
-                const response = await fetch('https://cdn.jsdelivr.net/npm/html-to-image@1.11.13/dist/html-to-image.min.js');
-                if (!response.ok) {
-                    throw new Error(`CDN에서 스크립트를 가져오는 데 실패했습니다: ${response.statusText}`);
-                }
-                const libraryCode = await response.text();
+async function loadLibrary({ name, url, globalName, cacheKey }) {
+    const logPrefix = `[Log Exporter]`;
+    console.log(`${logPrefix} ${name} 라이브러리 확인/로드 시작`);
 
-                const wrappedCode = `
-                    (() => {
-                        const define_backup = window.define;
-                        const require_backup = window.require;
+    // 캐시된 라이브러리 확인
+    if (cacheKey && typeof window[cacheKey] !== 'undefined') {
+        console.log(`${logPrefix} ${name}: 이미 로드됨 (캐시된 라이브러리 사용)`);
+        return Promise.resolve();
+    }
+
+    // 전역 객체 확인
+    if (typeof window[globalName] !== 'undefined') {
+        console.log(`${logPrefix} ${name}: 이미 로드됨`);
+        // 캐시 키가 있는 경우 캐시에 저장
+        if (cacheKey && !window[cacheKey]) {
+            window[cacheKey] = window[globalName];
+        }
+        return Promise.resolve();
+    }
+
+    // 이미 로딩 중인 경우 기존 Promise 반환
+    if (libraryPromises.has(name)) {
+        return libraryPromises.get(name);
+    }
+
+    // 새로운 로딩 Promise 생성
+    const promise = new Promise(async (resolve, reject) => {
+        console.log(`${logPrefix} ${name} 라이브러리 로드 시작...`);
+        try {
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`CDN에서 스크립트를 가져오는 데 실패했습니다: ${response.statusText}`);
+            }
+            const libraryCode = await response.text();
+
+            // AMD 로더 충돌 방지를 위한 래퍼
+            const wrappedCode = `
+                (() => {
+                    const define_backup = window.define;
+                    const require_backup = window.require;
+                    try {
                         window.define = undefined;
                         window.require = undefined;
-                        try {
-                            ${libraryCode}
-                        } catch (e) {
-                            console.error("[Log Exporter] 주입된 html-to-image 코드 실행 중 오류 발생:", e);
-                        } finally {
-                            window.define = define_backup;
-                            window.require = require_backup;
-                        }
-                    })();
-                `;
+                        ${libraryCode}
+                    } catch (e) {
+                        console.error("${logPrefix} 주입된 ${name} 코드 실행 중 오류 발생:", e);
+                        throw e;
+                    } finally {
+                        window.define = define_backup;
+                        window.require = require_backup;
+                    }
+                })();
+            `;
 
-                const script = document.createElement('script');
-                script.textContent = wrappedCode;
-                document.head.appendChild(script);
-                document.head.removeChild(script);
+            const script = document.createElement('script');
+            script.textContent = wrappedCode;
+            document.head.appendChild(script);
+            document.head.removeChild(script);
 
-                if (typeof window.htmlToImage !== 'undefined') {
-                    console.log('[Log Exporter] html-to-image 라이브러리가 성공적으로 로드되었습니다.');
-                    window.__htmlToImageLib = window.htmlToImage;
-                    resolve();
-                } else {
-                    throw new Error('코드를 주입하여 실행했지만 htmlToImage 객체가 생성되지 않았습니다.');
+            // 로드 확인
+            if (typeof window[globalName] !== 'undefined') {
+                console.log(`${logPrefix} ${name} 라이브러리가 성공적으로 로드되었습니다.`);
+                // 캐시 키가 있는 경우 캐시에 저장
+                if (cacheKey) {
+                    window[cacheKey] = window[globalName];
                 }
-            } catch (error) {
-                console.error('[Log Exporter] html-to-image 라이브러리 동적 로드에 최종 실패했습니다.', error);
-                htmlToImagePromise = null;
-                reject(error);
+                resolve();
+            } else {
+                throw new Error(`코드를 주입하여 실행했지만 ${globalName} 객체가 생성되지 않았습니다.`);
             }
-        });
+        } catch (error) {
+            console.error(`${logPrefix} ${name} 라이브러리 동적 로드에 최종 실패했습니다.`, error);
+            libraryPromises.delete(name);
+            reject(error);
+        }
+    });
 
-        return htmlToImagePromise;
+    libraryPromises.set(name, promise);
+    return promise;
+}
+
+/**
+ * 라이브러리 설정
+ */
+const LIBRARY_CONFIGS = {
+    htmlToImage: {
+        name: 'html-to-image',
+        url: 'https://cdn.jsdelivr.net/npm/html-to-image@1.11.13/dist/html-to-image.min.js',
+        globalName: 'htmlToImage',
+        cacheKey: '__htmlToImageLib'
+    },
+    domToImage: {
+        name: 'dom-to-image-more',
+        url: 'https://cdn.jsdelivr.net/npm/dom-to-image-more@3.1.6/dist/dom-to-image-more.min.js',
+        globalName: 'domtoimage'
+    },
+    jszip: {
+        name: 'JSZip',
+        url: 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js',
+        globalName: 'JSZip'
+    },
+    html2canvas: {
+        name: 'html2canvas',
+        url: 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
+        globalName: 'html2canvas'
     }
-    let domToImagePromise = null;
-    /**
-     * dom-to-image-more 라이브러리가 로드되었는지 확인하고, 로드되지 않았다면 CDN에서 동적으로 로드합니다.
-     * @returns {Promise<void>} 라이브러리 로드가 완료되면 resolve되는 Promise.
-     */
-    function ensureDomToImage() {
-        console.log('[Log Exporter] ensureDomToImage: dom-to-image-more 라이브러리 확인/로드 시작');
-        if (typeof window.domtoimage !== 'undefined') {
-            console.log('[Log Exporter] ensureDomToImage: 이미 로드됨');
-            return Promise.resolve();
-        }
-        if (domToImagePromise) {
-            return domToImagePromise;
-        }
+};
 
-        domToImagePromise = new Promise(async (resolve, reject) => {
-            console.log('[Log Exporter] dom-to-image-more 라이브러리 로드 시작...');
-            try {
-                const response = await fetch('https://cdn.jsdelivr.net/npm/dom-to-image-more@3.1.6/dist/dom-to-image-more.min.js');
-                if (!response.ok) {
-                    throw new Error(`CDN에서 스크립트를 가져오는 데 실패했습니다: ${response.statusText}`);
-                }
-                const libraryCode = await response.text();
+/**
+ * 개별 라이브러리 로더 함수들
+ */
+function ensureHtmlToImage() {
+    return loadLibrary(LIBRARY_CONFIGS.htmlToImage);
+}
 
-                // [수정] try...catch...finally 구문이 문자열 내에서 문제를 일으키는 것을 방지하기 위해
-                // try...catch와 try...finally를 분리하여 코드를 실행하고 정리하는 로직으로 변경합니다.
-                const wrappedCode = `
-                    (() => {
-                        const define_backup = window.define;
-                        const require_backup = window.require;
-                        try {
-                            window.define = undefined;
-                            window.require = undefined;
-                            try {
-                                ${libraryCode}
-                            } catch (e) {
-                                console.error("[Log Exporter] 주입된 dom-to-image-more 코드 실행 중 오류 발생:", e);
-                            }
-                        } finally {
-                            window.define = define_backup;
-                            window.require = require_backup;
-                        }
-                    })();
-                `;
+function ensureDomToImage() {
+    return loadLibrary(LIBRARY_CONFIGS.domToImage);
+}
 
-                const script = document.createElement('script');
-                script.textContent = wrappedCode;
-                document.head.appendChild(script);
-                document.head.removeChild(script);
+function ensureJSZip() {
+    return loadLibrary(LIBRARY_CONFIGS.jszip);
+}
 
-                if (typeof window.domtoimage !== 'undefined') {
-                    console.log('[Log Exporter] dom-to-image-more 라이브러리가 성공적으로 로드되었습니다.');
-                    resolve();
-                } else { throw new Error('코드를 주입하여 실행했지만 domtoimage 객체가 생성되지 않았습니다.'); }
-            } catch (error) {
-                console.error('[Log Exporter] dom-to-image-more 라이브러리 동적 로드에 최종 실패했습니다.', error);
-                domToImagePromise = null;
-                reject(error);
-            }
-        });
-        return domToImagePromise;
-    }
-    let jszipPromise = null;
-    /**
-     * JSZip 라이브러리가 로드되었는지 확인하고, 로드되지 않았다면 CDN에서 동적으로 로드합니다.
-     * AMD 로더와의 충돌을 피하기 위해 `define`과 `require`를 일시적으로 비활성화합니다.
-     * @returns {Promise<void>} 라이브러리 로드가 완료되면 resolve되는 Promise.
-     */
-
-    function ensureJSZip() {
-        console.log('[Log Exporter] ensureJSZip: JSZip 라이브러리 확인/로드 시작');
-        if (typeof window.JSZip !== 'undefined') {
-            console.log('[Log Exporter] ensureJSZip: 이미 로드됨');
-            return Promise.resolve();
-        }
-        if (jszipPromise) {
-            return jszipPromise;
-        }
-        jszipPromise = new Promise(async (resolve, reject) => {
-            console.log('[Log Exporter] JSZip 라이브러리 로드 시작...');
-            try {
-                const response = await fetch('https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js');
-                if (!response.ok) {
-                    throw new Error(`JSZip CDN에서 스크립트를 가져오는 데 실패했습니다: ${response.statusText}`);
-                }
-                const libraryCode = await response.text();
-
-                const wrappedCode = `
-                    (() => {
-                        const define_backup = window.define;
-                        const require_backup = window.require;
-                        window.define = undefined;
-                        window.require = undefined;
-                        try {
-                            ${libraryCode}
-                        } catch (e) {
-                            console.error("[Log Exporter] 주입된 JSZip 코드 실행 중 오류 발생:", e);
-                        } finally {
-                            window.define = define_backup;
-                            window.require = require_backup;
-                        }
-                    })();
-                `;
-
-                const script = document.createElement('script');
-                script.textContent = wrappedCode;
-                document.head.appendChild(script);
-                document.head.removeChild(script);
-
-                if (typeof window.JSZip !== 'undefined') {
-                    console.log('[Log Exporter] JSZip 라이브러리가 성공적으로 로드되었습니다.');
-                    resolve();
-                } else {
-                    throw new Error('코드를 주입하여 실행했지만 JSZip 객체가 생성되지 않았습니다.');
-                }
-            } catch (error) {
-                console.error('[Log Exporter] JSZip 라이브러리 동적 로드에 최종 실패했습니다.', error);
-                jszipPromise = null;
-                reject(error);
-            }
-        });
-        return jszipPromise;
-    }
-
-    let html2canvasPromise = null;
-    /**
-     * html2canvas 라이브러리가 로드되었는지 확인하고, 로드되지 않았다면 CDN에서 동적으로 로드합니다.
-     * @returns {Promise<void>} 라이브러리 로드가 완료되면 resolve되는 Promise.
-     */
-    function ensureHtml2canvas() {
-        console.log('[Log Exporter] ensureHtml2canvas: html2canvas 라이브러리 확인/로드 시작');
-        if (typeof window.html2canvas !== 'undefined') {
-            console.log('[Log Exporter] ensureHtml2canvas: 이미 로드됨');
-            return Promise.resolve();
-        }
-        if (html2canvasPromise) {
-            return html2canvasPromise;
-        }
-
-        html2canvasPromise = new Promise(async (resolve, reject) => {
-            console.log('[Log Exporter] html2canvas 라이브러리 로드 시작...');
-            try {
-                const response = await fetch('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
-                if (!response.ok) {
-                    throw new Error(`CDN에서 스크립트를 가져오는 데 실패했습니다: ${response.statusText}`);
-                }
-                const libraryCode = await response.text();
-
-                // [수정] AMD 로더 충돌을 피하기 위해 window.define과 window.require를 일시적으로 비활성화합니다.
-                const wrappedCode = `
-                    (() => {
-                        const define_backup = window.define;
-                        const require_backup = window.require;
-                        try {
-                            window.define = undefined;
-                            window.require = undefined;
-                            ${libraryCode}
-                        } catch (e) {
-                            console.error("[Log Exporter] 주입된 html2canvas 코드 실행 중 오류 발생:", e);
-                        } finally {
-                            window.define = define_backup;
-                            window.require = require_backup;
-                        }
-                    })();
-                `;
-
-                const script = document.createElement('script');
-                script.textContent = wrappedCode;
-                document.head.appendChild(script);
-                document.head.removeChild(script);
-                if (typeof window.html2canvas !== 'undefined') {
-                    console.log('[Log Exporter] html2canvas 라이브러리가 성공적으로 로드되었습니다.');
-                    resolve();
-                } else {
-                    throw new Error('코드를 주입하여 실행했지만 html2canvas 객체가 생성되지 않았습니다.');
-                }
-            } catch (error) {
-                console.error('[Log Exporter] html2canvas 라이브러리 동적 로드에 최종 실패했습니다.', error);
-                html2canvasPromise = null;
-                reject(error);
-            }
-        });
-        return html2canvasPromise;
-    }
+function ensureHtml2canvas() {
+    return loadLibrary(LIBRARY_CONFIGS.html2canvas);
+}
 
 
     /**
@@ -1444,7 +1333,7 @@ const AVATAR_ATTR = 'data-avatar';
      * @throws {Error} 채팅 버튼, 캐릭터 정보, 또는 메시지를 찾을 수 없는 경우.
      */
     async function processChatLog(chatIndex, options = {}) {
-        console.log(`[Log Exporter] processChatLog: 채팅 로그 처리 시작, 인덱스: ${chatIndex}`);
+        console.log(`[Log Exporter] processChatLog: 채팅 로그 처리 시작, 인덱스: ${chatIndex}, 옵션:`, options);
         const chatButton = document.querySelector(`button[data-risu-chat-idx="${chatIndex}"]`);
         if (!chatButton) throw new Error("채팅 버튼을 찾을 수 없습니다.");
 
@@ -1476,8 +1365,9 @@ const AVATAR_ATTR = 'data-avatar';
 
         let messageNodes = getAllMessageNodes();
         console.log(`[Log Exporter] Found ${messageNodes.length} messages`);
-
-        messageNodes = messageNodes.reverse();
+        
+        // [핵심 수정] .reverse() 호출 제거
+        // messageNodes = messageNodes.reverse(); // 이 줄을 제거했습니다.
 
         if (messageNodes.length === 0) {
             throw new Error("채팅 메시지를 찾을 수 없습니다.");
@@ -1485,7 +1375,7 @@ const AVATAR_ATTR = 'data-avatar';
 
         let finalNodes = messageNodes;
         let finalChatName = targetChat.name;
-
+        
         if (typeof startIndex === 'number') {
             if (singleMessage) {
                 finalNodes = [messageNodes[startIndex]];
@@ -1494,6 +1384,7 @@ const AVATAR_ATTR = 'data-avatar';
                 finalNodes = messageNodes.slice(startIndex, typeof endIndex === 'number' ? endIndex + 1 : undefined);
                 finalChatName += ` (메시지 #${startIndex + 1}부터${typeof endIndex === 'number' ? ` #${endIndex + 1}까지` : ''})`;
             }
+            console.log(`[Log Exporter] 메시지 슬라이싱 적용: ${finalNodes.length}개 선택됨`);
         }
 
         return { charName: character.name, chatName: finalChatName, charAvatarUrl, messageNodes: finalNodes, character };
@@ -7531,7 +7422,8 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
      * @param {number} messageIndex - 클릭된 메시지의 UI 상 인덱스.
      */
     function handleRangeSelection(chatIndex, messageIndex) {
-        const allMessageNodes = getAllMessageNodes().reverse();
+        // [핵심 수정] .reverse() 호출 제거
+        const allMessageNodes = getAllMessageNodes();
         const clickedNode = allMessageNodes[messageIndex];
 
         if (!rangeSelectionState.active) {
@@ -7631,7 +7523,8 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
             const currentChatIndex = parseInt(document.querySelector('button[data-risu-chat-idx].bg-selected')?.getAttribute('data-risu-chat-idx'));
             if (isNaN(currentChatIndex)) return;
 
-            const messageIndexInUI = allMessageNodes.length - 1 - index;
+            // [핵심 수정] 인덱스 계산 방식을 단순화
+            const messageIndexInUI = index;
 
             const buttonGroup = document.createElement('div');
             buttonGroup.className = 'log-exporter-msg-btn-group';
