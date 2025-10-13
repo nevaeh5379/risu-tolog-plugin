@@ -504,6 +504,41 @@ const MESSAGE_CONTAINER_SELECTOR = '.chat-message-container';
 const AVATAR_ATTR = 'data-avatar';
 
 (async () => {
+    /**
+     * [수정] 모든 곳에서 사용할 수 있도록 통합된 이름 추출 함수
+     * @param {HTMLElement} node - 검사할 메시지 노드
+     * @param {string} [charName='Assistant'] - 캐릭터 이름 (폴백용)
+     * @returns {string} 추출된 참가자 이름
+     */
+    function getNameFromNode(node, charName = 'Assistant') {
+        const globalSettings = loadGlobalSettings();
+        const escapeSelector = (selector) => {
+            return selector.replace(/[!"#$%&'()*+,.\/:;<=>?@[\\\]^`{|}~]/g, '\\$&');
+        };
+
+        // 전역 설정의 참가자 이름 클래스 먼저 확인
+        if (globalSettings && Array.isArray(globalSettings.participantNameClasses)) {
+            for (const cls of globalSettings.participantNameClasses) {
+                if (!cls || typeof cls !== 'string') continue;
+                try {
+                    const escapedCls = escapeSelector(cls);
+                    const el = node.querySelector(`.${escapedCls}`);
+                    if (el && el.textContent && el.textContent.trim()) {
+                        return el.textContent.trim();
+                    }
+                } catch (e) {
+                    console.warn(`[Log Exporter] 잘못된 클래스 선택자: ${cls}`, e);
+                }
+            }
+        }
+        // 기본 클래스 확인
+        const nameEl = node.querySelector('.unmargin.text-xl');
+        if (nameEl && nameEl.textContent.trim()) return nameEl.textContent.trim();
+
+        // 폴백
+        if (node.classList.contains('justify-end')) return '사용자';
+        return charName;
+    }
     async function getComprehensivePageCSS() {
         console.log('[Log Exporter] getComprehensivePageCSS: 페이지의 모든 CSS 포괄적 추출 시작');
         const cssTexts = new Set(); // 중복 규칙 방지를 위해 Set 사용
@@ -1966,39 +2001,9 @@ function ensureHtml2canvas() {
     async function collectCharacterAvatars(nodes, useBase64 = true) {
         console.log(`[Log Exporter] collectCharacterAvatars: 캐릭터 아바타 수집 시작. Base64 사용: ${useBase64}`);
         const avatarMap = new Map();
-        
-        // CSS 선택자 이스케이프 함수
-        const escapeSelector = (selector) => {
-            return selector.replace(/[!"#$%&'()*+,.\/:;<=>?@[\\\]^`{|}~]/g, '\\$&');
-        };
-        
-        // 노드에서 이름을 가져오는 함수
-        const getNameFromNodeLocal = (node) => {
-            const globalSettings = loadGlobalSettings();
-            // 전역 설정의 참가자 이름 클래스 먼저 확인
-            if (globalSettings && Array.isArray(globalSettings.participantNameClasses)) {
-                for (const cls of globalSettings.participantNameClasses) {
-                    if (!cls || typeof cls !== 'string') continue;
-                    try {
-                        const escapedCls = escapeSelector(cls);
-                        const el = node.querySelector(`.${escapedCls}`);
-                        if (el && el.textContent && el.textContent.trim()) {
-                            return el.textContent.trim();
-                        }
-                    } catch (e) {
-                        console.warn(`[Log Exporter] 잘못된 클래스 선택자: ${cls}`, e);
-                    }
-                }
-            }
-            // 기본 클래스 확인
-            const nameEl = node.querySelector('.unmargin.text-xl');
-            if (nameEl && nameEl.textContent.trim()) return nameEl.textContent.trim();
-            // 폴백
-            return node.classList.contains('justify-end') ? 'User' : 'Assistant';
-        };
 
         for (const node of nodes) {
-            const name = getNameFromNodeLocal(node);
+            const name = getNameFromNode(node);
             if (name && !avatarMap.has(name)) {
                 const avatarUrl = extractAvatarFromNode(node);
                 if (avatarUrl) {
@@ -2092,36 +2097,6 @@ function ensureHtml2canvas() {
                 }
             };
         
-            // 공통 이름 추출 함수
-            const getNameFromNode = (node) => {
-                const globalSettings = loadGlobalSettings();
-                
-                const escapeSelector = (selector) => {
-                    return selector.replace(/[!"#$%&'()*+,.\/:;<=>?@[\\\]^`{|}~]/g, '\\$&');
-                };
-        
-                if (globalSettings && Array.isArray(globalSettings.participantNameClasses)) {
-                    for (const cls of globalSettings.participantNameClasses) {
-                        if (!cls || typeof cls !== 'string') continue;
-                        try {
-                            const escapedCls = escapeSelector(cls);
-                            const el = node.querySelector(`.${escapedCls}`);
-                            if (el && el.textContent && el.textContent.trim()) {
-                                return el.textContent.trim();
-                            }
-                        } catch (e) {
-                            console.warn(`[Log Exporter] 잘못된 클래스 선택자: ${cls}`, e);
-                        }
-                    }
-                }
-        
-                const nameEl = node.querySelector('.unmargin.text-xl');
-                if (nameEl && nameEl.textContent.trim()) return nameEl.textContent.trim();
-                
-                if (node.classList.contains('justify-end')) return 'User';
-                return charInfo.name || 'Assistant';
-            };
-        
             // (기존) 메시지 내용 '정제' 함수
             const processMessageContent = async (originalMessageEl, embedImagesFlag) => {
                 let contentSourceEl = originalMessageEl.cloneNode(true);
@@ -2197,7 +2172,7 @@ function ensureHtml2canvas() {
             for (const [index, node] of nodes.entries()) {
                 if (node.querySelector('textarea')) continue;
         
-                let name = getNameFromNode(node);
+                let name = getNameFromNode(node, charInfo.name);
                 const originalMessageEl = node.querySelector('.prose, .chattext');
                 if (!originalMessageEl) continue;
         
@@ -3629,48 +3604,8 @@ function filterWithCustomClasses(node, selectedClasses) {
             })(charId); // IIFE로 charId를 즉시 캡처
 
             const participants = new Set();
-            const getNameFromNode = (node) => {
-                // CSS 선택자 이스케이프 함수
-                const escapeSelector = (selector) => {
-                    return selector.replace(/[!"#$%&'()*+,.\/:;<=>?@[\\\]^`{|}~]/g, '\\$&');
-                };
-                
-                if (globalSettings && Array.isArray(globalSettings.participantNameClasses)) {
-                    for (const cls of globalSettings.participantNameClasses) {
-                        if (!cls || typeof cls !== 'string') continue;
-                        try {
-                            const escapedCls = escapeSelector(cls);
-                            const el = node.querySelector(`.${escapedCls}`);
-                            if (el && el.textContent && el.textContent.trim()) {
-                                return el.textContent.trim();
-                            }
-                        } catch (e) {
-                            console.warn(`[Log Exporter] 잘못된 클래스 선택자: ${cls}`, e);
-                        }
-                    }
-                }
-                if (globalSettings && Array.isArray(globalSettings.profileClasses)) {
-                    for (const cls of globalSettings.profileClasses) {
-                        if (!cls || typeof cls !== 'string') continue;
-                        try {
-                            const escapedCls = escapeSelector(cls);
-                            const el = node.querySelector(`.${escapedCls}`);
-                            if (el && el.textContent && el.textContent.trim()) {
-                                return el.textContent.trim();
-                            }
-                        } catch (e) {
-                            console.warn(`[Log Exporter] 잘못된 클래스 선택자: ${cls}`, e);
-                        }
-                    }
-                }
-                const nameEl = node.querySelector('.unmargin.text-xl');
-                if (nameEl) return nameEl.textContent.trim();
-                if (node.classList.contains('justify-end')) return '사용자';
-                return charName;
-            };
-
             messageNodes.forEach(node => {
-                const name = getNameFromNode(node);
+                const name = getNameFromNode(node, charName);
                 if (name) participants.add(name);
             });
 
@@ -5728,7 +5663,7 @@ const customFilterHtml = `
                 // 참가자 목록 재생성
                 const participants = new Set();
                 messageNodes.forEach(node => {
-                    const name = getNameFromNode(node);
+                    const name = getNameFromNode(node, charName);
                     if (name) participants.add(name);
                 });
                 
