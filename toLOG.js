@@ -1356,6 +1356,29 @@ function ensureHtml2canvas() {
     }
 
     /**
+     * 이미지 URL을 받아 Blob URL로 변환합니다.
+     * CORS 문제를 피하기 위해 fetch를 사용하며, 실패 시 투명한 1x1 GIF를 반환합니다.
+     * @async
+     * @param {string} url - 변환할 이미지의 URL.
+     * @returns {Promise<string>} Blob URL 또는 원본 URL.
+     */
+    async function imageUrlToBlob(url) {
+        console.log(`[Log Exporter] imageUrlToBlob: URL을 Blob으로 변환 중: ${url}`);
+        try {
+            if (!url || url === 'undefined' || url === 'null') return 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
+            if (url.startsWith('data:image') || url.startsWith('blob:')) return url;
+            let normalizedUrl = url.startsWith('//') ? 'https:' + url : (url.startsWith('/') ? window.location.origin + url : url);
+            const response = await fetch(new URL(normalizedUrl, window.location.origin).href);
+            if (!response.ok) throw new Error(`Image fetch failed: ${response.status}`);
+            const blob = await response.blob();
+            return URL.createObjectURL(blob);
+        } catch (error) {
+            console.warn(`[Log Exporter] Blob conversion error for ${url}:`, error);
+            return 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
+        }
+    }
+
+    /**
      * 지정된 채팅 인덱스에 대한 채팅 로그를 처리합니다.
      * 채팅을 활성화하고, 캐릭터 정보와 모든 메시지 노드를 수집하여 반환합니다.
      * @async
@@ -1790,10 +1813,15 @@ function ensureHtml2canvas() {
                 });
 
                 if (imageUrl) {
-                    if (embedImagesAsBase64) {
+                    if (embedImagesAsBase64 === true) {
                         const base64Url = await imageUrlToBase64(imageUrl);
                         clonedAvatarEl.style.backgroundImage = `url("${base64Url}")`;
+                    } else if (embedImagesAsBase64 === 'blob') {
+                        // [수정] 'blob' 모드일 때 imageUrlToBlob 함수 사용
+                        const blobUrl = await imageUrlToBlob(imageUrl);
+                        clonedAvatarEl.style.backgroundImage = `url("${blobUrl}")`;
                     } else {
+                        // false 또는 다른 값일 경우 원본 URL 사용
                         clonedAvatarEl.style.backgroundImage = `url("${imageUrl}")`;
                     }
                     clonedAvatarEl.innerHTML = '';
@@ -1814,11 +1842,17 @@ function ensureHtml2canvas() {
                 if (style && style.includes('url(')) {
                     const urlMatch = style.match(/url\(["']?([^"')]+)["']?\)/);
                     if (urlMatch && urlMatch[1]) {
-                        if (embedImagesAsBase64) {
+                        if (embedImagesAsBase64 === true) {
                             let url = urlMatch[1];
                             url = url.replace(/&quot;/g, '"');
                             const base64Url = await imageUrlToBase64(url);
                             const newStyle = style.replace(/url\(["']?[^"')]+["']?\)/, `url("${base64Url}")`);
+                            el.setAttribute('style', newStyle);
+                        } else if (embedImagesAsBase64 === 'blob') {
+                            // [수정] 'blob' 모드일 때 imageUrlToBlob 함수 사용
+                            let url = urlMatch[1].replace(/&quot;/g, '"');
+                            const blobUrl = await imageUrlToBlob(url);
+                            const newStyle = style.replace(/url\(["']?[^"')]+["']?\)/, `url("${blobUrl}")`);
                             el.setAttribute('style', newStyle);
                         }
                     }
@@ -1868,8 +1902,13 @@ function ensureHtml2canvas() {
             }
 
             for (const img of clonedNode.querySelectorAll('img')) {
-                if (img.src && embedImagesAsBase64) {
-                    img.src = await imageUrlToBase64(img.src);
+                if (img.src) {
+                    if (embedImagesAsBase64 === true) {
+                        img.src = await imageUrlToBase64(img.src);
+                    } else if (embedImagesAsBase64 === 'blob') {
+                        // [수정] 'blob' 모드일 때 imageUrlToBlob 함수 사용
+                        img.src = await imageUrlToBlob(img.src);
+                    }
                 }
                 if (!applyStyles) {
                     // img.style.maxWidth = '100%';
@@ -1879,10 +1918,13 @@ function ensureHtml2canvas() {
 
             clonedNode.querySelectorAll('button').forEach(btn => {
                 btn.disabled = true;
-                btn.style.pointerEvents = 'none';
-                // ▼▼▼ [추가] 강제 호버 효과에서 제외하기 위한 속성 추가 ▼▼▼
-                btn.setAttribute('data-no-force-hover', 'true');
-                // ▲▲▲ [추가] 완료 ▲▲▲
+                // [수정] '호버 요소 펼치기' 옵션이 켜져 있을 때만 pointer-events를 none으로 설정하고,
+                // 강제 호버 효과에서 제외합니다. 이 옵션이 꺼져 있으면 일반 호버가 가능해야 합니다.
+                const expandHoverCheckbox = document.getElementById('expand-hover-elements-checkbox');
+                if (expandHoverCheckbox && expandHoverCheckbox.checked) {
+                    btn.style.pointerEvents = 'none';
+                    btn.setAttribute('data-no-force-hover', 'true');
+                }
             });
 
             finalHtml += clonedNode.outerHTML;
@@ -1995,11 +2037,11 @@ function ensureHtml2canvas() {
      * 메시지 노드들로부터 모든 참가자의 이름과 아바타 URL 맵을 생성합니다.
      * @async
      * @param {HTMLElement[]} nodes - 스캔할 메시지 노드 배열.
-     * @param {boolean} [useBase64=true] - 아바타 URL을 Base64로 인코딩할지 여부.
+     * @param {boolean|string} [useBase64=true] - true: base64 사용, false: 원본 URL 사용, 'blob': blob URL 사용
      * @returns {Promise<Map<string, string>>} 참가자 이름을 키로, 아바타 소스(URL 또는 Base64)를 값으로 갖는 맵.
      */
     async function collectCharacterAvatars(nodes, useBase64 = true) {
-        console.log(`[Log Exporter] collectCharacterAvatars: 캐릭터 아바타 수집 시작. Base64 사용: ${useBase64}`);
+        console.log(`[Log Exporter] collectCharacterAvatars: 캐릭터 아바타 수집 시작. 변환 모드: ${useBase64}`);
         const avatarMap = new Map();
 
         for (const node of nodes) {
@@ -2007,7 +2049,14 @@ function ensureHtml2canvas() {
             if (name && !avatarMap.has(name)) {
                 const avatarUrl = extractAvatarFromNode(node);
                 if (avatarUrl) {
-                    const avatarSrc = useBase64 ? await imageUrlToBase64(avatarUrl) : avatarUrl;
+                    let avatarSrc;
+                    if (useBase64 === 'blob') {
+                        avatarSrc = await imageUrlToBlob(avatarUrl);
+                    } else if (useBase64 === true) {
+                        avatarSrc = await imageUrlToBase64(avatarUrl);
+                    } else {
+                        avatarSrc = avatarUrl;
+                    }
                     avatarMap.set(name, avatarSrc);
                 }
             }
@@ -2058,9 +2107,14 @@ function ensureHtml2canvas() {
             // 공통 헤더 생성 함수
             const generateHeaderHtml = async (embedAsBase64) => {
                 if (!showHeader) return '';
-                const avatarSrc = embedAsBase64 
-                    ? await imageUrlToBase64(charInfo.avatarUrl) 
-                    : charInfo.avatarUrl;
+                let avatarSrc;
+                if (embedAsBase64 === 'blob') {
+                    avatarSrc = await imageUrlToBlob(charInfo.avatarUrl);
+                } else if (embedAsBase64 === true) {
+                    avatarSrc = await imageUrlToBase64(charInfo.avatarUrl);
+                } else {
+                    avatarSrc = charInfo.avatarUrl;
+                }
         
                 const headerStyles = `
                     text-align:center; padding-bottom:1.5em; margin-bottom:2em;
@@ -2107,7 +2161,13 @@ function ensureHtml2canvas() {
                     const urlMatch = style?.match(/url\(["']?(.+?)["']?\)/);
                     if (urlMatch?.[1]) {
                         const img = document.createElement('img');
-                        img.src = embedImagesFlag ? await imageUrlToBase64(urlMatch[1]) : urlMatch[1];
+                        if (embedImagesFlag === 'blob') {
+                            img.src = await imageUrlToBlob(urlMatch[1]);
+                        } else if (embedImagesFlag === true) {
+                            img.src = await imageUrlToBase64(urlMatch[1]);
+                        } else {
+                            img.src = urlMatch[1];
+                        }
                         el.parentNode.insertBefore(img, el);
                         el.remove();
                     }
@@ -2115,8 +2175,14 @@ function ensureHtml2canvas() {
                 await Promise.all(bgImagePromises);
         
                 const imagePromises = Array.from(contentSourceEl.querySelectorAll('img')).map(async (img) => {
-                    if (img.src && embedImagesFlag && !img.src.startsWith('data:')) {
-                        try { img.src = await imageUrlToBase64(img.src); } catch (e) { /* ignore */ }
+                    if (img.src && embedImagesFlag && !img.src.startsWith('data:') && !img.src.startsWith('blob:')) {
+                        try { 
+                            if (embedImagesFlag === 'blob') {
+                                img.src = await imageUrlToBlob(img.src);
+                            } else {
+                                img.src = await imageUrlToBase64(img.src);
+                            }
+                        } catch (e) { /* ignore */ }
                     }
                     Object.assign(img.style, { maxWidth: '100%', height: 'auto', borderRadius: '8px', display: 'block', margin: '12px 0' });
                 });
@@ -2145,16 +2211,27 @@ function ensureHtml2canvas() {
                 
                 const mediaPromises = Array.from(clonedContentEl.querySelectorAll('img, [style*="background-image"]')).map(async (el) => {
                     if (el.tagName === 'IMG') {
-                        if (el.src && embedImagesFlag && !el.src.startsWith('data:')) {
-                            try { el.src = await imageUrlToBase64(el.src); } catch (e) { /* ignore */ }
+                        if (el.src && embedImagesFlag && !el.src.startsWith('data:') && !el.src.startsWith('blob:')) {
+                            try {
+                                if (embedImagesFlag === 'blob') {
+                                    el.src = await imageUrlToBlob(el.src);
+                                } else {
+                                    el.src = await imageUrlToBase64(el.src);
+                                }
+                            } catch (e) { /* ignore */ }
                         }
                     } else {
                         const style = el.getAttribute('style');
                         const urlMatch = style?.match(/url\(["']?(.+?)["']?\)/);
-                        if (urlMatch?.[1] && embedImagesFlag && !urlMatch[1].startsWith('data:')) {
+                        if (urlMatch?.[1] && embedImagesFlag && !urlMatch[1].startsWith('data:') && !urlMatch[1].startsWith('blob:')) {
                             try {
-                                const base64Url = await imageUrlToBase64(urlMatch[1]);
-                                el.style.backgroundImage = `url("${base64Url}")`;
+                                let convertedUrl;
+                                if (embedImagesFlag === 'blob') {
+                                    convertedUrl = await imageUrlToBlob(urlMatch[1]);
+                                } else {
+                                    convertedUrl = await imageUrlToBase64(urlMatch[1]);
+                                }
+                                el.style.backgroundImage = `url("${convertedUrl}")`;
                             } catch (e) { /* ignore */ }
                         }
                     }
@@ -2186,6 +2263,9 @@ function ensureHtml2canvas() {
                 const isUser = node.classList.contains('justify-end');
                 const avatarSrc = avatarMap.get(name);
                 const avatarHtml = createAvatarHtml(avatarSrc, name, isUser, isForArca);
+                
+                // [추가] 메시지 삭제 버튼
+                const deleteButtonHtml = `<button class="log-exporter-delete-msg-btn" data-message-index="${node.dataset.logExporterIndex}" title="메시지 삭제">&times;</button>`;
         
                 let logEntry = '';
                 
@@ -2196,7 +2276,7 @@ function ensureHtml2canvas() {
                             ? `linear-gradient(135deg, ${color.cardBgUser} 0%, #3a3e44 100%)`
                             : color.cardBg;
                         logEntry += `<div class="chat-message-container" style="display:flex; align-items:flex-start; margin-bottom:20px; gap: 16px; ${isUser ? 'flex-direction:row-reverse;' : ''}">`;
-                        logEntry += avatarHtml;
+                        logEntry += `<div style="position:relative;">${avatarHtml}${deleteButtonHtml}</div>`;
                         logEntry += `<div style="flex:1; border-radius: 8px; background: ${modernCardBg}; box-shadow:${color.shadow}; overflow:hidden;">`;
                         logEntry += `<strong style="color:${color.nameColor}; font-weight:600; font-size:0.9em; display:block; padding: 10px 14px; background-color: rgba(0,0,0,0.15); text-align:${isUser ? 'right;' : 'left;'}">${name}</strong>`;
                         logEntry += `<div style="padding: 14px; color:${color.text}; line-height:1.8; word-wrap:break-word;">${messageHtml}</div>`;
@@ -2230,7 +2310,7 @@ function ensureHtml2canvas() {
                                     <div style="flex-grow: 1; height: 1px; background: linear-gradient(to left, transparent, ${color.separator}, transparent);width:100%;margin: auto;"></div>
                                 </div>`;
                         }
-                        logEntry += `<div class="chat-message-container" style="display:flex; flex-direction:column; align-items: center; ${!isForArca ? `font-family: ${fantasyFont};` : ''} text-align:center; margin-bottom:28px;">`;
+                        logEntry += `<div class="chat-message-container" style="position:relative; display:flex; flex-direction:column; align-items: center; ${!isForArca ? `font-family: ${fantasyFont};` : ''} text-align:center; margin-bottom:28px;">${deleteButtonHtml}`;
                         logEntry += fantasyAvatarHtml;
                         logEntry += `<strong style="color:${color.nameColor}; font-weight:400; font-size:1.4em; margin-top: 0.6em; letter-spacing: 1.5px; text-shadow: 0 0 10px rgba(255, 201, 120, 0.6);">${name}</strong>`;
                         logEntry += `<div style="color:${color.text}; line-height: 1.85; font-size: 1.1em; text-align: justify; margin-top: 1.2em; max-width: 95%; margin-left: auto; margin-right: auto; background-color: ${isUser ? color.cardBgUser : color.cardBg}; padding: 14px 18px; border: 1px solid ${color.border}; box-shadow: ${color.shadow};">${messageHtml}</div>`;
@@ -2264,8 +2344,8 @@ function ensureHtml2canvas() {
                                     <div style="flex-grow: 1; height: 2px; background: linear-gradient(to left, transparent, ${color.separator}, transparent); border-radius: 1px;"></div>
                                 </div>`;
                         }
-        
-                        logEntry += `<div class="chat-message-container" style="display:flex; align-items:flex-start; gap: 16px; ${!isForArca ? `font-family: ${elfFont};` : ''} margin-bottom:2em; ${isUser ? 'flex-direction:row-reverse;' : ''}">`;
+                        
+                        logEntry += `<div class="chat-message-container" style="position:relative; display:flex; align-items:flex-start; gap: 16px; ${!isForArca ? `font-family: ${elfFont};` : ''} margin-bottom:2em; ${isUser ? 'flex-direction:row-reverse;' : ''}">${deleteButtonHtml}`;
                         logEntry += elfAvatarHtml;
                         logEntry += `<div style="flex:1; position: relative;">`;
                         logEntry += `<div style="position: absolute; top: -5px; left: ${isUser ? 'auto' : '-8px'}; right: ${isUser ? '-8px' : 'auto'}; width: 3px; height: calc(100% + 10px); background: ${color.border}; border-radius: 2px; opacity: 0.6;"></div>`;
@@ -2299,7 +2379,7 @@ function ensureHtml2canvas() {
                                 </div>`;
                         }
         
-                        logEntry += `<div class="chat-message-container" style="display:flex; flex-direction:column; align-items: center; ${!isForArca ? `font-family: ${royalFont};` : ''} text-align:center; margin-bottom:3em; position: relative;">`;
+                        logEntry += `<div class="chat-message-container" style="position:relative; display:flex; flex-direction:column; align-items: center; ${!isForArca ? `font-family: ${royalFont};` : ''} text-align:center; margin-bottom:3em; position: relative;">${deleteButtonHtml}`;
                         logEntry += `<div style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); width: 80%; height: 2px; background: linear-gradient(90deg, transparent, ${color.nameColor}, transparent); opacity: 0.6;"></div>`;
                         logEntry += royalAvatarHtml;
                         logEntry += `<strong style="color:${color.nameColor}; font-weight:500; font-size:1.5em; margin-top: 1em; letter-spacing: 2px; text-shadow: 0 0 12px rgba(251, 191, 36, 0.5);">${name}</strong>`;
@@ -2312,7 +2392,7 @@ function ensureHtml2canvas() {
         
                     case 'ocean':
                         logEntry += `<div class="chat-message-container" style="display:flex; align-items:flex-start; margin-bottom:2em; position: relative; ${isUser ? 'flex-direction:row-reverse;' : ''}">`;
-                        logEntry += `<div style="position: absolute; ${isUser ? 'right: 0;' : 'left: 0;'} top: 0; bottom: 0; width: 2px; background: linear-gradient(to bottom, ${color.nameColor}, transparent); opacity: 0.5;"></div>`;
+                        logEntry += `<div style="position: absolute; ${isUser ? 'right: 0;' : 'left: 0;'} top: 0; bottom: 0; width: 2px; background: linear-gradient(to bottom, ${color.nameColor}, transparent); opacity: 0.5;"></div>${deleteButtonHtml}`;
                         logEntry += avatarHtml;
                         logEntry += `<div style="flex:1; position: relative;">`;
                         logEntry += `<strong style="color:${color.nameColor}; font-weight:600; font-size:1em; display:block; margin-bottom:10px; text-align:${isUser ? 'right;' : 'left;'} text-shadow: 0 0 8px rgba(34, 211, 238, 0.4);">${name}</strong>`;
@@ -2332,7 +2412,7 @@ function ensureHtml2canvas() {
                                 </div>`;
                         }
         
-                        logEntry += `<div class="chat-message-container" style="display:flex; align-items:flex-start; margin-bottom:2em; ${isUser ? 'flex-direction:row-reverse;' : ''}">`;
+                        logEntry += `<div class="chat-message-container" style="position:relative; display:flex; align-items:flex-start; margin-bottom:2em; ${isUser ? 'flex-direction:row-reverse;' : ''}">${deleteButtonHtml}`;
                         logEntry += avatarHtml;
                         logEntry += `<div style="flex:1;">`;
                         logEntry += `<strong style="color:${color.nameColor} !important; font-weight:600; font-size:0.95em; display:block; margin-bottom:8px; text-align:${isUser ? 'right;' : 'left;'} text-shadow: 0 0 6px rgba(244, 114, 182, 0.3);">${name}</strong>`;
@@ -2344,7 +2424,7 @@ function ensureHtml2canvas() {
         
                     case 'matrix':
                         logEntry += `<div class="chat-message-container" style="display:flex; align-items:flex-start; margin-bottom:1.5em; font-family: 'Courier New', monospace; ${isUser ? 'flex-direction:row-reverse;' : ''}">`;
-                        logEntry += avatarHtml;
+                        logEntry += `<div style="position:relative;">${avatarHtml}${deleteButtonHtml}</div>`;
                         logEntry += `<div style="flex:1;">`;
                         logEntry += `<div style="color:${color.nameColor}; font-weight:bold; font-size:0.9em; margin-bottom:5px; text-align:${isUser ? 'right;' : 'left;'} text-shadow: 0 0 5px ${color.nameColor}; font-family: 'Courier New', monospace;">&gt; ${name.toUpperCase()}</div>`;
                         logEntry += `<div style="background: ${isUser ? color.cardBgUser : color.cardBg}; border:1px solid ${color.border}; padding:12px 15px; color:${color.text}; line-height:1.6; word-wrap:break-word; font-family: 'Courier New', monospace; font-size: 0.9em; text-shadow: 0 0 3px ${color.text}; position: relative;">`;
@@ -2358,7 +2438,7 @@ function ensureHtml2canvas() {
                         const statusIcon = isUser ? '→' : '←';
         
                         logEntry += `<div class="chat-message-container" style="
-                            display: flex;
+                            position: relative; display: flex; 
                             align-items: flex-start;
                             gap: 8px;
                             padding: 8px 12px;
@@ -2368,7 +2448,7 @@ function ensureHtml2canvas() {
                             font-family: 'Courier New', 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
                             font-size: 0.9em;
                             position: relative;
-                            transition: all 0.2s ease;
+                            transition: all 0.2s ease; 
                         ">`;
                         
                         logEntry += `<div style="
@@ -2416,13 +2496,13 @@ function ensureHtml2canvas() {
                             p.style.padding = '0';
                         });
                         logEntry += tempMessageDiv.innerHTML;
-                        logEntry += `</div></div>`;
+                        logEntry += `</div>${deleteButtonHtml}</div>`;
                         break;
         
                     case 'basic':
                     default:
                         const cardBgColor = isUser ? color.cardBgUser : color.cardBg;
-                        logEntry += `<div class="chat-message-container" style="display:flex;align-items:flex-start;margin-bottom:28px; ${isUser ? 'flex-direction:row-reverse;' : ''}">`;
+                        logEntry += `<div class="chat-message-container" style="position:relative; display:flex;align-items:flex-start;margin-bottom:28px; ${isUser ? 'flex-direction:row-reverse;' : ''}">${deleteButtonHtml}`;
                         logEntry += avatarHtml;
                         logEntry += `<div style="flex:1;">`;
                         logEntry += `<strong style="color:${color.nameColor} !important;font-weight:600;font-size:0.95em;display:block;margin-bottom:8px;text-align:${isUser ? 'right;' : 'left;'}">${name}</strong>`;
@@ -3543,6 +3623,10 @@ function filterWithCustomClasses(node, selectedClasses) {
             // processChatLog에 옵션을 바로 전달하여 필터링된 노드와 채팅 이름을 가져옴
             let { charName, chatName, charAvatarUrl, messageNodes, character } = await processChatLog(chatIndex, options);
 
+            // [추가] 각 노드에 고유 인덱스 부여 (메시지 삭제/복원 기능용)
+            const originalMessageNodes = [...messageNodes]; // 원본 복사
+            originalMessageNodes.forEach((node, index) => node.dataset.logExporterIndex = index);
+
             // [추가] 캐릭터 ID 가져오기 (고유 식별자로 사용)
             // RisuAI에서는 character.chaId를 사용함
             if (!character || !character.chaId) {
@@ -3559,6 +3643,12 @@ function filterWithCustomClasses(node, selectedClasses) {
             
             // [수정] preCollectedAvatarMap을 더 넓은 스코프에 선언하여 setupCopyButtons에서도 접근 가능하도록 함
             let preCollectedAvatarMap = null;
+
+            // [추가] 삭제된 메시지 인덱스를 관리하는 Set
+            const SAVED_EDITS_STORAGE_KEY = 'logExporterSavedEdits';
+
+            let deletedMessageIndices = new Set();
+            let lastDeletedNodeInfo = null; // 마지막으로 삭제된 노드 정보 저장
 
             /**
              * 모든 설정 변경을 감지하고, 설정을 저장한 뒤 미리보기를 업데이트하는 통합 핸들러입니다.
@@ -4776,6 +4866,30 @@ const customFilterHtml = `
                             <div style="color:#8a98c9; font-size:0.85em;">- 여기서 추가한 클래스는 모든 캐릭터에 공통 적용됩니다. (전역 저장)<br>- 🔄 버튼을 클릭하면 현재 채팅 화면에서 사용 중인 클래스를 자동으로 불러옵니다.</div>
                         </div>
                         
+                        <!-- [추가] 편집 버전 관리 섹션 -->
+                        <div class="desktop-section" id="desktop-version-manager">
+                            <style>
+                                .version-name-input { width: calc(100% - 80px); }
+                                .save-version-btn { width: 70px; }
+                                .version-list { list-style: none; padding: 0; margin-top: 12px; max-height: 200px; overflow-y: auto; }
+                                .version-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #1a1b26; border-radius: 6px; margin-bottom: 6px; border: 1px solid #414868; }
+                                .version-item-name { flex: 1; color: #c0caf5; font-size: 0.9em; }
+                                .version-item-actions button { background: none; border: none; color: #a9b1d6; cursor: pointer; font-size: 1.1em; transition: color 0.2s; }
+                                .version-item-actions button:hover { color: #7aa2f7; }
+                            </style>
+                            <div class="desktop-section-header">
+                                <span class="desktop-section-icon">💾</span>
+                                <span class="desktop-section-title">로그 편집 버전 관리</span>
+                            </div>
+                            <div style="display: flex; gap: 8px;">
+                                <input type="text" class="desktop-input version-name-input" placeholder="버전 이름 (예: 임신 로그 1)">
+                                <button class="desktop-btn desktop-btn-primary save-version-btn">저장</button>
+                            </div>
+                            <ul class="version-list">
+                                <!-- 자바스크립트로 채워짐 -->
+                            </ul>
+                        </div>
+
                         <!-- 아카라이브 변환기 (숨김 상태) -->
                         <div class="desktop-section" id="arca-live-converter-section" style="display: none;">
                             <div class="desktop-section-header">
@@ -5721,6 +5835,116 @@ const customFilterHtml = `
             // 초기 뱃지 렌더링
             refreshGlobalBadgeLists();
             
+            // [수정] setupVersionManager 함수를 이 위치로 이동
+            const setupVersionManager = () => {
+                const container = modal.querySelector('#desktop-version-manager');
+                if (!container) return;
+
+                const input = container.querySelector('.version-name-input');
+                const saveBtn = container.querySelector('.save-version-btn');
+                const list = container.querySelector('.version-list');
+
+                const loadAllVersions = () => {
+                    try {
+                        const data = localStorage.getItem(SAVED_EDITS_STORAGE_KEY);
+                        return data ? JSON.parse(data) : {};
+                    } catch (e) {
+                        console.error('편집 버전 불러오기 실패:', e);
+                        return {};
+                    }
+                };
+
+                const saveAllVersions = (allVersions) => {
+                    try {
+                        localStorage.setItem(SAVED_EDITS_STORAGE_KEY, JSON.stringify(allVersions));
+                    } catch (e) {
+                        console.error('편집 버전 저장 실패:', e);
+                    }
+                };
+
+                const renderList = () => {
+                    if (!list) return;
+                    list.innerHTML = '';
+                    const allVersions = loadAllVersions();
+                    const charVersions = allVersions[charId] || [];
+
+                    if (charVersions.length === 0) {
+                        list.innerHTML = '<li style="color: #8a98c9; text-align: center; padding: 10px 0;">저장된 버전이 없습니다.</li>';
+                        return;
+                    }
+
+                    charVersions.forEach((version, index) => {
+                        const li = document.createElement('li');
+                        li.className = 'version-item';
+                        li.innerHTML = `
+                            <span class="version-item-name">${version.name}</span>
+                            <div class="version-item-actions">
+                                <button class="load-version-btn" data-index="${index}" title="불러오기">📥</button>
+                                <button class="delete-version-btn" data-index="${index}" title="삭제">🗑️</button>
+                            </div>
+                        `;
+                        list.appendChild(li);
+                    });
+                };
+
+                saveBtn.addEventListener('click', () => {
+                    const name = input.value.trim();
+                    if (!name) {
+                        alert('저장할 버전의 이름을 입력해주세요.', 'warning');
+                        input.focus();
+                        return;
+                    }
+
+                    const allVersions = loadAllVersions();
+                    if (!allVersions[charId]) {
+                        allVersions[charId] = [];
+                    }
+
+                    const existingIndex = allVersions[charId].findIndex(v => v.name === name);
+                    if (existingIndex !== -1) {
+                        if (!confirm(`'${name}' 버전이 이미 존재합니다. 덮어쓰시겠습니까?`)) {
+                            return;
+                        }
+                        allVersions[charId][existingIndex].deletedIndices = Array.from(deletedMessageIndices);
+                    } else {
+                        allVersions[charId].push({
+                            name: name,
+                            deletedIndices: Array.from(deletedMessageIndices)
+                        });
+                    }
+
+                    saveAllVersions(allVersions);
+                    input.value = '';
+                    renderList();
+                    alert(`'${name}' 버전이 저장되었습니다.`, 'success');
+                });
+
+                list.addEventListener('click', (e) => {
+                    const target = e.target;
+                    const index = parseInt(target.dataset.index);
+                    if (isNaN(index)) return;
+
+                    const allVersions = loadAllVersions();
+                    const charVersions = allVersions[charId] || [];
+
+                    if (target.classList.contains('load-version-btn')) {
+                        deletedMessageIndices = new Set(charVersions[index].deletedIndices);
+                        alert(`'${charVersions[index].name}' 버전을 불러왔습니다.`, 'success');
+                        updatePreview();
+                    } else if (target.classList.contains('delete-version-btn')) {
+                        if (confirm(`'${charVersions[index].name}' 버전을 정말 삭제하시겠습니까?`)) {
+                            charVersions.splice(index, 1);
+                            saveAllVersions(allVersions);
+                            renderList();
+                        }
+                    }
+                });
+
+                renderList();
+            };
+
+            setupVersionManager();
+            
             handleDesktopFormatChange();
             
             // 모바일 형식 변경 시 옵션 표시/숨김
@@ -6139,11 +6363,17 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
             const getFilteredNodes = () => {
                 const hiddenNames = Array.from(modal.querySelectorAll('.participant-filter-checkbox:not(:checked)'))
                     .map(cb => cb.dataset.name);
-                if (hiddenNames.length === 0) return messageNodes;
-                return messageNodes.filter(node => {
+                
+                let currentNodes = originalMessageNodes.filter(node => {
+                    // 삭제된 메시지 제외
+                    if (deletedMessageIndices.has(parseInt(node.dataset.logExporterIndex))) {
+                        return false;
+                    }
+                    // 참가자 이름으로 필터링
                     const name = getNameFromNode(node);
                     return !hiddenNames.includes(name);
                 });
+                return currentNodes;
             };
 
             const [charAvatarBase64, extractedCss] = await Promise.all([
@@ -6232,6 +6462,7 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                 const bubbleToggleCheckbox = modal.querySelector('#bubble-toggle-checkbox');
 
                 colorSelector.disabled = !isBasicTheme;
+
                 colorSelectorContainer.style.opacity = isBasicTheme ? '1' : '0.5';
 
                 const bubbleToggleLabel = bubbleToggleCheckbox.parentElement;
@@ -6282,17 +6513,16 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                     },
                     querySelectorAll(selector) {
                         return desktopPreviewEl ? desktopPreviewEl.querySelectorAll(selector) : (mobilePreviewEl ? mobilePreviewEl.querySelectorAll(selector) : []);
+                    },
+                    // [추가] querySelector 함수 추가
+                    querySelector(selector) {
+                        return desktopPreviewEl ? desktopPreviewEl.querySelector(selector) : (mobilePreviewEl ? mobilePreviewEl.querySelector(selector) : null);
                     }
                 };
                 
                 syncedPreview.innerHTML = `<div style="text-align:center;color:#8a98c9;">미리보기 생성 중...</div>`;
                 let filteredNodes = getFilteredNodes();
                 console.log('[Log Exporter] 원본 노드 개수:', filteredNodes.length);
-
-                // [추가] 필터링 전에 원본 노드에서 아바타 맵을 미리 수집
-                // 이렇게 하면 프로필 클래스가 필터링되어도 아바타 정보는 보존됩니다
-                preCollectedAvatarMap = await collectCharacterAvatars(filteredNodes, true);
-                console.log('[Log Exporter] 필터링 전 아바타 수집 완료:', preCollectedAvatarMap.size, '개');
 
                 const customFilterSection = modal.querySelector('#custom-filter-section');
                 console.log('[Log Exporter] UI 필터링 상태:', {
@@ -6305,6 +6535,12 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                 if (selectedFormat !== 'html' && !allowHtmlRendering && filterToggleCheckbox.checked && customFilterSection) { // eslint-disable-line no-constant-condition
                     let selectedClasses = Array.from(modal.querySelectorAll('.custom-filter-class:checked')).map(cb => cb.dataset.class);
                     console.log('[Log Exporter] UI 필터링 체크된 클래스:', selectedClasses);
+
+                    // [추가] 필터링 전에 원본 노드에서 아바타 맵을 미리 수집
+                    // 이렇게 하면 프로필 클래스가 필터링되어도 아바타 정보는 보존됩니다
+                    preCollectedAvatarMap = await collectCharacterAvatars(filteredNodes, 'blob');
+                    console.log('[Log Exporter] 필터링 전 아바타 수집 완료:', preCollectedAvatarMap.size, '개');
+
                     // 이미지 관련 필수 클래스 제외 (항상)
                     const IMAGE_RELATED_CLASSES = [
                         'x-risu-image-container',
@@ -6347,12 +6583,12 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                 if (selectedFormat === 'html') {
                     filterControls.style.display = 'none';
                     if (customFilterSection) customFilterSection.style.display = 'none';
-                    saveFileBtn.style.display = 'inline-block';
+                    if (saveFileBtn) saveFileBtn.style.display = 'inline-block';
 
                     await new Promise(resolve => requestAnimationFrame(resolve));
-
+                    
                     const fullCss = await getComprehensivePageCSS();
-                    const messagesHtml = await generateHtmlFromNodes(filteredNodes, false, true);
+                    const messagesHtml = await generateHtmlFromNodes(filteredNodes, false, 'blob'); // 미리보기는 blob 사용
                     const themeBgColor = getComputedStyle(document.documentElement).getPropertyValue('--risu-theme-bgcolor').trim() || '#1a1b26';
                     const headerHtml = await getHeaderHtml(charAvatarUrl, charName, chatName);
                     const htmlTagStyle = document.documentElement.getAttribute('style') || '';
@@ -6434,6 +6670,7 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                                 }
                             </style>
                             <div class="preview-wrapper ${expandHoverCheckbox.checked ? 'expand-hover-globally' : ''}">
+                                <button id="undo-delete-btn" style="display: none; position: sticky; top: 10px; left: 50%; transform: translateX(-50%); z-index: 100; background: #ff9e64; color: #1a1b26; border: none; padding: 8px 16px; border-radius: 20px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">삭제 취소</button>
                                 <div class="chat-log-wrapper">${headerHtml}${messagesHtml}</div>
                             </div>
                         `;
@@ -6441,14 +6678,14 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                         };
                         
                         createShadowPreview(desktopPreviewEl);
-                        createShadowPreview(mobilePreviewEl);
+                        // 모바일 미리보기에도 동일하게 적용
                     }
                     const addedStyle = document.getElementById('tolog-temp-hover-disable');
                     if (addedStyle) addedStyle.remove();
 
                 } else if (selectedFormat === 'basic') {
                     // ... (이 부분은 수정 없음)
-                    filterControls.style.display = 'block';
+                    if (filterControls) filterControls.style.display = 'block';
                     saveFileBtn.style.display = 'none';
                     // [수정] 헤더에 필요한 캐릭터 정보를 객체로 묶음
                     const charInfo = { name: charName, chatName: chatName, avatarUrl: charAvatarUrl };
@@ -6460,14 +6697,14 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                     const content = await generateBasicFormatLog(
                         filteredNodes, 
                         charInfo, // 캐릭터 정보 전달
-                        selectedThemeKey, 
+                        selectedThemeKey,
                         selectedColorKey,
                         shouldShowAvatar, // 수정된 아바타 표시 여부 전달
                         headerToggleCheckbox.checked,
                         footerToggleCheckbox.checked,
                         bubbleToggleCheckbox.checked,
                         false, // isForArca
-                        true, // embedImagesAsBase64
+                        'blob', // [수정] 미리보기에서는 blob URL 사용
                         preCollectedAvatarMap, // [추가] 미리 수집한 아바타 맵 전달
                         allowHtmlRendering // ▼▼▼ [수정] 새 파라미터 전달
                     );
@@ -6484,6 +6721,8 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                         // previewContainer를 직접 캡처하므로 wrapper는 투명하게, container에 배경색 적용
                         syncedPreview.innerHTML = `
                             <style>
+                                .log-exporter-delete-msg-btn { position: absolute; top: 8px; right: 8px; background: rgba(255, 82, 82, 0.7); color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; line-height: 20px; text-align: center; cursor: pointer; opacity: 0; transition: opacity 0.2s; z-index: 10; }
+                                .chat-message-container:hover .log-exporter-delete-msg-btn, .desktop-section:hover .log-exporter-delete-msg-btn { opacity: 1; }
                                 .tolog-basic-preview-wrapper {
                                     font-size: ${baseFontSize}px !important;
                                     width: 100% !important;
@@ -6501,19 +6740,60 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                                     box-sizing: border-box !important;
                                 }
                             </style>
-                            <div class="tolog-basic-preview-wrapper">
+                            <button id="undo-delete-btn" style="display: none; position: sticky; top: 10px; left: 50%; transform: translateX(-50%); z-index: 100; background: #ff9e64; color: #1a1b26; border: none; padding: 8px 16px; border-radius: 20px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">삭제 취소</button>
+                            <div class="tolog-basic-preview-wrapper" style="width: ${imageWidth}px;">
                                 ${content}
                             </div>
                         `;
                     }
                 } else { // Text / Markdown
                     // ... (이 부분은 수정 없음)
-                    filterControls.style.display = 'block';
+                    if (filterControls) filterControls.style.display = 'block';
                     saveImageControls.style.display = 'none';
                     saveFileBtn.style.display = 'none';
                     const content = await generateFormattedLog(filteredNodes, selectedFormat);
                     syncedPreview.innerHTML = `<pre>${content.replace(/</g, "&lt;")}</pre>`;
                 }
+
+                // [추가] 마지막으로 삭제된 메시지를 복원하는 함수
+                const undoLastDelete = () => {
+                    if (lastDeletedNodeInfo) {
+                        deletedMessageIndices.delete(lastDeletedNodeInfo.index);
+                        modal.querySelectorAll('#undo-delete-btn').forEach(btn => btn.style.display = 'none');
+                        lastDeletedNodeInfo = null;
+                        updatePreview(); // 미리보기 업데이트
+                        // 복원 알림 (간단한 토스트 메시지)
+                        const toast = document.createElement('div');
+                        toast.textContent = '메시지가 복원되었습니다.';
+                        toast.style.cssText = 'position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #9ece6a; color: #1a1b26; padding: 10px 20px; border-radius: 8px; z-index: 100002;';
+                        document.body.appendChild(toast);
+                        setTimeout(() => toast.remove(), 2000);
+                    }
+                };
+
+                // [수정] 메시지 삭제 및 복원 이벤트 핸들러를 미리보기 컨테이너에 직접 연결
+                const handlePreviewClick = (e) => {
+                    // 삭제 버튼 클릭
+                    if (e.target.classList.contains('log-exporter-delete-msg-btn')) {
+                        const indexToDelete = parseInt(e.target.dataset.messageIndex);
+                        if (!isNaN(indexToDelete)) {
+                            const nodeToDelete = originalMessageNodes.find(n => parseInt(n.dataset.logExporterIndex) === indexToDelete);
+                            deletedMessageIndices.add(indexToDelete);
+                            lastDeletedNodeInfo = { index: indexToDelete, node: nodeToDelete }; // 마지막 삭제 정보 저장
+                            updatePreview(); // 미리보기 즉시 업데이트
+                            modal.querySelectorAll('#undo-delete-btn').forEach(btn => btn.style.display = 'inline-flex');
+                        }
+                    }
+                    // 삭제 취소 버튼 클릭
+                    else if (e.target.id === 'undo-delete-btn') {
+                        undoLastDelete();
+                    }
+                };
+
+                // 데스크톱과 모바일 미리보기 모두에 이벤트 리스너 추가
+                [desktopPreviewEl, mobilePreviewEl].forEach(container => {
+                    if (container) container.addEventListener('click', handlePreviewClick);
+                });
 
                 if (!isRawMode && selectedFormat === 'basic') {
                     applyImageScaling();
@@ -6521,7 +6801,6 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                 console.log('[Log Exporter] updatePreview: 미리보기 업데이트 완료');
             }
 // ▲▲▲ [교체] 여기까지 ▲▲▲
-
             const rawToggleBtn = modal.querySelector('#log-exporter-raw-toggle');
             rawToggleBtn.addEventListener('click', () => {
                 isRawMode = !isRawMode;
@@ -6719,14 +6998,14 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
             };
             modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
             modal.querySelector('#log-exporter-close').addEventListener('click', closeModal);
-
+            
             saveFileBtn.addEventListener('click', async () => {
                 try {
                     const filteredNodes = getFilteredNodes();
                     const useStyled = styleToggleCheckbox ? styleToggleCheckbox.checked : false;
-                    const showAvatar = avatarToggleCheckbox.checked;
+                    const expandHover = expandHoverCheckbox ? expandHoverCheckbox.checked : false;
                     const messagesHtml = await generateHtmlFromNodes(filteredNodes, useStyled, true);
-                    await generateAndDownloadHtmlFile(charName, chatName, messagesHtml, charAvatarUrl, expandHoverCheckbox.checked);
+                    await generateAndDownloadHtmlFile(charName, chatName, messagesHtml, charAvatarUrl, expandHover);
                     closeModal();
                 } catch (e) { console.error('[Log Exporter] File save error from modal:', e); }
             });
