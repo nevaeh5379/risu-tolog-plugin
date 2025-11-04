@@ -2264,9 +2264,8 @@ function ensureHtml2canvas() {
                 const avatarSrc = avatarMap.get(name);
                 const avatarHtml = createAvatarHtml(avatarSrc, name, isUser, isForArca);
                 
-                // [추가] 메시지 삭제 버튼 및 선택 체크박스
+                // [추가] 메시지 삭제 버튼
                 const deleteButtonHtml = `<button class="log-exporter-delete-msg-btn" data-message-index="${node.dataset.logExporterIndex}" title="메시지 삭제">&times;</button>`;
-                const selectCheckboxHtml = `<input type="checkbox" class="log-exporter-select-checkbox" data-message-index="${node.dataset.logExporterIndex}" title="메시지 선택">`;
         
                 let logEntry = '';
                 
@@ -2277,7 +2276,7 @@ function ensureHtml2canvas() {
                             ? `linear-gradient(135deg, ${color.cardBgUser} 0%, #3a3e44 100%)`
                             : color.cardBg;
                         logEntry += `<div class="chat-message-container" style="display:flex; align-items:flex-start; margin-bottom:20px; gap: 16px; ${isUser ? 'flex-direction:row-reverse;' : ''}">`;
-                        logEntry += `<div style="position:relative;">${avatarHtml}${deleteButtonHtml}${selectCheckboxHtml}</div>`;
+                        logEntry += `<div style="position:relative;">${avatarHtml}${deleteButtonHtml}</div>`;
                         logEntry += `<div style="flex:1; border-radius: 8px; background: ${modernCardBg}; box-shadow:${color.shadow}; overflow:hidden;">`;
                         logEntry += `<strong style="color:${color.nameColor}; font-weight:600; font-size:0.9em; display:block; padding: 10px 14px; background-color: rgba(0,0,0,0.15); text-align:${isUser ? 'right;' : 'left;'}">${name}</strong>`;
                         logEntry += `<div style="padding: 14px; color:${color.text}; line-height:1.8; word-wrap:break-word;">${messageHtml}</div>`;
@@ -2311,7 +2310,7 @@ function ensureHtml2canvas() {
                                     <div style="flex-grow: 1; height: 1px; background: linear-gradient(to left, transparent, ${color.separator}, transparent);width:100%;margin: auto;"></div>
                                 </div>`;
                         }
-                        logEntry += `<div class="chat-message-container" style="position:relative; display:flex; flex-direction:column; align-items: center; ${!isForArca ? `font-family: ${fantasyFont};` : ''} text-align:center; margin-bottom:28px;">${deleteButtonHtml}${selectCheckboxHtml}`;
+                        logEntry += `<div class="chat-message-container" style="position:relative; display:flex; flex-direction:column; align-items: center; ${!isForArca ? `font-family: ${fantasyFont};` : ''} text-align:center; margin-bottom:28px;">${deleteButtonHtml}`;
                         logEntry += fantasyAvatarHtml;
                         logEntry += `<strong style="color:${color.nameColor}; font-weight:400; font-size:1.4em; margin-top: 0.6em; letter-spacing: 1.5px; text-shadow: 0 0 10px rgba(255, 201, 120, 0.6);">${name}</strong>`;
                         logEntry += `<div style="color:${color.text}; line-height: 1.85; font-size: 1.1em; text-align: justify; margin-top: 1.2em; max-width: 95%; margin-left: auto; margin-right: auto; background-color: ${isUser ? color.cardBgUser : color.cardBg}; padding: 14px 18px; border: 1px solid ${color.border}; box-shadow: ${color.shadow};">${messageHtml}</div>`;
@@ -2346,7 +2345,7 @@ function ensureHtml2canvas() {
                                 </div>`;
                         }
                         
-                        logEntry += `<div class="chat-message-container" style="position:relative; display:flex; align-items:flex-start; gap: 16px; ${!isForArca ? `font-family: ${elfFont};` : ''} margin-bottom:2em; ${isUser ? 'flex-direction:row-reverse;' : ''}">${deleteButtonHtml}${selectCheckboxHtml}`;
+                        logEntry += `<div class="chat-message-container" style="position:relative; display:flex; align-items:flex-start; gap: 16px; ${!isForArca ? `font-family: ${elfFont};` : ''} margin-bottom:2em; ${isUser ? 'flex-direction:row-reverse;' : ''}">${deleteButtonHtml}`;
                         logEntry += elfAvatarHtml;
                         logEntry += `<div style="flex:1; position: relative;">`;
                         logEntry += `<div style="position: absolute; top: -5px; left: ${isUser ? 'auto' : '-8px'}; right: ${isUser ? '-8px' : 'auto'}; width: 3px; height: calc(100% + 10px); background: ${color.border}; border-radius: 2px; opacity: 0.6;"></div>`;
@@ -2380,7 +2379,7 @@ function ensureHtml2canvas() {
                                 </div>`;
                         }
         
-                        logEntry += `<div class="chat-message-container" style="position:relative; display:flex; flex-direction:column; align-items: center; ${!isForArca ? `font-family: ${royalFont};` : ''} text-align:center; margin-bottom:3em; position: relative;">${deleteButtonHtml}${selectCheckboxHtml}`;
+                        logEntry += `<div class="chat-message-container" style="position:relative; display:flex; flex-direction:column; align-items: center; ${!isForArca ? `font-family: ${royalFont};` : ''} text-align:center; margin-bottom:3em; position: relative;">${deleteButtonHtml}`;
                         logEntry += `<div style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); width: 80%; height: 2px; background: linear-gradient(90deg, transparent, ${color.nameColor}, transparent); opacity: 0.6;"></div>`;
                         logEntry += royalAvatarHtml;
                         logEntry += `<strong style="color:${color.nameColor}; font-weight:500; font-size:1.5em; margin-top: 1em; letter-spacing: 2px; text-shadow: 0 0 12px rgba(251, 191, 36, 0.5);">${name}</strong>`;
@@ -2413,7 +2412,7 @@ function ensureHtml2canvas() {
                                 </div>`;
                         }
         
-                        logEntry += `<div class="chat-message-container" style="position:relative; display:flex; align-items:flex-start; margin-bottom:2em; ${isUser ? 'flex-direction:row-reverse;' : ''}">${deleteButtonHtml}${selectCheckboxHtml}`;
+                        logEntry += `<div class="chat-message-container" style="position:relative; display:flex; align-items:flex-start; margin-bottom:2em; ${isUser ? 'flex-direction:row-reverse;' : ''}">${deleteButtonHtml}`;
                         logEntry += avatarHtml;
                         logEntry += `<div style="flex:1;">`;
                         logEntry += `<strong style="color:${color.nameColor} !important; font-weight:600; font-size:0.95em; display:block; margin-bottom:8px; text-align:${isUser ? 'right;' : 'left;'} text-shadow: 0 0 6px rgba(244, 114, 182, 0.3);">${name}</strong>`;
@@ -2425,7 +2424,7 @@ function ensureHtml2canvas() {
         
                     case 'matrix':
                         logEntry += `<div class="chat-message-container" style="display:flex; align-items:flex-start; margin-bottom:1.5em; font-family: 'Courier New', monospace; ${isUser ? 'flex-direction:row-reverse;' : ''}">`;
-                        logEntry += `<div style="position:relative;">${avatarHtml}${deleteButtonHtml}${selectCheckboxHtml}</div>`;
+                        logEntry += `<div style="position:relative;">${avatarHtml}${deleteButtonHtml}</div>`;
                         logEntry += `<div style="flex:1;">`;
                         logEntry += `<div style="color:${color.nameColor}; font-weight:bold; font-size:0.9em; margin-bottom:5px; text-align:${isUser ? 'right;' : 'left;'} text-shadow: 0 0 5px ${color.nameColor}; font-family: 'Courier New', monospace;">&gt; ${name.toUpperCase()}</div>`;
                         logEntry += `<div style="background: ${isUser ? color.cardBgUser : color.cardBg}; border:1px solid ${color.border}; padding:12px 15px; color:${color.text}; line-height:1.6; word-wrap:break-word; font-family: 'Courier New', monospace; font-size: 0.9em; text-shadow: 0 0 3px ${color.text}; position: relative;">`;
@@ -2497,13 +2496,13 @@ function ensureHtml2canvas() {
                             p.style.padding = '0';
                         });
                         logEntry += tempMessageDiv.innerHTML;
-                        logEntry += `</div>${deleteButtonHtml}${selectCheckboxHtml}</div>`;
+                        logEntry += `</div>${deleteButtonHtml}</div>`;
                         break;
         
                     case 'basic':
                     default:
                         const cardBgColor = isUser ? color.cardBgUser : color.cardBg;
-                        logEntry += `<div class="chat-message-container" style="position:relative; display:flex;align-items:flex-start;margin-bottom:28px; ${isUser ? 'flex-direction:row-reverse;' : ''}">${deleteButtonHtml}${selectCheckboxHtml}`;
+                        logEntry += `<div class="chat-message-container" style="position:relative; display:flex;align-items:flex-start;margin-bottom:28px; ${isUser ? 'flex-direction:row-reverse;' : ''}">${deleteButtonHtml}`;
                         logEntry += avatarHtml;
                         logEntry += `<div style="flex:1;">`;
                         logEntry += `<strong style="color:${color.nameColor} !important;font-weight:600;font-size:0.95em;display:block;margin-bottom:8px;text-align:${isUser ? 'right;' : 'left;'}">${name}</strong>`;
@@ -3650,8 +3649,6 @@ function filterWithCustomClasses(node, selectedClasses) {
 
             let deletedMessageIndices = new Set();
             let lastDeletedNodeInfo = null; // 마지막으로 삭제된 노드 정보 저장
-            let isSelectionMode = false; // 선택 모드 상태
-            let selectedMessageIndices = new Set(); // 선택된 메시지 인덱스
 
             /**
              * 모든 설정 변경을 감지하고, 설정을 저장한 뒤 미리보기를 업데이트하는 통합 핸들러입니다.
@@ -5049,12 +5046,6 @@ const customFilterHtml = `
                     <button class="desktop-btn desktop-btn-secondary" id="desktop-download-zip">
                         📦 ZIP 다운로드
                     </button>
-                    <button class="desktop-btn desktop-btn-secondary" id="toggle-selection-mode" title="선택 모드 토글">
-                        ☑️ 선택 모드
-                    </button>
-                    <button class="desktop-btn desktop-btn-danger" id="delete-selected-messages" style="display: none;" title="선택한 메시지 삭제">
-                        🗑️ 선택 삭제
-                    </button>
                     <div style="flex: 1;"></div>
                     <button class="desktop-btn desktop-btn-secondary" id="arca-helper-toggle-btn" style="display: none; background-color: #bb9af7; color: #1a1b26;">
                         🎨 아카라이브
@@ -5078,8 +5069,6 @@ const customFilterHtml = `
                 <div class="mobile-action-bar">
                     <button class="log-exporter-modal-btn primary" id="mobile-copy-html" title="HTML 소스 복사">복사</button>
                     <button class="log-exporter-modal-btn" id="mobile-save-image" title="이미지로 저장" style="background-color: #e0af68; color: #1a1b26;">이미지</button>
-                    <button class="log-exporter-modal-btn" id="mobile-toggle-selection" title="선택 모드" style="background-color: #7aa2f7; color: #1a1b26;">선택</button>
-                    <button class="log-exporter-modal-btn" id="mobile-delete-selected" style="background-color: #f7768e; color: #1a1b26; display: none;" title="선택 삭제">삭제</button>
                     
                     <!-- [복원] 이미지 저장 옵션 UI -->
                     <button class="log-exporter-modal-btn" id="log-exporter-download-zip" style="background-color: #e0af68; color: #1a1b26; min-height: 36px; display: none;" aria-label="이미지 ZIP 다운로드" accesskey="z"><u>Z</u>IP 다운로드</button>
@@ -6734,10 +6723,6 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                             <style>
                                 .log-exporter-delete-msg-btn { position: absolute; top: 8px; right: 8px; background: rgba(255, 82, 82, 0.7); color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; line-height: 20px; text-align: center; cursor: pointer; opacity: 0; transition: opacity 0.2s; z-index: 10; }
                                 .chat-message-container:hover .log-exporter-delete-msg-btn, .desktop-section:hover .log-exporter-delete-msg-btn { opacity: 1; }
-                                .log-exporter-select-checkbox { position: absolute; top: 8px; left: 8px; width: 20px; height: 20px; cursor: pointer; opacity: 0; transition: opacity 0.2s; z-index: 10; accent-color: #7aa2f7; }
-                                .selection-mode .log-exporter-select-checkbox { opacity: 1; }
-                                .chat-message-container:hover .log-exporter-select-checkbox { opacity: 1; }
-                                .chat-message-container.selected { outline: 2px solid #7aa2f7; outline-offset: 2px; }
                                 .tolog-basic-preview-wrapper {
                                     font-size: ${baseFontSize}px !important;
                                     width: 100% !important;
@@ -6786,97 +6771,8 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                     }
                 };
 
-                // [추가] 선택 모드 토글 함수
-                const toggleSelectionMode = () => {
-                    isSelectionMode = !isSelectionMode;
-                    const toggleBtn = modal.querySelector('#toggle-selection-mode');
-                    const deleteBtn = modal.querySelector('#delete-selected-messages');
-                    const mobileToggleBtn = modal.querySelector('#mobile-toggle-selection');
-                    const mobileDeleteBtn = modal.querySelector('#mobile-delete-selected');
-                    
-                    if (isSelectionMode) {
-                        if (toggleBtn) {
-                            toggleBtn.style.background = '#7aa2f7';
-                            toggleBtn.style.color = '#1a1b26';
-                        }
-                        if (deleteBtn) deleteBtn.style.display = 'inline-block';
-                        if (mobileToggleBtn) {
-                            mobileToggleBtn.style.background = '#f7768e';
-                            mobileToggleBtn.textContent = '취소';
-                        }
-                        if (mobileDeleteBtn) mobileDeleteBtn.style.display = 'inline-block';
-                        // 미리보기 컨테이너에 선택 모드 클래스 추가
-                        [desktopPreviewEl, mobilePreviewEl].forEach(container => {
-                            if (container) container.classList.add('selection-mode');
-                        });
-                    } else {
-                        if (toggleBtn) {
-                            toggleBtn.style.background = '';
-                            toggleBtn.style.color = '';
-                        }
-                        if (deleteBtn) deleteBtn.style.display = 'none';
-                        if (mobileToggleBtn) {
-                            mobileToggleBtn.style.background = '#7aa2f7';
-                            mobileToggleBtn.textContent = '선택';
-                        }
-                        if (mobileDeleteBtn) mobileDeleteBtn.style.display = 'none';
-                        selectedMessageIndices.clear();
-                        // 선택 모드 클래스 제거
-                        [desktopPreviewEl, mobilePreviewEl].forEach(container => {
-                            if (container) container.classList.remove('selection-mode');
-                        });
-                        updatePreview();
-                    }
-                };
-
-                // [추가] 선택된 메시지 일괄 삭제 함수
-                const deleteSelectedMessages = () => {
-                    if (selectedMessageIndices.size === 0) {
-                        alert('삭제할 메시지를 선택해주세요.');
-                        return;
-                    }
-                    
-                    if (confirm(`선택한 ${selectedMessageIndices.size}개의 메시지를 삭제하시겠습니까?`)) {
-                        selectedMessageIndices.forEach(index => {
-                            deletedMessageIndices.add(index);
-                        });
-                        selectedMessageIndices.clear();
-                        isSelectionMode = false;
-                        toggleSelectionMode(); // 선택 모드 해제
-                        updatePreview();
-                        
-                        // 삭제 완료 알림
-                        const toast = document.createElement('div');
-                        toast.textContent = '선택한 메시지가 삭제되었습니다.';
-                        toast.style.cssText = 'position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #f7768e; color: #1a1b26; padding: 10px 20px; border-radius: 8px; z-index: 100002;';
-                        document.body.appendChild(toast);
-                        setTimeout(() => toast.remove(), 2000);
-                    }
-                };
-
                 // [수정] 메시지 삭제 및 복원 이벤트 핸들러를 미리보기 컨테이너에 직접 연결
                 const handlePreviewClick = (e) => {
-                    // 체크박스 클릭 (선택 모드)
-                    if (e.target.classList.contains('log-exporter-select-checkbox')) {
-                        const messageIndex = parseInt(e.target.dataset.messageIndex);
-                        const container = e.target.closest('.chat-message-container');
-                        
-                        if (e.target.checked) {
-                            selectedMessageIndices.add(messageIndex);
-                            if (container) container.classList.add('selected');
-                        } else {
-                            selectedMessageIndices.delete(messageIndex);
-                            if (container) container.classList.remove('selected');
-                        }
-                        
-                        // 삭제 버튼 텍스트 업데이트
-                        const deleteBtn = modal.querySelector('#delete-selected-messages');
-                        if (deleteBtn) {
-                            deleteBtn.textContent = `🗑️ 선택 삭제 (${selectedMessageIndices.size})`;
-                        }
-                        return;
-                    }
-                    
                     // 삭제 버튼 클릭
                     if (e.target.classList.contains('log-exporter-delete-msg-btn')) {
                         const indexToDelete = parseInt(e.target.dataset.messageIndex);
@@ -6898,30 +6794,6 @@ const customFilterSectionMobile = modal.querySelector('#custom-filter-section-mo
                 [desktopPreviewEl, mobilePreviewEl].forEach(container => {
                     if (container) container.addEventListener('click', handlePreviewClick);
                 });
-
-                // [추가] 선택 모드 토글 버튼 이벤트 리스너 (데스크톱)
-                const toggleSelectionBtn = modal.querySelector('#toggle-selection-mode');
-                if (toggleSelectionBtn) {
-                    toggleSelectionBtn.addEventListener('click', toggleSelectionMode);
-                }
-
-                // [추가] 선택 삭제 버튼 이벤트 리스너 (데스크톱)
-                const deleteSelectedBtn = modal.querySelector('#delete-selected-messages');
-                if (deleteSelectedBtn) {
-                    deleteSelectedBtn.addEventListener('click', deleteSelectedMessages);
-                }
-
-                // [추가] 선택 모드 토글 버튼 이벤트 리스너 (모바일)
-                const mobileToggleSelectionBtn = modal.querySelector('#mobile-toggle-selection');
-                if (mobileToggleSelectionBtn) {
-                    mobileToggleSelectionBtn.addEventListener('click', toggleSelectionMode);
-                }
-
-                // [추가] 선택 삭제 버튼 이벤트 리스너 (모바일)
-                const mobileDeleteSelectedBtn = modal.querySelector('#mobile-delete-selected');
-                if (mobileDeleteSelectedBtn) {
-                    mobileDeleteSelectedBtn.addEventListener('click', deleteSelectedMessages);
-                }
 
                 if (!isRawMode && selectedFormat === 'basic') {
                     applyImageScaling();

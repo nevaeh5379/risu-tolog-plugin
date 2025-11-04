@@ -1,0 +1,44 @@
+
+import React from 'react';
+import type { MessageProps } from '../../../types';
+import Avatar from '../Avatar';
+import { useMessageProcessor } from '../../hooks/useMessageProcessor';
+import { getNameFromNode } from '../../utils/domUtils';
+
+const BasicMessage: React.FC<MessageProps> = (props) => {
+  const { node, index, charInfoName, color, showBubble, showAvatar, isForArca, embedImagesAsBase64, allowHtmlRendering } = props;
+  const originalMessageEl = node.querySelector('.prose, .chattext');
+  const messageHtml = useMessageProcessor(originalMessageEl, embedImagesAsBase64, allowHtmlRendering, color);
+
+  if (!messageHtml || messageHtml.trim().length === 0) return null;
+
+  const isUser = node.classList.contains('justify-end');
+  const name = getNameFromNode(node, charInfoName);
+  const avatarSrc = props.avatarMap.get(name);
+
+  const avatarBaseStyle: React.CSSProperties = {
+    width:'48px',height:'48px',minWidth:'48px',borderRadius:'50%',boxShadow:color.shadow || 'none',border:`2px solid ${color.avatarBorder}`
+  };
+  const avatarMarginStyle: React.CSSProperties = {
+      margin: isUser ? '0 0 0 12px' : '0 12px 0 0'
+  };
+
+  const cardBgColor = isUser ? color.cardBgUser : color.cardBg;
+
+  return (
+    <div className="chat-message-container" style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', marginBottom: '28px', flexDirection: isUser ? 'row-reverse' : 'row' }}>
+      <button className="log-exporter-delete-msg-btn" data-message-index={index} title="메시지 삭제">&times;</button>
+      <Avatar avatarSrc={avatarSrc} name={name} isUser={isUser} isForArca={isForArca} showAvatar={showAvatar} baseStyle={avatarBaseStyle} marginStyle={avatarMarginStyle} />
+      <div style={{ flex: 1 }}>
+        <strong style={{ color: `${color.nameColor} !important`, fontWeight: 600, fontSize: '0.95em', display: 'block', marginBottom: '8px', textAlign: isUser ? 'right' : 'left' }}>{name}</strong>
+        {showBubble ? (
+          <div style={{ backgroundColor: cardBgColor, borderRadius: '16px', padding: '14px 18px', boxShadow: color.shadow, border: `1px solid ${color.border}`, color: color.text, lineHeight: 1.8, wordWrap: 'break-word', position: 'relative' }} dangerouslySetInnerHTML={{ __html: messageHtml }} />
+        ) : (
+          <div style={{ color: color.text, lineHeight: 1.8, wordWrap: 'break-word', padding: '0 4px' }} dangerouslySetInnerHTML={{ __html: messageHtml }} />
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default BasicMessage;
