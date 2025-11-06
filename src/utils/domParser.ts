@@ -1,6 +1,6 @@
 // src/utils/domParser.ts
 
-import { getAllMessageNodes } from '../serivces/messageScanner';
+import { getAllMessageNodes } from '../services/messageScanner';
 import type { RisuCharacter } from '../types/risuai';
 
 // 이 함수들이 같은 파일이나 다른 util 파일에 정의되어 있다고 가정합니다.

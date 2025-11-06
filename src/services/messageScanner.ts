@@ -28,8 +28,8 @@ export function getAllMessageNodes(): HTMLElement[] {
         const position = a.compareDocumentPosition(b);
 
         // Node 객체와 그 속성들은 TypeScript의 기본 DOM 타입 라이브러리에 포함되어 있어 바로 사용 가능합니다.
-        if (position & Node.DOCUMENT_POSITION_FOLLOWING) return -1; // 원본 코드와 순서를 맞추기 위해 -1로 변경
-        if (position & Node.DOCUMENT_POSITION_PRECEDING) return 1;  // 원본 코드와 순서를 맞추기 위해 1로 변경
+        if (position & Node.DOCUMENT_POSITION_FOLLOWING) return 1;
+        if (position & Node.DOCUMENT_POSITION_PRECEDING) return -1;
         return 0;
     });
 

@@ -1,0 +1,44 @@
+.log-exporter-inject-btn {
+    background: transparent;
+    color: #a0a0a0; /* textcolor2 equivalent */
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    margin-right: 8px; /* Add spacing */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s;
+}
+
+.log-exporter-inject-btn:hover {
+    color: #7aa2f7; /* A highlight color */
+}
+
+.log-exporter-msg-btn-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-right: 8px;
+}
+
+.log-exporter-msg-btn-group button {
+    background: transparent;
+    border: 1px solid #a0a0a0;
+    color: #a0a0a0;
+    border-radius: 4px;
+    padding: 0px 4px;
+    font-size: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.log-exporter-msg-btn-group button:hover {
+    background: #a0a0a0;
+    color: #1a1b26;
+}
+
+.risu-chat.log-exporter-range-start {
+    background-color: rgba(122, 162, 247, 0.1);
+    border-radius: 8px;
+}
