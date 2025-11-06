@@ -18,7 +18,7 @@ const PreviewPanel: React.FC<PreviewPanelProps> = ({ previewContent, settings })
   }, [previewContent, settings.rawHtmlView]);
 
   return (
-    <div className="desktop-preview-panel">
+    <>
         <div className="desktop-preview-toolbar">
             <span className="desktop-preview-toolbar-title">📱 미리보기</span>
         </div>
@@ -31,7 +31,7 @@ const PreviewPanel: React.FC<PreviewPanelProps> = ({ previewContent, settings })
                 )}
             </div>
         </div>
-    </div>
+    </>
   );
 };
 
