@@ -2,10 +2,24 @@ import { getAllMessageNodes } from '../services/messageScanner';
 import { showCopyPreviewModal } from '../LogExporter/showCopyPreviewModal';
 import css from './injector.css?raw';
 
+// This state is global to the module. It needs careful management.
 let rangeSelection: {
     active: boolean;
     startIndex: number;
 } = { active: false, startIndex: -1 };
+
+/**
+ * Clears the current range selection state and removes visual indicators.
+ * This is now a top-level function for better organization.
+ */
+const clearRange = () => {
+    // Instead of relying on a potentially stale index, we find the marked element directly.
+    const startNode = document.querySelector('.log-exporter-range-start');
+    startNode?.classList.remove('log-exporter-range-start');
+    
+    rangeSelection.active = false;
+    rangeSelection.startIndex = -1;
+};
 
 const injectCss = () => {
     const styleId = 'log-exporter-injector-styles';
@@ -25,6 +39,8 @@ const createExportButton = (chatIndex: number) => {
     button.onclick = (e) => {
         e.preventDefault();
         e.stopPropagation();
+        // When exporting the whole chat, ensure any partial range selection is cleared.
+        clearRange();
         showCopyPreviewModal(chatIndex);
     };
     return button;
@@ -45,20 +61,18 @@ const injectButtons = () => {
 };
 
 const injectMessageButtons = () => {
-    const messageNodes = document.querySelectorAll('.risu-chat');
     const chatIndexStr = document.querySelector('button[data-risu-chat-idx].bg-selected')?.getAttribute('data-risu-chat-idx');
     if (!chatIndexStr) return;
     const chatIndex = parseInt(chatIndexStr, 10);
 
-    const clearRange = () => {
-        if (rangeSelection.startIndex !== -1) {
-            const allNodes = document.querySelectorAll('.risu-chat');
-            const node = allNodes[rangeSelection.startIndex] as HTMLElement | undefined;
-            node?.classList.remove('log-exporter-range-start');
-        }
-        rangeSelection.active = false;
-        rangeSelection.startIndex = -1;
-    };
+    // CRITICAL: Always clear range selection when re-injecting buttons.
+    // This prevents stale selections when switching between chats.
+    clearRange();
+
+    // *** THE KEY FIX IS HERE ***
+    // Use the single, authoritative function to get all message nodes in the correct order.
+    // Now, the 'index' will be consistent with the array used by showCopyPreviewModal.
+    const messageNodes = getAllMessageNodes();
 
     messageNodes.forEach((node, index) => {
         const targetDiv = node.querySelector('.flex-grow.flex.items-center.justify-end.text-textcolor2');
@@ -73,6 +87,7 @@ const injectMessageButtons = () => {
                 e.preventDefault();
                 e.stopPropagation();
                 clearRange();
+                // The 'index' is now correct and reliable.
                 showCopyPreviewModal(chatIndex, { startIndex: index });
             };
 
@@ -96,14 +111,13 @@ const injectMessageButtons = () => {
                     clearRange(); // Clear any previous dangling state
                     rangeSelection.active = true;
                     rangeSelection.startIndex = index;
-                    node.classList.add('log-exporter-range-start');
+                    node.classList.add('log-exporter-range-start'); // Mark the node visually
                 } else {
                     const endIndex = index;
-                    // Ensure start comes before end
                     const start = Math.min(rangeSelection.startIndex, endIndex);
                     const end = Math.max(rangeSelection.startIndex, endIndex);
                     showCopyPreviewModal(chatIndex, { startIndex: start, endIndex: end });
-                    clearRange();
+                    clearRange(); // Clear state and visuals after selection is complete
                 }
             };
 
@@ -119,8 +133,8 @@ let observer: MutationObserver | null = null;
 
 export const initializeInjector = () => {
     injectCss();
-    injectButtons(); // Initial injection for chat list
-    injectMessageButtons(); // Initial injection for messages
+    injectButtons();
+    injectMessageButtons();
 
     observer = new MutationObserver((mutations) => {
         let needsChatInject = false;
@@ -128,14 +142,14 @@ export const initializeInjector = () => {
         for (const mutation of mutations) {
             if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
                 mutation.addedNodes.forEach(node => {
-                    if (node.nodeType === Node.ELEMENT_NODE) {
-                        const el = node as Element;
-                        if (el.matches('button[data-risu-chat-idx]') || el.querySelector('button[data-risu-chat-idx]')) {
-                            needsChatInject = true;
-                        }
-                        if (el.matches('.risu-chat') || el.querySelector('.risu-chat')) {
-                            needsMessageInject = true;
-                        }
+                    if (node.nodeType !== Node.ELEMENT_NODE) return;
+                    const el = node as Element;
+                    // Check more broadly for changes that affect the chat list or message pane
+                    if (el.matches('button[data-risu-chat-idx], [data-radix-scroll-area-viewport]') || el.querySelector('button[data-risu-chat-idx]')) {
+                        needsChatInject = true;
+                    }
+                    if (el.matches('.risu-chat, .chat-message-container, main') || el.querySelector('.risu-chat, .chat-message-container')) {
+                        needsMessageInject = true;
                     }
                 });
             }
@@ -144,6 +158,7 @@ export const initializeInjector = () => {
             injectButtons();
         }
         if (needsMessageInject) {
+            // This is the most important call. It now re-evaluates messages correctly.
             injectMessageButtons();
         }
     });
@@ -155,4 +170,8 @@ export const disconnectInjector = () => {
     if (observer) {
         observer.disconnect();
     }
+    // Also a good idea to clean up any lingering UI elements
+    document.querySelectorAll('.log-exporter-inject-btn, .log-exporter-msg-btn-group').forEach(el => el.remove());
+    document.getElementById('log-exporter-injector-styles')?.remove();
+    clearRange();
 };

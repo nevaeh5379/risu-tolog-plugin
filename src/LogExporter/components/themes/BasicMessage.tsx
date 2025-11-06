@@ -6,14 +6,14 @@ import { useMessageProcessor } from '../../hooks/useMessageProcessor';
 import { getNameFromNode } from '../../utils/domUtils';
 
 const BasicMessage: React.FC<MessageProps> = (props) => {
-  const { node, index, charInfoName, color, showBubble, showAvatar, isForArca, embedImagesAsBase64, allowHtmlRendering } = props;
+  const { node, index, charInfoName, color, showBubble, showAvatar, isForArca, embedImagesAsBase64, allowHtmlRendering, globalSettings } = props;
   const originalMessageEl = node.querySelector('.prose, .chattext');
   const messageHtml = useMessageProcessor(originalMessageEl, embedImagesAsBase64, allowHtmlRendering, color);
 
   if (!messageHtml || messageHtml.trim().length === 0) return null;
 
   const isUser = node.classList.contains('justify-end');
-  const name = getNameFromNode(node, charInfoName);
+  const name = getNameFromNode(node as HTMLElement, globalSettings, charInfoName);
   const avatarSrc = props.avatarMap.get(name);
 
   const avatarBaseStyle: React.CSSProperties = {

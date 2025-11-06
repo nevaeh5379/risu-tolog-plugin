@@ -9,6 +9,19 @@ import html2canvas from 'html2canvas';
 import { imageUrlToBase64 } from '../utils/imageUtils';
 import { generateBasicLog } from './logGenerator';
 
+const loadGlobalSettings = () => {
+    try {
+        const settings = localStorage.getItem('logExporterGlobalSettings');
+        const parsed = settings ? JSON.parse(settings) : {};
+        if (!Array.isArray(parsed.profileClasses)) parsed.profileClasses = [];
+        if (!Array.isArray(parsed.participantNameClasses)) parsed.participantNameClasses = [];
+        return parsed;
+    } catch (e) {
+        console.error('[Log Exporter] Failed to load global settings:', e);
+        return { profileClasses: [], participantNameClasses: [] };
+    }
+};
+
 const toAbsoluteUrl = (url: string) => {
     try {
         return new URL(url, window.location.href).href;
@@ -296,6 +309,7 @@ export const downloadImagesAsZip = async (
         };
 
         if (sequentialNaming) {
+            const globalSettings = loadGlobalSettings();
             const baseHtml = await getLogHtml({
                 nodes: nodes,
                 charInfo: charInfo,
@@ -303,11 +317,13 @@ export const downloadImagesAsZip = async (
                 selectedColorKey: 'dark',
                 showAvatar: showAvatar,
                 isForArca: true,
+                globalSettings: globalSettings,
             });
             const tempDiv = document.createElement('div');
             tempDiv.innerHTML = baseHtml;
             tempDiv.querySelectorAll('img, video').forEach(el => addMediaToZip(el as HTMLImageElement | HTMLVideoElement));
         } else {
+             const globalSettings = loadGlobalSettings();
              const tempDiv = document.createElement('div');
             const html = await getLogHtml({
                 nodes: nodes,
@@ -316,11 +332,12 @@ export const downloadImagesAsZip = async (
                 selectedColorKey: 'dark',
                 showAvatar: showAvatar,
                 isForArca: false,
+                globalSettings: globalSettings,
             });
             tempDiv.innerHTML = html;
 
             if (showAvatar) {
-                const avatarMap = await collectCharacterAvatars(Array.from(tempDiv.children), charInfo.name, false);
+                const avatarMap = await collectCharacterAvatars(Array.from(tempDiv.children), charInfo.name, false, globalSettings);
                 for (const avatarUrl of avatarMap.values()) {
                     const fakeImg = document.createElement('img');
                     fakeImg.src = avatarUrl;

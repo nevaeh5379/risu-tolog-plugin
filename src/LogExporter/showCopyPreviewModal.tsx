@@ -11,7 +11,10 @@ import SettingsPanel from './components/SettingsPanel';
 import PreviewPanel from './components/PreviewPanel';
 
 import Actionbar from './components/Actionbar';
-import { generateBasicLog, generateMarkdownLog, generateTextLog, generateHtmlPreview } from './services/logGenerator';
+import { generateMarkdownLog, generateTextLog, generateHtmlPreview } from './services/logGenerator';
+import { getLogHtml } from './services/htmlGenerator';
+import { collectUIClasses, filterWithCustomClasses, getNameFromNode } from './utils/domUtils';
+import type { UIClassInfo } from './utils/domUtils';
 
 interface Settings {
   format?: 'basic' | 'html' | 'markdown' | 'text';
@@ -30,6 +33,7 @@ interface Settings {
   previewWidth?: number;
   rawHtmlView?: boolean;
   showArcaHelper?: boolean;
+  customFilters?: { [key: string]: boolean };
 }
 
 
@@ -71,6 +75,7 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
     const [messageNodes, setMessageNodes] = useState<HTMLElement[]>([]);
     const [character, setCharacter] = useState<RisuCharacter | null>(null);
     const [participants, setParticipants] = useState<Set<string>>(new Set());
+    const [uiClasses, setUiClasses] = useState<UIClassInfo[]>([]);
 
     const [savedSettings, setSavedSettings] = useState<Settings>({});
     const [globalSettings, setGlobalSettings] = useState<any>({});
@@ -113,15 +118,17 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
                 setMessageNodes(messageNodes);
                 setCharacter(character);
 
+                const loadedGlobalSettings = loadGlobalSettings();
+                setGlobalSettings(loadedGlobalSettings);
+
                 const newParticipants = new Set<string>();
                 messageNodes.forEach((node: HTMLElement) => {
-                    const nameEl = node.querySelector('.unmargin.text-xl');
-                    const name = nameEl ? nameEl.textContent?.trim() : (node.classList.contains('justify-end') ? '사용자' : charName);
+                    const name = getNameFromNode(node, loadedGlobalSettings, charName);
                     if (name) newParticipants.add(name);
                 });
                 setParticipants(newParticipants);
 
-                setGlobalSettings(loadGlobalSettings());
+                setUiClasses(collectUIClasses(messageNodes));
 
             } catch (error) {
                 console.error('[Log Exporter] Modal open error:', error);
@@ -137,6 +144,12 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
 
             let content = '';
             const settings = savedSettings;
+
+            const activeFilters = settings.customFilters ? Object.entries(settings.customFilters).filter(([, checked]) => checked).map(([key]) => key) : [];
+            const filteredNodes = activeFilters.length > 0 
+                ? messageNodes.map(node => filterWithCustomClasses(node, activeFilters, globalSettings))
+                : messageNodes;
+
             const style = `font-size: ${settings.previewFontSize || 16}px; max-width: ${settings.previewWidth || 800}px; margin: 0 auto;`;
             const preStyle = `font-size: ${settings.previewFontSize || 16}px;`;
             const preWrapperStyle = `max-width: ${settings.previewWidth || 800}px; margin: 0 auto;`;
@@ -162,10 +175,21 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
             `;
 
             if (settings.format === 'basic' || !settings.format) {
-                const basicLog = await generateBasicLog(messageNodes, charName, chatName, charAvatarUrl, settings, THEMES, COLORS);
-                content = `${overrideStyle}<div style="${style}">${basicLog}</div>`;
+                const logHtml = await getLogHtml({
+                    nodes: filteredNodes,
+                    charInfo: { name: charName, chatName: chatName, avatarUrl: charAvatarUrl },
+                    selectedThemeKey: settings.theme || 'basic',
+                    selectedColorKey: settings.color || 'dark',
+                    showAvatar: settings.showAvatar,
+                    showHeader: settings.showHeader,
+                    showFooter: settings.showFooter,
+                    showBubble: settings.showBubble,
+                    embedImagesAsBase64: true, // Embed images for preview
+                    globalSettings: globalSettings,
+                });
+                content = `${overrideStyle}<div style="${style}">${logHtml}</div>`;
             } else if (settings.format === 'html') {
-                const htmlLog = await generateHtmlPreview(messageNodes, settings);
+                const htmlLog = await generateHtmlPreview(filteredNodes, settings);
                 content = htmlLog.replace('</style>', `
                   .x-risu-asset-table,
                   .x-risu-asset-table table {
@@ -181,25 +205,27 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
                   }
                 </style>`);
             } else if (settings.format === 'markdown') {
-                const markdownLog = await generateMarkdownLog(messageNodes, charName);
+                const markdownLog = await generateMarkdownLog(filteredNodes, charName);
                 content = `${overrideStyle}<div style="${preWrapperStyle}"><pre style="${preStyle}">${markdownLog}</pre></div>`;
             } else {
-                const textLog = await generateTextLog(messageNodes, charName);
+                const textLog = await generateTextLog(filteredNodes, charName);
                 content = `${overrideStyle}<div style="${preWrapperStyle}"><pre style="${preStyle}">${textLog}</pre></div>`;
             }
             setPreviewContent(content);
         };
 
         generatePreview();
-    }, [messageNodes, savedSettings, charName, chatName, charAvatarUrl]);
+    }, [messageNodes, savedSettings, globalSettings, charName, chatName, charAvatarUrl]);
 
     const handleClose = () => {
         onClose();
     };
 
+    const uiTheme = globalSettings.uiTheme || 'dark';
+
     return (
         <div className="log-exporter-modal-backdrop" onClick={handleClose}>
-            <div className="log-exporter-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="log-exporter-modal" data-theme={uiTheme} onClick={(e) => e.stopPropagation()}>
                 <div className="log-exporter-modal-header-bar">
                     <button id="log-exporter-close" className="log-exporter-modal-close-btn" title="닫기 (Esc)" aria-label="모달 닫기" onClick={handleClose}>
                         &times;
@@ -221,6 +247,7 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
                         arcaContent={arcaContent}
                         setArcaContent={setArcaContent}
                         messageNodes={messageNodes}
+                        uiClasses={uiClasses}
                     />
                     <PreviewPanel 
                         previewContent={previewContent}

@@ -175,7 +175,25 @@ export const THEMES: Record<ThemeKey, ThemeInfo> = {
 
 export const COLORS: Record<ColorKey, ColorPalette> = {
     dark: {
-        name: '다크 (기본)',
+        name: '다크 (모던)',
+        background: '#0f1117',
+        cardBg: '#1c1e26',
+        cardBgUser: '#252834',
+        text: '#e4e6eb',
+        textSecondary: '#b8bcc8',
+        nameColor: '#61afef',
+        border: '#2e3240',
+        quoteBg: 'rgba(97, 175, 239, 0.12)',
+        quoteText: '#89c4f4',
+        thoughtBg: 'rgba(198, 120, 221, 0.12)',
+        thoughtText: '#c98edd',
+        soundBg: 'rgba(152, 195, 121, 0.12)',
+        soundText: '#98c379',
+        shadow: '0 6px 16px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05)',
+        avatarBorder: '#61afef'
+    },
+    classic: {
+        name: '클래식',
         background: '#1a1b26',
         cardBg: '#24283b',
         cardBgUser: '#414868',

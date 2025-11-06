@@ -7,7 +7,8 @@ import { imageUrlToBlob} from '../utils/imageUtils';
 export const collectCharacterAvatars = async (
   nodes: Element[],
   charInfoName: string,
-  isForArca: boolean
+  isForArca: boolean,
+  globalSettings: any // Added
 ): Promise<Map<string, string>> => {
   const avatarMap = new Map<string, string>();
   const avatarPromises = new Map<string, Promise<string>>();
@@ -25,12 +26,12 @@ export const collectCharacterAvatars = async (
   }
 
   for (const node of nodes) {
-    const name = getNameFromNode(node, charInfoName);
+    const name = getNameFromNode(node as HTMLElement, globalSettings, charInfoName);
     if (!avatarMap.has(name) && !avatarPromises.has(name)) {
-      const avatarDiv = node.querySelector('[data-log-exporter-avatar]') as HTMLElement;
+      const avatarDiv = node.querySelector('[style*="background-image"]');
       let avatarUrl = ''
       if(avatarDiv) {
-          const style = avatarDiv.style.backgroundImage;
+          const style = (avatarDiv as HTMLElement).style.backgroundImage;
           const urlMatch = style.match(/url\(['"]?(.*?)['"]?\)/);
           if(urlMatch && urlMatch[1]) {
               avatarUrl = urlMatch[1];

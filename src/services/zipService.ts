@@ -6,6 +6,19 @@ import { getLogHtml } from '../LogExporter/services/htmlGenerator'; // 예시 �
 import { collectCharacterAvatars } from '../LogExporter/services/avatarService'; // 예시 경로
 import { convertWebMToAnimatedWebP } from './webmConverter'; // 예시 경로
 
+const loadGlobalSettings = () => {
+    try {
+        const settings = localStorage.getItem('logExporterGlobalSettings');
+        const parsed = settings ? JSON.parse(settings) : {};
+        if (!Array.isArray(parsed.profileClasses)) parsed.profileClasses = [];
+        if (!Array.isArray(parsed.participantNameClasses)) parsed.participantNameClasses = [];
+        return parsed;
+    } catch (e) {
+        console.error('[Log Exporter] Failed to load global settings:', e);
+        return { profileClasses: [], participantNameClasses: [] };
+    }
+};
+
 // 전역 alert 함수가 있다면, 타입을 선언해줍니다.
 declare function alert(message: string, type: 'info' | 'error' | 'success'): void;
 
@@ -141,14 +154,16 @@ export async function downloadImagesAsZip(
       }
       const { charAvatarUrl } = await processChatLog(parseInt(selectedChatIdx, 10));
       const charInfoForLog = { name: charName, chatName: chatName, avatarUrl: charAvatarUrl };
-      const baseHtml = await getLogHtml({nodes, charInfo: charInfoForLog, selectedThemeKey: 'basic', selectedColorKey: 'dark', showAvatar, showHeader: true, showFooter: false, showBubble: true, isForArca: true, embedImagesAsBase64: false, preCollectedAvatarMap: new Map()});
+      const globalSettings = loadGlobalSettings();
+      const baseHtml = await getLogHtml({nodes, charInfo: charInfoForLog, selectedThemeKey: 'basic', selectedColorKey: 'dark', showAvatar, showHeader: true, showFooter: false, showBubble: true, isForArca: true, embedImagesAsBase64: false, preCollectedAvatarMap: new Map(), globalSettings});
       const tempDiv = document.createElement('div');
       tempDiv.innerHTML = baseHtml;
       
       tempDiv.querySelectorAll<HTMLImageElement | HTMLVideoElement>('img, video').forEach(el => addMediaToZip(el));
     } else {
       if (showAvatar) {
-        const avatarMap = await collectCharacterAvatars(nodes, charName, false);
+        const globalSettings = loadGlobalSettings();
+        const avatarMap = await collectCharacterAvatars(nodes, charName, false, globalSettings);
         for (const avatarUrl of avatarMap.values()) {
           if (avatarUrl) {
             const fakeImg: MediaElement = { tagName: 'IMG', src: avatarUrl };

@@ -1,4 +1,5 @@
 import React from 'react';
+import type { UIClassInfo } from '../utils/domUtils';
 
 interface SettingsPanelProps {
   settings: any;
@@ -13,9 +14,10 @@ interface SettingsPanelProps {
   arcaContent: string;
   setArcaContent: (content: string) => void;
   messageNodes: HTMLElement[];
+  uiClasses: UIClassInfo[];
 }
 
-const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onSettingChange, themes, colors, participants, globalSettings, onGlobalSettingChange, arcaTitle, setArcaTitle, arcaContent, setArcaContent, messageNodes }) => {
+const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onSettingChange, themes, colors, participants, globalSettings, onGlobalSettingChange, arcaTitle, setArcaTitle, arcaContent, setArcaContent, messageNodes, uiClasses }) => {
 
   const handleFormatChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onSettingChange('format', e.target.value);
@@ -29,8 +31,53 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onSettingChange
     onSettingChange('color', e.target.value);
   };
 
+  const handleCustomFilterChange = (className: string, isChecked: boolean) => {
+    const newFilters = { ...(settings.customFilters || {}), [className]: isChecked };
+    onSettingChange('customFilters', newFilters);
+  };
+
+  const Toggle: React.FC<{ settingKey: string, label: string, value: any, isGlobal?: boolean, defaultOn?: boolean }> = ({ settingKey, label, value, isGlobal = false, defaultOn = true }) => {
+    const isChecked = defaultOn ? value !== false : value === true;
+    const handleChange = () => {
+        if (isGlobal) {
+            const currentList = globalSettings.filteredParticipants || [];
+            const isHidden = currentList.includes(label);
+            const newList = isHidden ? currentList.filter((p: string) => p !== label) : [...currentList, label];
+            onGlobalSettingChange(settingKey, newList);
+        } else {
+            onSettingChange(settingKey, !isChecked);
+        }
+    };
+
+    const participantIsChecked = isGlobal ? !globalSettings.filteredParticipants?.includes(label) : isChecked;
+
+    return (
+        <div className="desktop-option-row">
+            <span className="desktop-option-label">{label}</span>
+            <div className={`desktop-toggle ${participantIsChecked ? 'active' : ''}`} onClick={handleChange}>
+                <input type="checkbox" checked={participantIsChecked} style={{display: 'none'}} readOnly />
+            </div>
+        </div>
+    );
+  };
+
   return (
     <div className="desktop-settings-panel">
+        <div className="desktop-section">
+            <div className="desktop-section-header">
+                <span className="desktop-section-icon">🖥️</span>
+                <span className="desktop-section-title">UI 설정</span>
+            </div>
+            <div className="desktop-option-row">
+                <span className="desktop-option-label">UI 테마</span>
+                <select className="desktop-select" value={globalSettings.uiTheme || 'dark'} onChange={(e) => onGlobalSettingChange('uiTheme', e.target.value)}>
+                    <option value="dark">다크 (모던)</option>
+                    <option value="classic">클래식</option>
+                    <option value="light">라이트</option>
+                </select>
+            </div>
+        </div>
+
         <div className="desktop-section">
             <div className="desktop-section-header">
                 <span className="desktop-section-icon">📄</span>
@@ -56,7 +103,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onSettingChange
             </div>
         </div>
         
-        <div className="desktop-section" id="desktop-basic-options" style={{display: settings.format === 'basic' ? 'block' : 'none'}}>
+        <div className="desktop-section" id="desktop-basic-options" style={{display: settings.format === 'basic' || !settings.format ? 'block' : 'none'}}>
             <div className="desktop-section-header">
                 <span className="desktop-section-icon">🎨</span>
                 <span className="desktop-section-title">테마 & 스타일</span>
@@ -77,33 +124,13 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onSettingChange
                     )}
                 </select>
             </div>
-            <div className="desktop-option-row">
-                <span className="desktop-option-label">💬 아바타 표시</span>
-                <div className={`desktop-toggle ${settings.showAvatar !== false ? 'active' : ''}`} onClick={() => onSettingChange('showAvatar', settings.showAvatar === false)}>
-                    <input type="checkbox" data-setting-key="showAvatar" checked={settings.showAvatar !== false} style={{display: 'none'}} readOnly />
-                </div>
-            </div>
-            <div className="desktop-option-row">
-                <span className="desktop-option-label">💭 말풍선 표시</span>
-                <div className={`desktop-toggle ${settings.showBubble !== false ? 'active' : ''}`} onClick={() => onSettingChange('showBubble', settings.showBubble === false)}>
-                    <input type="checkbox" data-setting-key="showBubble" checked={settings.showBubble !== false} style={{display: 'none'}} readOnly />
-                </div>
-            </div>
-            <div className="desktop-option-row">
-                <span className="desktop-option-label">📌 헤더 표시</span>
-                <div className={`desktop-toggle ${settings.showHeader !== false ? 'active' : ''}`} onClick={() => onSettingChange('showHeader', settings.showHeader === false)}>
-                    <input type="checkbox" data-setting-key="showHeader" checked={settings.showHeader !== false} style={{display: 'none'}} readOnly />
-                </div>
-            </div>
-            <div className="desktop-option-row">
-                <span className="desktop-option-label">📝 푸터 표시</span>
-                <div className={`desktop-toggle ${settings.showFooter !== false ? 'active' : ''}`} onClick={() => onSettingChange('showFooter', settings.showFooter === false)}>
-                    <input type="checkbox" data-setting-key="showFooter" checked={settings.showFooter !== false} style={{display: 'none'}} readOnly />
-                </div>
-            </div>
+            <Toggle settingKey="showAvatar" label="💬 아바타 표시" value={settings.showAvatar} />
+            <Toggle settingKey="showBubble" label="💭 말풍선 표시" value={settings.showBubble} />
+            <Toggle settingKey="showHeader" label="📌 헤더 표시" value={settings.showHeader} />
+            <Toggle settingKey="showFooter" label="📝 푸터 표시" value={settings.showFooter} />
         </div>
 
-        <div className="desktop-section" id="desktop-image-scale-controls" style={{display: settings.format === 'basic' ? 'block' : 'none'}}>
+        <div className="desktop-section" id="desktop-image-scale-controls" style={{display: settings.format === 'basic' || !settings.format ? 'block' : 'none'}}>
             <div className="desktop-section-header">
                 <span className="desktop-section-icon">🖼️</span>
                 <span className="desktop-section-title">이미지 스케일</span>
@@ -119,18 +146,8 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onSettingChange
                 <span className="desktop-section-icon">⚙️</span>
                 <span className="desktop-section-title">HTML 옵션</span>
             </div>
-            <div className="desktop-option-row">
-                <span className="desktop-option-label">🖼️ 이미지 내장</span>
-                <div className={`desktop-toggle ${settings.embedImages !== false ? 'active' : ''}`} onClick={() => onSettingChange('embedImages', settings.embedImages === false)}>
-                    <input type="checkbox" data-setting-key="embedImages" checked={settings.embedImages !== false} style={{display: 'none'}} readOnly />
-                </div>
-            </div>
-            <div className="desktop-option-row">
-                <span className="desktop-option-label">🖱️ 호버 요소 펼치기</span>
-                <div className={`desktop-toggle ${settings.expandHover === true ? 'active' : ''}`} onClick={() => onSettingChange('expandHover', settings.expandHover !== true)}>
-                    <input type="checkbox" data-setting-key="expandHover" checked={settings.expandHover === true} style={{display: 'none'}} readOnly />
-                </div>
-            </div>
+            <Toggle settingKey="embedImages" label="🖼️ 이미지 내장" value={settings.embedImages} />
+            <Toggle settingKey="expandHover" label="🖱️ 호버 요소 펼치기" value={settings.expandHover} defaultOn={false} />
         </div>
 
         <div className="desktop-section">
@@ -142,20 +159,25 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onSettingChange
                 <span className="desktop-option-label">참가자</span>
             </div>
             <div className="desktop-collapsible-content open">
-                {Array.from(participants).map(p => {
-                    const isHidden = globalSettings.filteredParticipants?.includes(p);
+                {Array.from(participants).map(p => (
+                    <Toggle key={p} settingKey="filteredParticipants" label={p} value={p} isGlobal={true} />
+                ))}
+            </div>
+            <div className="desktop-option-row">
+                <span className="desktop-option-label">UI 요소 필터</span>
+            </div>
+            <div className="desktop-collapsible-content open" style={{maxHeight: '200px', overflowY: 'auto'}}>
+                {uiClasses.map(classInfo => {
+                    const isChecked = settings.customFilters?.[classInfo.name] ?? false;
                     return (
-                        <div key={p} className="desktop-option-row">
-                            <span className="desktop-option-label">{p}</span>
-                            <div className={`desktop-toggle ${!isHidden ? 'active' : ''}`} onClick={() => onGlobalSettingChange('filteredParticipants', isHidden ? globalSettings.filteredParticipants.filter((fp: string) => fp !== p) : [...(globalSettings.filteredParticipants || []), p])}>
-                                <input type="checkbox" checked={!isHidden} style={{display: 'none'}} readOnly />
+                        <div key={classInfo.name} className="desktop-option-row">
+                            <label htmlFor={`filter-${classInfo.name}`} className="desktop-option-label" style={{fontFamily: 'monospace', fontSize: '0.9em'}}>{classInfo.displayName}</label>
+                            <div className={`desktop-toggle ${isChecked ? 'active' : ''}`} onClick={() => handleCustomFilterChange(classInfo.name, !isChecked)}>
+                                <input id={`filter-${classInfo.name}`} type="checkbox" checked={isChecked} style={{display: 'none'}} readOnly />
                             </div>
                         </div>
                     )
                 })}
-            </div>
-            <div className="desktop-option-row">
-                <span className="desktop-option-label">UI 요소</span>
             </div>
         </div>
 
@@ -195,32 +217,22 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onSettingChange
                     <option value="dom-to-image">dom-to-image-more</option>
                 </select>
             </div>
-            <div className="desktop-setting-row">
-                <label htmlFor="split-image-checkbox">Split Long Image</label>
-                <input id="split-image-checkbox" type="checkbox" checked={settings.splitImage || false} onChange={(e) => onSettingChange('splitImage', e.target.checked)} />
-            </div>
+            <Toggle settingKey="splitImage" label="긴 이미지 분할" value={settings.splitImage} defaultOn={false} />
             {settings.splitImage && (
-                <div className="desktop-setting-row">
-                    <label htmlFor="max-height-input">Max Height (px)</label>
-                    <input id="max-height-input" type="number" value={settings.maxImageHeight || 10000} onChange={(e) => onSettingChange('maxImageHeight', parseInt(e.target.value, 10))} />
+                <div className="desktop-option-row">
+                    <label htmlFor="max-height-input">최대 높이 (px)</label>
+                    <input id="max-height-input" type="number" className="desktop-input" value={settings.maxImageHeight || 10000} onChange={(e) => onSettingChange('maxImageHeight', parseInt(e.target.value, 10))} />
                 </div>
             )}
-            <div className="desktop-option-row">
-                <span className="desktop-option-label">Raw HTML 보기</span>
-                <div className={`desktop-toggle ${settings.rawHtmlView ? 'active' : ''}`} onClick={() => onSettingChange('rawHtmlView', !settings.rawHtmlView)}>
-                    <input type="checkbox" data-setting-key="rawHtmlView" checked={settings.rawHtmlView} style={{display: 'none'}} readOnly />
-                </div>
-            </div>
+            <Toggle settingKey="rawHtmlView" label="Raw HTML 보기" value={settings.rawHtmlView} defaultOn={false} />
         </div>
 
         <div className="desktop-section" id="desktop-arca-helper-controls">
             <div className="desktop-section-header">
                 <span className="desktop-section-icon">🚀</span>
                 <span className="desktop-section-title">아카라이브 헬퍼</span>
-                <div className={`desktop-toggle ${settings.showArcaHelper ? 'active' : ''}`} onClick={() => onSettingChange('showArcaHelper', !settings.showArcaHelper)}>
-                    <input type="checkbox" data-setting-key="showArcaHelper" checked={settings.showArcaHelper} style={{display: 'none'}} readOnly />
-                </div>
             </div>
+            <Toggle settingKey="showArcaHelper" label="헬퍼 표시" value={settings.showArcaHelper} defaultOn={false} />
             {settings.showArcaHelper && (
                 <div className="desktop-collapsible-content open">
                     <div className="desktop-option-row">

@@ -34,6 +34,7 @@ description: string;
 export type ThemeKey = 'basic' | 'modern' | 'fantasy' | 'fantasy2' | 'royal' | 'ocean' | 'sakura' | 'matrix' | 'log';
 export type ColorKey =
   | 'dark'
+  | 'classic'
   | 'light'
   | 'sepia'
   | 'ocean'
@@ -59,6 +60,7 @@ export interface LogContainerProps {
   preCollectedAvatarMap?: Map<string, string>;
   allowHtmlRendering?: boolean;
   onReady?: () => void;
+  globalSettings: any;
 }
 
 // 메시지 컴포넌트 Props
@@ -74,4 +76,5 @@ export interface MessageProps {
   isForArca: boolean;
   embedImagesAsBase64: boolean;
   allowHtmlRendering: boolean;
+  globalSettings: any;
 }

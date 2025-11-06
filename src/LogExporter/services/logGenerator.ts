@@ -1,9 +1,23 @@
 import { getNameFromNode } from '../utils/domUtils';
 
+const loadGlobalSettings = () => {
+    try {
+        const settings = localStorage.getItem('logExporterGlobalSettings');
+        const parsed = settings ? JSON.parse(settings) : {};
+        if (!Array.isArray(parsed.profileClasses)) parsed.profileClasses = [];
+        if (!Array.isArray(parsed.participantNameClasses)) parsed.participantNameClasses = [];
+        return parsed;
+    } catch (e) {
+        console.error('[Log Exporter] Failed to load global settings:', e);
+        return { profileClasses: [], participantNameClasses: [] };
+    }
+};
+
 // This is a simplified version of the original generateBasicFormatLog function.
 // It will be expanded later.
 export const generateBasicLog = async (nodes: HTMLElement[], charName: string, chatName: string, charAvatarUrl: string, settings: any, themes: any, colors: any) => {
     let html = '';
+    const globalSettings = loadGlobalSettings();
 
     const themeInfo = themes[settings.theme || 'basic'] || themes.basic;
     const colorPalette = settings.theme === 'basic' ? (colors[settings.color || 'dark'] || colors.dark) : (themeInfo.color || colors.dark);
@@ -20,7 +34,7 @@ export const generateBasicLog = async (nodes: HTMLElement[], charName: string, c
 
     for (const node of nodes) {
         const isUser = node.classList.contains('justify-end');
-        const name = getNameFromNode(node, charName);
+        const name = getNameFromNode(node, globalSettings, charName);
         const messageEl = node.querySelector('.prose, .chattext');
         const messageHtml = messageEl ? messageEl.innerHTML : '';
 
@@ -41,8 +55,9 @@ export const generateBasicLog = async (nodes: HTMLElement[], charName: string, c
 
 export const generateMarkdownLog = async (nodes: HTMLElement[], charName: string) => {
     let markdown = '';
+    const globalSettings = loadGlobalSettings();
     for (const node of nodes) {
-        const name = getNameFromNode(node, charName);
+        const name = getNameFromNode(node, globalSettings, charName);
         const messageEl = node.querySelector('.prose, .chattext');
         const messageText = messageEl ? (messageEl as HTMLElement).innerText : '';
         markdown += `**${name}**\n\n${messageText}\n\n---\n\n`;
@@ -52,14 +67,70 @@ export const generateMarkdownLog = async (nodes: HTMLElement[], charName: string
 
 export const generateTextLog = async (nodes: HTMLElement[], charName: string) => {
     let text = '';
+    const globalSettings = loadGlobalSettings();
     for (const node of nodes) {
-        const name = getNameFromNode(node, charName);
+        const name = getNameFromNode(node, globalSettings, charName);
         const messageEl = node.querySelector('.prose, .chattext');
         const messageText = messageEl ? (messageEl as HTMLElement).innerText : '';
         text += `${name}: ${messageText}\n\n`;
     }
     return text;
 };
+
+async function generateForceHoverCss(): Promise<string> {
+    const newRules = new Set<string>();
+    const hoverRegex = /:hover/g;
+
+    const createImportantRule = (rule: CSSRule): string | null => {
+        if (!(rule instanceof CSSStyleRule)) return null;
+        const styleRule = rule as CSSStyleRule;
+
+        if (!styleRule.selectorText || !hoverRegex.test(styleRule.selectorText)) return null;
+
+        const newSelector = styleRule.selectorText
+            .split(',')
+            .map(part => `.expand-hover-globally ${part.trim().replace(hoverRegex, '')}`)
+            .join(', ');
+
+        let newDeclarations = '';
+        for (let i = 0; i < styleRule.style.length; i++) {
+            const propName = styleRule.style[i];
+            const propValue = styleRule.style.getPropertyValue(propName);
+            const propPriority = styleRule.style.getPropertyPriority(propName);
+            newDeclarations += `${propName}: ${propValue} ${propPriority || '!important'}; `;
+        }
+
+        if (newSelector && newDeclarations) {
+            return `${newSelector} { ${newDeclarations} }`;
+        }
+        return null;
+    };
+
+    for (const sheet of Array.from(document.styleSheets)) {
+        try {
+            if (!sheet.cssRules) continue;
+            for (const rule of Array.from(sheet.cssRules)) {
+                if (rule.type === CSSRule.MEDIA_RULE) {
+                    const mediaRule = rule as CSSMediaRule;
+                    let mediaRules = '';
+                    for (const nestedRule of Array.from(mediaRule.cssRules)) {
+                        const importantRule = createImportantRule(nestedRule);
+                        if (importantRule) mediaRules += importantRule;
+                    }
+                    if (mediaRules) {
+                        newRules.add(`@media ${mediaRule.conditionText} { ${mediaRules} }`);
+                    }
+                } else {
+                    const importantRule = createImportantRule(rule);
+                    if (importantRule) newRules.add(importantRule);
+                }
+            }
+        } catch (e) {
+            // ignore CORS errors
+        }
+    }
+    return Array.from(newRules).join('\n');
+}
 
 export const generateHtmlPreview = async (nodes: HTMLElement[], settings: any) => {
     const getComprehensivePageCSS = async () => {
@@ -109,10 +180,18 @@ export const generateHtmlPreview = async (nodes: HTMLElement[], settings: any) =
         return clonedNode.outerHTML;
     }));
 
-    const fullCss = await getComprehensivePageCSS();
+    let fullCss = await getComprehensivePageCSS();
+    let extraCss = '';
+    if (settings.expandHover) {
+        extraCss = await generateForceHoverCss();
+    }
+
+    const wrapperClass = settings.expandHover ? 'class="expand-hover-globally"' : '';
 
     return `
-        <style>${fullCss}</style>
-        ${clonedNodesHtml.join('')}
+        <style>${fullCss}\n${extraCss}</style>
+        <div ${wrapperClass}>
+         ${clonedNodesHtml.join('')}
+        </div>
     `;
 };

@@ -22,6 +22,7 @@ const LogContainer: React.FC<LogContainerProps> = (props) => {
     preCollectedAvatarMap,
     allowHtmlRendering = false,
     onReady,
+    globalSettings,
   } = props;
 
   const [avatarMap, setAvatarMap] = useState<Map<string, string>>(preCollectedAvatarMap || new Map());
@@ -33,7 +34,7 @@ const LogContainer: React.FC<LogContainerProps> = (props) => {
   useEffect(() => {
     let isMounted = true;
     if (!preCollectedAvatarMap) {
-      collectCharacterAvatars(nodes, charInfo.name, isForArca).then(map => {
+      collectCharacterAvatars(nodes, charInfo.name, isForArca, globalSettings).then(map => {
         if (isMounted) {
           setAvatarMap(map);
           setIsReady(true);
@@ -43,7 +44,7 @@ const LogContainer: React.FC<LogContainerProps> = (props) => {
       setIsReady(true);
     }
     return () => { isMounted = false; };
-  }, [nodes, charInfo.name, isForArca, preCollectedAvatarMap]);
+  }, [nodes, charInfo.name, isForArca, preCollectedAvatarMap, globalSettings]);
 
   useEffect(() => {
     if (isReady && onReady) {
@@ -81,6 +82,7 @@ const LogContainer: React.FC<LogContainerProps> = (props) => {
             isForArca={isForArca}
             embedImagesAsBase64={embedImagesAsBase64}
             allowHtmlRendering={allowHtmlRendering}
+            globalSettings={globalSettings}
           />
         ))}
       </main>
