@@ -644,6 +644,687 @@
     }
 }
 
+/* ============================================
+   새로운 탭 기반 UI 스타일
+   ============================================ */
+
+/* 탭 네비게이션 */
+.tab-navigation {
+    display: flex;
+    gap: 4px;
+    padding: 16px 20px 0;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.tab-button {
+    padding: 10px 20px;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 0.92em;
+    font-weight: 500;
+    cursor: pointer;
+    border-radius: 8px 8px 0 0;
+    transition: all 0.2s;
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.tab-button:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+.tab-button.active {
+    background: var(--bg-primary);
+    color: var(--accent-primary);
+    font-weight: 600;
+}
+
+.tab-button.active::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--accent-primary);
+}
+
+/* 탭 컨텐츠 */
+.tab-content {
+    padding: 20px;
+    overflow-y: auto;
+    height: 100%;
+}
+
+.tab-section {
+    margin-bottom: 24px;
+}
+
+.tab-section:last-child {
+    margin-bottom: 0;
+}
+
+.tab-section-title {
+    font-size: 1em;
+    font-weight: 600;
+    color: var(--text-title);
+    margin: 0 0 12px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.section-description {
+    font-size: 0.85em;
+    color: var(--text-secondary);
+    margin: -8px 0 12px 0;
+}
+
+/* 옵션 행 */
+.tab-option-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    gap: 16px;
+    border-bottom: 1px solid var(--border-color-light);
+}
+
+.tab-option-row:last-child {
+    border-bottom: none;
+}
+
+.option-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.option-label {
+    font-size: 0.92em;
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.option-description {
+    font-size: 0.8em;
+    color: var(--text-secondary);
+}
+
+/* 토글 스위치 */
+.tab-toggle {
+    position: relative;
+    width: 48px;
+    height: 26px;
+    background: var(--border-color);
+    border-radius: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.tab-toggle::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 20px;
+    height: 20px;
+    background: var(--text-white);
+    border-radius: 50%;
+    transition: all 0.2s;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.tab-toggle.active {
+    background: var(--accent-primary);
+}
+
+.tab-toggle.active::after {
+    left: 25px;
+}
+
+/* 셀렉트 */
+.tab-select {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 0.9em;
+    min-width: 150px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.tab-select:hover {
+    border-color: var(--accent-primary);
+}
+
+.tab-select:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 2px rgba(97, 175, 239, 0.15);
+}
+
+/* 슬라이더 */
+.slider-container {
+    padding: 8px 0;
+}
+
+.tab-slider {
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--border-color);
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.tab-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--accent-primary);
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.tab-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.15);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+}
+
+.tab-slider::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--accent-primary);
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.tab-slider::-moz-range-thumb:hover {
+    transform: scale(1.15);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+}
+
+.slider-value {
+    text-align: center;
+    font-size: 0.9em;
+    color: var(--accent-primary);
+    font-weight: 600;
+    margin-top: 8px;
+}
+
+/* 숫자 입력 */
+.number-input-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.tab-number-input {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 0.9em;
+    width: 80px;
+    text-align: center;
+}
+
+.tab-number-input:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 2px rgba(97, 175, 239, 0.15);
+}
+
+.input-unit {
+    font-size: 0.85em;
+    color: var(--text-secondary);
+}
+
+/* 포맷 카드 그리드 */
+.format-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+}
+
+.format-card {
+    background: var(--bg-tertiary);
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    padding: 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.format-card:hover {
+    border-color: var(--accent-primary);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.format-card.active {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: var(--btn-primary-text);
+    box-shadow: 0 4px 16px rgba(97, 175, 239, 0.3);
+}
+
+.format-icon {
+    font-size: 2em;
+    margin-bottom: 4px;
+}
+
+.format-name {
+    font-size: 0.95em;
+    font-weight: 600;
+}
+
+.format-desc {
+    font-size: 0.8em;
+    opacity: 0.8;
+}
+
+/* 필터 칩 */
+.filter-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.filter-chip {
+    background: var(--bg-tertiary);
+    border: 2px solid var(--border-color);
+    border-radius: 20px;
+    padding: 8px 16px;
+    font-size: 0.88em;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.filter-chip:hover {
+    border-color: var(--accent-primary);
+}
+
+.filter-chip.active {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: var(--btn-primary-text);
+    font-weight: 600;
+}
+
+/* UI 필터 리스트 */
+.ui-filter-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.ui-filter-item {
+    padding: 10px 12px;
+    background: var(--bg-tertiary);
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+}
+
+.ui-filter-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.ui-filter-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: var(--accent-primary);
+}
+
+.ui-filter-name {
+    font-size: 0.9em;
+    font-family: monospace;
+    color: var(--text-primary);
+}
+
+/* ============================================
+   플러그인 설정 모달
+   ============================================ */
+
+.plugin-settings-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10002;
+    animation: fadeIn 0.2s;
+}
+
+.plugin-settings-modal {
+    background: var(--bg-tertiary);
+    border-radius: 12px;
+    width: 90%;
+    max-width: 600px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.plugin-settings-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.plugin-settings-header h2 {
+    margin: 0;
+    font-size: 1.3em;
+    color: var(--text-white);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.close-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-white);
+    font-size: 2em;
+    cursor: pointer;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.2s;
+    line-height: 1;
+}
+
+.close-btn:hover {
+    background: var(--btn-secondary-bg);
+    transform: rotate(90deg);
+}
+
+.plugin-settings-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+}
+
+.plugin-settings-content::-webkit-scrollbar {
+    width: 10px;
+}
+
+.plugin-settings-content::-webkit-scrollbar-track {
+    background: var(--bg-primary);
+    border-radius: 5px;
+}
+
+.plugin-settings-content::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 5px;
+}
+
+.plugin-settings-content::-webkit-scrollbar-thumb:hover {
+    background: var(--accent-primary);
+}
+
+.settings-section {
+    margin-bottom: 32px;
+}
+
+.settings-section:last-child {
+    margin-bottom: 0;
+}
+
+.settings-section h3 {
+    font-size: 1.1em;
+    color: var(--text-title);
+    margin: 0 0 16px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.setting-item {
+    margin-bottom: 16px;
+}
+
+.setting-item label {
+    display: block;
+    font-size: 0.9em;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+    font-weight: 500;
+}
+
+.setting-select {
+    width: 100%;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-size: 0.95em;
+    cursor: pointer;
+}
+
+.setting-select:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 2px rgba(97, 175, 239, 0.15);
+}
+
+.custom-selector-group {
+    margin-bottom: 24px;
+}
+
+.custom-selector-group:last-child {
+    margin-bottom: 0;
+}
+
+.custom-selector-group label {
+    display: block;
+    font-size: 0.95em;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+    font-weight: 600;
+}
+
+.setting-description {
+    font-size: 0.82em;
+    color: var(--text-secondary);
+    margin-bottom: 10px;
+    line-height: 1.4;
+}
+
+.input-group {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.setting-input {
+    flex: 1;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-size: 0.9em;
+}
+
+.setting-input:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 2px rgba(97, 175, 239, 0.15);
+}
+
+.add-btn {
+    background: var(--accent-primary);
+    color: var(--btn-primary-text);
+    border: none;
+    border-radius: 6px;
+    padding: 10px 20px;
+    font-size: 0.9em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.add-btn:hover {
+    filter: brightness(1.1);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(97, 175, 239, 0.3);
+}
+
+.class-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.class-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 12px;
+    background: var(--bg-primary);
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+}
+
+.class-item code {
+    flex: 1;
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 0.88em;
+    color: var(--accent-primary);
+    word-break: break-all;
+}
+
+.remove-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 1.5em;
+    cursor: pointer;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: all 0.2s;
+    line-height: 1;
+}
+
+.remove-btn:hover {
+    background: #f7768e;
+    color: white;
+}
+
+.plugin-settings-footer {
+    padding: 16px 24px;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.btn-secondary {
+    background: var(--btn-secondary-bg);
+    color: var(--btn-secondary-text);
+    border: none;
+    border-radius: 6px;
+    padding: 10px 20px;
+    font-size: 0.92em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+    filter: brightness(1.1);
+    transform: translateY(-1px);
+}
+
+/* 설정 버튼 (헤더에 추가) */
+.settings-button {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-size: 0.9em;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.settings-button:hover {
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
+    background: var(--bg-tertiary);
+}
+
+@media (max-width: 768px) {
+    .format-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .tab-navigation {
+        padding: 12px 16px 0;
+        gap: 2px;
+    }
+    
+    .tab-button {
+        padding: 8px 14px;
+        font-size: 0.85em;
+    }
+    
+    .tab-content {
+        padding: 16px;
+    }
+}
+
 @media (max-width: 768px) {
     .log-exporter-modal-backdrop {
         padding: 0 !important;

@@ -6,10 +6,14 @@ import { THEMES, COLORS } from './components/constants';
 import type { RisuCharacter } from '../types/risuai';
 import type { ThemeKey, ColorKey } from '../types';
 
-import SettingsPanel from './components/SettingsPanel';
+import PluginSettingsModal from './components/PluginSettingsModal';
+import ExportTab from './components/ExportTab';
+import FilterTab from './components/FilterTab';
+import AdvancedTab from './components/AdvancedTab';
+import MobileSettingsTab from './components/MobileSettingsTab';
+import MobileToolsTab from './components/MobileToolsTab';
 
 import PreviewPanel from './components/PreviewPanel';
-import ToolsPanel from './components/ToolsPanel';
 import ArcaHelperModal from './components/ArcaHelperModal';
 
 import Actionbar from './components/Actionbar';
@@ -77,7 +81,8 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
     const [savedSettings, setSavedSettings] = useState<Settings>({});
     const [globalSettings, setGlobalSettings] = useState<any>({});
     const [otherFormatContent, setOtherFormatContent] = useState('');
-    const [activeTab, setActiveTab] = useState('preview');
+    const [activeTab, setActiveTab] = useState('export');
+    const [isPluginSettingsOpen, setIsPluginSettingsOpen] = useState(false);
     const [isArcaHelperOpen, setIsArcaHelperOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [progress, setProgress] = useState({ active: false, message: '', current: 0, total: 0 });
@@ -357,8 +362,10 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
                         <button id="log-exporter-close" className="log-exporter-modal-close-btn" title="닫기 (Esc)" aria-label="모달 닫기" onClick={handleClose}>
                             &times;
                         </button>
-                        <span className="header-title">로그 내보내기 옵션</span>
-                        <span className="header-help">(Ctrl+/ 도움말)</span>
+                        <span className="header-title">로그 내보내기</span>
+                        <button className="settings-button" onClick={() => setIsPluginSettingsOpen(true)}>
+                            ⚙️ 플러그인 설정
+                        </button>
                     </div>
                     {isLoading ? (
                         <div className="desktop-modal-loading">
@@ -379,7 +386,7 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
                                 </button>
                             </div>
                             <div className={`mobile-tab-content mobile-settings-tab ${activeTab === 'settings' ? 'active' : ''}`}>
-                                <SettingsPanel 
+                                <MobileSettingsTab 
                                     settings={savedSettings} 
                                     onSettingChange={handleSettingChange} 
                                     themes={THEMES} 
@@ -405,7 +412,7 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
                                 />
                             </div>
                             <div className={`mobile-tab-content mobile-tools-tab ${activeTab === 'tools' ? 'active' : ''}`}>
-                                <ToolsPanel 
+                                <MobileToolsTab 
                                     settings={savedSettings}
                                     onSettingChange={handleSettingChange}
                                 />
@@ -434,20 +441,52 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
                         <>
                             <div className="log-exporter-modal-content">
                                 <div className="desktop-settings-panel">
-                                    <SettingsPanel 
-                                        settings={savedSettings} 
-                                        onSettingChange={handleSettingChange} 
-                                        themes={THEMES} 
-                                        colors={COLORS} 
-                                        participants={participants}
-                                        globalSettings={globalSettings}
-                                        onGlobalSettingChange={handleGlobalSettingChange}
-                                        uiClasses={uiClasses}
-                                    />
-                                    <ToolsPanel 
-                                        settings={savedSettings}
-                                        onSettingChange={handleSettingChange}
-                                    />
+                                    <div className="tab-navigation">
+                                        <button 
+                                            className={`tab-button ${activeTab === 'export' ? 'active' : ''}`}
+                                            onClick={() => setActiveTab('export')}
+                                        >
+                                            📤 내보내기
+                                        </button>
+                                        <button 
+                                            className={`tab-button ${activeTab === 'filter' ? 'active' : ''}`}
+                                            onClick={() => setActiveTab('filter')}
+                                        >
+                                            🔍 필터
+                                        </button>
+                                        <button 
+                                            className={`tab-button ${activeTab === 'advanced' ? 'active' : ''}`}
+                                            onClick={() => setActiveTab('advanced')}
+                                        >
+                                            ⚡ 고급
+                                        </button>
+                                    </div>
+                                    <div style={{flex: 1, overflow: 'hidden'}}>
+                                        {activeTab === 'export' && (
+                                            <ExportTab 
+                                                settings={savedSettings}
+                                                onSettingChange={handleSettingChange}
+                                                themes={THEMES}
+                                                colors={COLORS}
+                                            />
+                                        )}
+                                        {activeTab === 'filter' && (
+                                            <FilterTab 
+                                                settings={savedSettings}
+                                                onSettingChange={handleSettingChange}
+                                                participants={participants}
+                                                globalSettings={globalSettings}
+                                                onGlobalSettingChange={handleGlobalSettingChange}
+                                                uiClasses={uiClasses}
+                                            />
+                                        )}
+                                        {activeTab === 'advanced' && (
+                                            <AdvancedTab 
+                                                settings={savedSettings}
+                                                onSettingChange={handleSettingChange}
+                                            />
+                                        )}
+                                    </div>
                                 </div>
                                 <div className="desktop-preview-panel">
                                     <PreviewPanel 
@@ -485,6 +524,13 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
                             </div>
                         </>
                     )}
+                    
+                    <PluginSettingsModal 
+                        isOpen={isPluginSettingsOpen}
+                        onClose={() => setIsPluginSettingsOpen(false)}
+                        globalSettings={globalSettings}
+                        onGlobalSettingChange={handleGlobalSettingChange}
+                    />
                 </div>
             )}
             {progress.active && (

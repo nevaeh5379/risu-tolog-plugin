@@ -1,0 +1,153 @@
+import React from 'react';
+
+interface AdvancedTabProps {
+  settings: any;
+  onSettingChange: (key: string, value: any) => void;
+}
+
+const AdvancedTab: React.FC<AdvancedTabProps> = ({ settings, onSettingChange }) => {
+
+  const Toggle: React.FC<{ settingKey: string, label: string, value: any, defaultOn?: boolean, description?: string }> = ({ 
+    settingKey, label, value, defaultOn = true, description 
+  }) => {
+    const isChecked = defaultOn ? value !== false : value === true;
+    const handleChange = () => {
+      onSettingChange(settingKey, !isChecked);
+    };
+    
+    return (
+      <div className="tab-option-row">
+        <div className="option-info">
+          <span className="option-label">{label}</span>
+          {description && <span className="option-description">{description}</span>}
+        </div>
+        <div className={`tab-toggle ${isChecked ? 'active' : ''}`} onClick={handleChange}>
+          <input type="checkbox" checked={isChecked} style={{display: 'none'}} readOnly />
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="tab-content">
+      <div className="tab-section">
+        <h3 className="tab-section-title">👁️ 미리보기</h3>
+        <div className="tab-option-row">
+          <span className="option-label">글자 크기</span>
+          <div className="number-input-group">
+            <input 
+              type="number" 
+              className="tab-number-input" 
+              value={settings.previewFontSize || 16} 
+              onChange={(e) => onSettingChange('previewFontSize', e.target.value)} 
+              min="10" 
+              max="32" 
+            />
+            <span className="input-unit">px</span>
+          </div>
+        </div>
+        <div className="tab-option-row">
+          <span className="option-label">너비</span>
+          <div className="number-input-group">
+            <input 
+              type="number" 
+              className="tab-number-input" 
+              value={settings.previewWidth || 800} 
+              onChange={(e) => onSettingChange('previewWidth', e.target.value)} 
+              min="320" 
+              max="1920" 
+              step="10" 
+            />
+            <span className="input-unit">px</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="tab-section">
+        <h3 className="tab-section-title">📷 이미지 내보내기</h3>
+        <div className="tab-option-row">
+          <span className="option-label">해상도</span>
+          <select 
+            className="tab-select" 
+            value={settings.imageResolution || 1} 
+            onChange={(e) => onSettingChange('imageResolution', e.target.value)}
+          >
+            <option value="1">1x (기본)</option>
+            <option value="2">2x (고해상도)</option>
+            <option value="3">3x (초고해상도)</option>
+          </select>
+        </div>
+        <div className="tab-option-row">
+          <span className="option-label">라이브러리</span>
+          <select 
+            className="tab-select" 
+            value={settings.imageLibrary || 'html-to-image'} 
+            onChange={(e) => onSettingChange('imageLibrary', e.target.value)}
+          >
+            <option value="html-to-image">html-to-image (권장)</option>
+            <option value="html2canvas">html2canvas</option>
+            <option value="dom-to-image">dom-to-image-more</option>
+          </select>
+        </div>
+        <div className="tab-option-row">
+          <span className="option-label">포맷</span>
+          <select 
+            className="tab-select" 
+            value={settings.imageFormat || 'png'} 
+            onChange={(e) => onSettingChange('imageFormat', e.target.value)}
+          >
+            <option value="png">PNG (무손실)</option>
+            <option value="jpeg">JPEG (압축)</option>
+            <option value="webp">WebP (최신)</option>
+          </select>
+        </div>
+        
+        <Toggle 
+          settingKey="splitImage" 
+          label="긴 이미지 분할" 
+          description="큰 이미지를 여러 조각으로 나눔"
+          value={settings.splitImage} 
+          defaultOn={false} 
+        />
+        
+        {settings.splitImage && (
+          <div className="tab-option-row" style={{marginLeft: '20px'}}>
+            <span className="option-label">최대 높이</span>
+            <div className="number-input-group">
+              <input 
+                type="number" 
+                className="tab-number-input" 
+                value={settings.maxImageHeight || 10000} 
+                onChange={(e) => onSettingChange('maxImageHeight', parseInt(e.target.value, 10))} 
+                min="1000" 
+                max="50000" 
+                step="1000" 
+              />
+              <span className="input-unit">px</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="tab-section">
+        <h3 className="tab-section-title">🔧 개발자 도구</h3>
+        <Toggle 
+          settingKey="rawHtmlView" 
+          label="Raw HTML 보기" 
+          description="생성된 HTML 코드 직접 보기"
+          value={settings.rawHtmlView} 
+          defaultOn={false} 
+        />
+        <Toggle 
+          settingKey="isEditable" 
+          label="로그 편집 모드" 
+          description="메시지 직접 수정 및 삭제"
+          value={settings.isEditable} 
+          defaultOn={false} 
+        />
+      </div>
+    </div>
+  );
+};
+
+export default AdvancedTab;
