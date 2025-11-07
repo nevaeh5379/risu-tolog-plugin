@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { UIClassInfo } from '../utils/domUtils';
 
 interface SettingsPanelProps {
@@ -13,6 +13,34 @@ interface SettingsPanelProps {
 }
 
 const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onSettingChange, themes, colors, participants, globalSettings, onGlobalSettingChange, uiClasses }) => {
+  const [newProfileClass, setNewProfileClass] = useState('');
+  const [newParticipantNameClass, setNewParticipantNameClass] = useState('');
+
+  const handleAddProfileClass = () => {
+    if (newProfileClass && !globalSettings.profileClasses?.includes(newProfileClass)) {
+      const newClasses = [...(globalSettings.profileClasses || []), newProfileClass];
+      onGlobalSettingChange('profileClasses', newClasses);
+      setNewProfileClass('');
+    }
+  };
+
+  const handleRemoveProfileClass = (cls: string) => {
+    const newClasses = globalSettings.profileClasses?.filter((c: string) => c !== cls);
+    onGlobalSettingChange('profileClasses', newClasses);
+  };
+
+  const handleAddParticipantNameClass = () => {
+    if (newParticipantNameClass && !globalSettings.participantNameClasses?.includes(newParticipantNameClass)) {
+      const newClasses = [...(globalSettings.participantNameClasses || []), newParticipantNameClass];
+      onGlobalSettingChange('participantNameClasses', newClasses);
+      setNewParticipantNameClass('');
+    }
+  };
+
+  const handleRemoveParticipantNameClass = (cls: string) => {
+    const newClasses = globalSettings.participantNameClasses?.filter((c: string) => c !== cls);
+    onGlobalSettingChange('participantNameClasses', newClasses);
+  };
 
   const handleFormatChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onSettingChange('format', e.target.value);
@@ -70,6 +98,57 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onSettingChange
                     <option value="classic">클래식</option>
                     <option value="light">라이트</option>
                 </select>
+            </div>
+        </div>
+
+        <div className="desktop-section">
+            <div className="desktop-section-header">
+                <span className="desktop-section-icon">✍️</span>
+                <span className="desktop-section-title">커스텀 선택자</span>
+            </div>
+            <div className="desktop-option-row" style={{flexDirection: 'column', alignItems: 'flex-start', gap: '8px'}}>
+                <span className="desktop-option-label" style={{marginBottom: '8px'}}>프로필 클래스</span>
+                <div style={{display: 'flex', gap: '8px', width: '100%'}}>
+                    <input 
+                        type="text" 
+                        className="desktop-input" 
+                        value={newProfileClass} 
+                        onChange={(e) => setNewProfileClass(e.target.value)}
+                        placeholder="클래스 이름 추가..."
+                        style={{flex: 1}}
+                    />
+                    <button className="desktop-btn desktop-btn-secondary" onClick={handleAddProfileClass} style={{padding: '8px 12px'}}>추가</button>
+                </div>
+                <div className="desktop-collapsible-content open" style={{width: '100%', marginTop: '10px', padding: '0'}}>
+                    {globalSettings.profileClasses?.map((cls: string) => (
+                        <div key={cls} className="desktop-option-row">
+                            <span className="desktop-option-label" style={{fontFamily: 'monospace', fontSize: '0.9em'}}>{cls}</span>
+                            <button onClick={() => handleRemoveProfileClass(cls)} className="desktop-btn desktop-btn-danger" style={{padding: '4px 8px', fontSize: '0.8em'}}>삭제</button>
+                        </div>
+                    ))}
+                </div>
+            </div>
+            <div className="desktop-option-row" style={{flexDirection: 'column', alignItems: 'flex-start', borderTop: '1px solid var(--border-color-light)', paddingTop: '10px', gap: '8px'}}>
+                <span className="desktop-option-label" style={{marginBottom: '8px'}}>참가자 이름 클래스</span>
+                <div style={{display: 'flex', gap: '8px', width: '100%'}}>
+                    <input 
+                        type="text" 
+                        className="desktop-input" 
+                        value={newParticipantNameClass} 
+                        onChange={(e) => setNewParticipantNameClass(e.target.value)}
+                        placeholder="클래스 이름 추가..."
+                        style={{flex: 1}}
+                    />
+                    <button className="desktop-btn desktop-btn-secondary" onClick={handleAddParticipantNameClass} style={{padding: '8px 12px'}}>추가</button>
+                </div>
+                <div className="desktop-collapsible-content open" style={{width: '100%', marginTop: '10px', padding: '0'}}>
+                    {globalSettings.participantNameClasses?.map((cls: string) => (
+                        <div key={cls} className="desktop-option-row">
+                            <span className="desktop-option-label" style={{fontFamily: 'monospace', fontSize: '0.9em'}}>{cls}</span>
+                            <button onClick={() => handleRemoveParticipantNameClass(cls)} className="desktop-btn desktop-btn-danger" style={{padding: '4px 8px', fontSize: '0.8em'}}>삭제</button>
+                        </div>
+                    ))}
+                </div>
             </div>
         </div>
 

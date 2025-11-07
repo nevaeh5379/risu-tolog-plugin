@@ -3,14 +3,9 @@ import React from 'react';
 interface ToolsPanelProps {
   settings: any;
   onSettingChange: (key: string, value: any) => void;
-  arcaTitle: string;
-  setArcaTitle: (title: string) => void;
-  arcaContent: string;
-  setArcaContent: (content: string) => void;
-  messageNodes: HTMLElement[];
 }
 
-const ToolsPanel: React.FC<ToolsPanelProps> = ({ settings, onSettingChange, arcaTitle, setArcaTitle, arcaContent, setArcaContent, messageNodes }) => {
+const ToolsPanel: React.FC<ToolsPanelProps> = ({ settings, onSettingChange }) => {
 
     const Toggle: React.FC<{ settingKey: string, label: string, value: any, defaultOn?: boolean }> = ({ settingKey, label, value, defaultOn = true }) => {
         const isChecked = defaultOn ? value !== false : value === true;
@@ -75,37 +70,7 @@ const ToolsPanel: React.FC<ToolsPanelProps> = ({ settings, onSettingChange, arca
             <Toggle settingKey="rawHtmlView" label="Raw HTML 보기" value={settings.rawHtmlView} defaultOn={false} />
         </div>
 
-        <div className="desktop-section" id="desktop-arca-helper-controls">
-            <div className="desktop-section-header">
-                <span className="desktop-section-icon">🚀</span>
-                <span className="desktop-section-title">아카라이브 헬퍼</span>
-            </div>
-            <Toggle settingKey="showArcaHelper" label="헬퍼 표시" value={settings.showArcaHelper} defaultOn={false} />
-            {settings.showArcaHelper && (
-                <div className="desktop-collapsible-content open">
-                    <div className="desktop-option-row">
-                        <span className="desktop-option-label">제목</span>
-                        <input type="text" className="desktop-input" style={{width: '100%'}} value={arcaTitle} onChange={(e) => setArcaTitle(e.target.value)} />
-                    </div>
-                    <div className="desktop-option-row">
-                        <span className="desktop-option-label">내용</span>
-                        <textarea className="desktop-input" style={{width: '100%', height: '100px'}} value={arcaContent} onChange={(e) => setArcaContent(e.target.value)}></textarea>
-                    </div>
-                    <button className="desktop-btn desktop-btn-secondary" style={{width: '100%', marginTop: '10px'}} onClick={() => {
-                        let imageList = '';
-                        let imageCounter = 0;
-                        for (const node of messageNodes) {
-                            const images = Array.from(node.querySelectorAll('img'));
-                            for (let i = 0; i < images.length; i++) {
-                                imageCounter++;
-                                imageList += `[img]${imageCounter}.jpg[/img]\n`;
-                            }
-                        }
-                        setArcaContent(imageList);
-                    }}>이미지 목록 생성</button>
-                </div>
-            )}
-        </div>
+
     </>
   );
 };

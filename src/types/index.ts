@@ -78,3 +78,19 @@ export interface MessageProps {
   allowHtmlRendering: boolean;
   globalSettings: any;
 }
+
+export type LogNode = HTMLElement;
+
+export interface ArcaImage {
+  url: string;
+  filename: string;
+  isWebM: boolean;
+}
+
+export interface GlobalSettings {
+  profileClasses: string[];
+  participantNameClasses: string[];
+  defaultClassesAdded?: boolean;
+  uiTheme?: string;
+  filteredParticipants?: string[];
+}

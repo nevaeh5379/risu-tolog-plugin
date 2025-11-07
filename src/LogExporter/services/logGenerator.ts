@@ -1,17 +1,7 @@
 import { getNameFromNode } from '../utils/domUtils';
+import { loadGlobalSettings } from './settingsService';
 
-const loadGlobalSettings = () => {
-    try {
-        const settings = localStorage.getItem('logExporterGlobalSettings');
-        const parsed = settings ? JSON.parse(settings) : {};
-        if (!Array.isArray(parsed.profileClasses)) parsed.profileClasses = [];
-        if (!Array.isArray(parsed.participantNameClasses)) parsed.participantNameClasses = [];
-        return parsed;
-    } catch (e) {
-        console.error('[Log Exporter] Failed to load global settings:', e);
-        return { profileClasses: [], participantNameClasses: [] };
-    }
-};
+
 
 // This is a simplified version of the original generateBasicFormatLog function.
 // It will be expanded later.

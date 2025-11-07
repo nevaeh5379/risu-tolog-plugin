@@ -988,3 +988,119 @@
 .desktop-image-save-group select {
     border-radius: 8px; /* Match button border-radius */
 }
+
+/* Arca Helper Modal Styles */
+.arca-helper-modal {
+    width: 90% !important;
+    max-width: 720px !important;
+    height: auto !important;
+    max-height: 80vh !important;
+}
+
+.arca-helper-modal .desktop-modal-content {
+    display: flex !important;
+    flex-direction: column !important;
+    padding: 24px !important;
+    gap: 20px !important;
+}
+
+.arca-helper-step {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.arca-helper-step h3 {
+    font-size: 1.2em;
+    color: var(--text-title);
+    margin: 0;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 10px;
+}
+
+.arca-helper-step p {
+    margin: 0;
+    line-height: 1.6;
+    color: var(--text-secondary);
+}
+
+.arca-helper-step ol {
+    padding-left: 20px;
+    margin: 0;
+    color: var(--text-secondary);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.arca-helper-notice {
+    font-size: 0.85em;
+    color: var(--text-secondary);
+    background-color: var(--bg-secondary);
+    padding: 10px;
+    border-radius: 6px;
+    border-left: 3px solid var(--accent-secondary);
+}
+
+.arca-helper-processing {
+    align-items: center;
+    justify-content: center;
+    min-height: 200px;
+    text-align: center;
+}
+
+.desktop-spinner {
+    width: 48px;
+    height: 48px;
+    border: 5px solid var(--border-color);
+    border-bottom-color: var(--accent-primary);
+    border-radius: 50%;
+    display: inline-block;
+    box-sizing: border-box;
+    animation: rotation 1s linear infinite;
+}
+
+@keyframes rotation {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+.arca-helper-step textarea {
+    min-height: 150px;
+    resize: vertical;
+}
+
+.arca-helper-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin-top: 10px;
+}
+
+.arca-helper-error {
+    background-color: #f7768e20;
+    color: #f7768e;
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid #f7768e;
+    font-size: 0.9em;
+}
+
+.arca-paste-area {
+    min-height: 150px;
+    resize: vertical;
+    font-family: monospace;
+}
+
+.arca-helper-modal .desktop-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 16px 24px;
+    border-top: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+}

@@ -5,19 +5,44 @@ import { processChatLog } from '../utils/domParser'; // 예시 경로
 import { getLogHtml } from '../LogExporter/services/htmlGenerator'; // 예시 경로
 import { collectCharacterAvatars } from '../LogExporter/services/avatarService'; // 예시 경로
 import { convertWebMToAnimatedWebP } from './webmConverter'; // 예시 경로
+import { loadGlobalSettings } from '../LogExporter/services/settingsService';
+import type { ArcaImage } from '../types';
 
-const loadGlobalSettings = () => {
-    try {
-        const settings = localStorage.getItem('logExporterGlobalSettings');
-        const parsed = settings ? JSON.parse(settings) : {};
-        if (!Array.isArray(parsed.profileClasses)) parsed.profileClasses = [];
-        if (!Array.isArray(parsed.participantNameClasses)) parsed.participantNameClasses = [];
-        return parsed;
-    } catch (e) {
-        console.error('[Log Exporter] Failed to load global settings:', e);
-        return { profileClasses: [], participantNameClasses: [] };
-    }
-};
+export async function createZipFromMediaList(
+  images: ArcaImage[],
+  options: { convertWebM: boolean }
+): Promise<Blob> {
+  const zip = new JSZip();
+
+  const mediaPromises = images.map(image => 
+    fetch(image.url)
+      .then(res => {
+        if (!res.ok) throw new Error(`미디어 다운로드 실패: ${image.url}`);
+        return res.blob();
+      })
+      .then(async (blob) => {
+        if (options.convertWebM && image.isWebM) {
+          try {
+            const file = new File([blob], 'video.webm', { type: 'video/webm' });
+            const webpBlob = await convertWebMToAnimatedWebP(file, null, null, 80);
+            zip.file(image.filename, webpBlob);
+            return;
+          } catch (e) {
+            console.error(`[Arca Zip] WebM 변환 실패, 원본 저장: ${image.url}`, e);
+            // 변환 실패 시 원본 저장 로직으로 넘어감
+          }
+        }
+        zip.file(image.filename, blob);
+      })
+      .catch(e => console.warn(`미디어 처리/압축 실패: ${image.url}`, e))
+  );
+
+  await Promise.all(mediaPromises);
+  
+  const content = await zip.generateAsync({ type: "blob" });
+  return content;
+}
+
 
 // 전역 alert 함수가 있다면, 타입을 선언해줍니다.
 declare function alert(message: string, type: 'info' | 'error' | 'success'): void;

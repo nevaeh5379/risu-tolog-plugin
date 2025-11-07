@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { copyToClipboard, saveAsFile } from '../services/fileService';
 import { saveAsImage } from '../services/imageService';
-import { generateArcaContent } from '../services/arcaService';
 import { THEMES, COLORS } from './constants';
 
 interface ActionbarProps {
@@ -12,9 +11,10 @@ interface ActionbarProps {
   settings: any;
   backgroundColor: string;
   charAvatarUrl: string;
+  onOpenArcaHelper?: () => void;
 }
 
-const Actionbar: React.FC<ActionbarProps> = ({ charName, chatName, getPreviewContent, messageNodes, settings, backgroundColor, charAvatarUrl }) => {
+const Actionbar: React.FC<ActionbarProps> = ({ charName, chatName, getPreviewContent, messageNodes, settings, backgroundColor, charAvatarUrl, onOpenArcaHelper }) => {
     const [imageFormat, setImageFormat] = useState<'png' | 'jpeg' | 'webp'>('png');
 
     const handleCopyHtml = async () => {
@@ -58,11 +58,8 @@ const Actionbar: React.FC<ActionbarProps> = ({ charName, chatName, getPreviewCon
                 <option value="webp">WebP</option>
             </select>
         </div>
-        <button className="desktop-btn desktop-btn-primary" onClick={async () => {
-            const arcaContent = await generateArcaContent(messageNodes, 'My Log', 'Check out my log!');
-            copyToClipboard(arcaContent);
-        }}>
-            🚀 아카라이브용 복사
+        <button className="desktop-btn desktop-btn-warning" onClick={onOpenArcaHelper}>
+            🚀 아카라이브 도우미
         </button>
     </div>
   );

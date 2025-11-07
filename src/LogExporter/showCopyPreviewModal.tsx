@@ -10,12 +10,14 @@ import SettingsPanel from './components/SettingsPanel';
 
 import PreviewPanel from './components/PreviewPanel';
 import ToolsPanel from './components/ToolsPanel';
+import ArcaHelperModal from './components/ArcaHelperModal';
 
 import Actionbar from './components/Actionbar';
 import { generateMarkdownLog, generateTextLog, generateHtmlPreview } from './services/logGenerator';
 import { getLogHtml } from './services/htmlGenerator';
 import { collectUIClasses, filterWithCustomClasses, getNameFromNode } from './utils/domUtils';
 import type { UIClassInfo } from './utils/domUtils';
+import { loadAllCharSettings, loadGlobalSettings } from './services/settingsService';
 
 interface Settings {
   format?: 'basic' | 'html' | 'markdown' | 'text';
@@ -39,28 +41,6 @@ interface Settings {
 
 
 // Helper functions from the original script (to be moved to service files later)
-const loadAllCharSettings = () => {
-    try {
-        const settings = localStorage.getItem('logExporterCharacterSettings');
-        return settings ? JSON.parse(settings) : {};
-    } catch (e) {
-        console.error('[Log Exporter] Failed to load settings:', e);
-        return {};
-    }
-};
-
-const loadGlobalSettings = () => {
-    try {
-        const settings = localStorage.getItem('logExporterGlobalSettings');
-        const parsed = settings ? JSON.parse(settings) : {};
-        if (!Array.isArray(parsed.profileClasses)) parsed.profileClasses = [];
-        if (!Array.isArray(parsed.participantNameClasses)) parsed.participantNameClasses = [];
-        return parsed;
-    } catch (e) {
-        console.error('[Log Exporter] Failed to load global settings:', e);
-        return { profileClasses: [], participantNameClasses: [] };
-    }
-};
 
 
 interface ShowCopyPreviewModalProps {
@@ -93,10 +73,9 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
 
     const [savedSettings, setSavedSettings] = useState<Settings>({});
     const [globalSettings, setGlobalSettings] = useState<any>({});
-    const [arcaTitle, setArcaTitle] = useState('');
-    const [arcaContent, setArcaContent] = useState('');
     const [previewContent, setPreviewContent] = useState('');
     const [activeTab, setActiveTab] = useState('preview');
+    const [isArcaHelperOpen, setIsArcaHelperOpen] = useState(false);
 
     const isMobile = useMediaQuery('(max-width: 768px)');
 
@@ -241,114 +220,118 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
     const uiTheme = globalSettings.uiTheme || 'dark';
 
     return (
-        <div className="log-exporter-modal-backdrop" onClick={handleClose}>
-            <div className="log-exporter-modal" data-theme={uiTheme} onClick={(e) => e.stopPropagation()}>
-                <div className="log-exporter-modal-header-bar">
-                    <button id="log-exporter-close" className="log-exporter-modal-close-btn" title="닫기 (Esc)" aria-label="모달 닫기" onClick={handleClose}>
-                        &times;
-                    </button>
-                                        <span className="header-title">로그 내보내기 옵션</span>
-                                        <span className="header-help">(Ctrl+/ 도움말)</span>
-                                    </div>
-                                    {isMobile ? (
-                                        <div className="log-exporter-modal-content">
-                                            <div className="mobile-tab-navigation">
-                                                <button className={`mobile-tab-btn ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
-                                                    설정
-                                                </button>
-                                                <button className={`mobile-tab-btn ${activeTab === 'preview' ? 'active' : ''}`} onClick={() => setActiveTab('preview')}>
-                                                    미리보기
-                                                </button>
-                                                <button className={`mobile-tab-btn ${activeTab === 'tools' ? 'active' : ''}`} onClick={() => setActiveTab('tools')}>
-                                                    도구
-                                                </button>
-                                            </div>
-                                            <div className={`mobile-tab-content mobile-settings-tab ${activeTab === 'settings' ? 'active' : ''}`}>
-                                                <SettingsPanel 
-                                                    settings={savedSettings} 
-                                                    onSettingChange={handleSettingChange} 
-                                                    themes={THEMES} 
-                                                    colors={COLORS} 
-                                                    participants={participants}
-                                                    globalSettings={globalSettings}
-                                                    onGlobalSettingChange={handleGlobalSettingChange}
-                                                    uiClasses={uiClasses}
-                                                />
-                                            </div>
-                                            <div className={`mobile-tab-content mobile-preview-tab ${activeTab === 'preview' ? 'active' : ''}`}>
-                                                <PreviewPanel 
-                                                    previewContent={previewContent}
-                                                    settings={savedSettings}
-                                                />
-                                            </div>
-                                            <div className={`mobile-tab-content mobile-tools-tab ${activeTab === 'tools' ? 'active' : ''}`}>
-                                                <ToolsPanel 
-                                                    settings={savedSettings}
-                                                    onSettingChange={handleSettingChange}
-                                                    arcaTitle={arcaTitle}
-                                                    setArcaTitle={setArcaTitle}
-                                                    arcaContent={arcaContent}
-                                                    setArcaContent={setArcaContent}
-                                                    messageNodes={messageNodes}
-                                                />
-                                            </div>
-                                            <div className="mobile-action-bar">
-                                                <Actionbar 
-                                                    charName={charName} 
-                                                    chatName={chatName} 
-                                                    getPreviewContent={() => Promise.resolve(previewContent)} 
-                                                    messageNodes={messageNodes}
-                                                    settings={savedSettings}
-                                                    backgroundColor={backgroundColor}
-                                                    charAvatarUrl={charAvatarUrl}
-                                                />
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <>
-                                            <div className="log-exporter-modal-content">
-                                                <div className="desktop-settings-panel">
-                                                    <SettingsPanel 
-                                                        settings={savedSettings} 
-                                                        onSettingChange={handleSettingChange} 
-                                                        themes={THEMES} 
-                                                        colors={COLORS} 
-                                                        participants={participants}
-                                                        globalSettings={globalSettings}
-                                                        onGlobalSettingChange={handleGlobalSettingChange}
-                                                        uiClasses={uiClasses}
-                                                    />
-                                                    <ToolsPanel 
-                                                        settings={savedSettings}
-                                                        onSettingChange={handleSettingChange}
-                                                        arcaTitle={arcaTitle}
-                                                        setArcaTitle={setArcaTitle}
-                                                        arcaContent={arcaContent}
-                                                        setArcaContent={setArcaContent}
-                                                        messageNodes={messageNodes}
-                                                    />
-                                                </div>
-                                                <div className="desktop-preview-panel">
-                                                    <PreviewPanel 
-                                                        previewContent={previewContent}
-                                                        settings={savedSettings}
-                                                    />
-                                                </div>
-                                            </div>
-                                            <div className="desktop-action-bar">
-                                                <Actionbar 
-                                                    charName={charName} 
-                                                    chatName={chatName} 
-                                                    getPreviewContent={() => Promise.resolve(previewContent)} 
-                                                    messageNodes={messageNodes}
-                                                    settings={savedSettings}
-                                                    backgroundColor={backgroundColor}
-                                                    charAvatarUrl={charAvatarUrl}
-                                                />
-                                            </div>
-                                        </>
-                                    )}
+        <div className="log-exporter-modal-backdrop" onClick={isArcaHelperOpen ? () => setIsArcaHelperOpen(false) : handleClose}>
+            {isArcaHelperOpen ? (
+                <ArcaHelperModal
+                    isOpen={isArcaHelperOpen}
+                    onClose={() => setIsArcaHelperOpen(false)}
+                    messageNodes={messageNodes}
+                    charInfo={{ name: charName, chatName: chatName, avatarUrl: charAvatarUrl }}
+                    settings={savedSettings}
+                    globalSettings={globalSettings}
+                    uiTheme={uiTheme}
+                />
+            ) : (
+                <div className="log-exporter-modal" data-theme={uiTheme} onClick={(e) => e.stopPropagation()}>
+                    <div className="log-exporter-modal-header-bar">
+                        <button id="log-exporter-close" className="log-exporter-modal-close-btn" title="닫기 (Esc)" aria-label="모달 닫기" onClick={handleClose}>
+                            &times;
+                        </button>
+                        <span className="header-title">로그 내보내기 옵션</span>
+                        <span className="header-help">(Ctrl+/ 도움말)</span>
+                    </div>
+                    {isMobile ? (
+                        <div className="log-exporter-modal-content">
+                            <div className="mobile-tab-navigation">
+                                <button className={`mobile-tab-btn ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
+                                    설정
+                                </button>
+                                <button className={`mobile-tab-btn ${activeTab === 'preview' ? 'active' : ''}`} onClick={() => setActiveTab('preview')}>
+                                    미리보기
+                                </button>
+                                <button className={`mobile-tab-btn ${activeTab === 'tools' ? 'active' : ''}`} onClick={() => setActiveTab('tools')}>
+                                    도구
+                                </button>
+                            </div>
+                            <div className={`mobile-tab-content mobile-settings-tab ${activeTab === 'settings' ? 'active' : ''}`}>
+                                <SettingsPanel 
+                                    settings={savedSettings} 
+                                    onSettingChange={handleSettingChange} 
+                                    themes={THEMES} 
+                                    colors={COLORS} 
+                                    participants={participants}
+                                    globalSettings={globalSettings}
+                                    onGlobalSettingChange={handleGlobalSettingChange}
+                                    uiClasses={uiClasses}
+                                />
+                            </div>
+                            <div className={`mobile-tab-content mobile-preview-tab ${activeTab === 'preview' ? 'active' : ''}`}>
+                                <PreviewPanel 
+                                    previewContent={previewContent}
+                                    settings={savedSettings}
+                                />
+                            </div>
+                                <div className={`mobile-tab-content mobile-tools-tab ${activeTab === 'tools' ? 'active' : ''}`}>
+                                    <ToolsPanel 
+                                        settings={savedSettings}
+                                        onSettingChange={handleSettingChange}
+                                    />
                                 </div>
+                            <div className="mobile-action-bar">
+                                <Actionbar 
+                                    charName={charName} 
+                                    chatName={chatName} 
+                                    getPreviewContent={() => Promise.resolve(previewContent)} 
+                                    messageNodes={messageNodes}
+                                    settings={savedSettings}
+                                    backgroundColor={backgroundColor}
+                                    charAvatarUrl={charAvatarUrl}
+                                    onOpenArcaHelper={() => setIsArcaHelperOpen(true)}
+                                />
+                            </div>
+                        </div>
+                    ) : (
+                        <>
+                            <div className="log-exporter-modal-content">
+                                <div className="desktop-settings-panel">
+                                    <SettingsPanel 
+                                        settings={savedSettings} 
+                                        onSettingChange={handleSettingChange} 
+                                        themes={THEMES} 
+                                        colors={COLORS} 
+                                        participants={participants}
+                                        globalSettings={globalSettings}
+                                        onGlobalSettingChange={handleGlobalSettingChange}
+                                        uiClasses={uiClasses}
+                                    />
+                                    <ToolsPanel 
+                                        settings={savedSettings}
+                                        onSettingChange={handleSettingChange}
+                                    />
+                                </div>
+                                <div className="desktop-preview-panel">
+                                    <PreviewPanel 
+                                        previewContent={previewContent}
+                                        settings={savedSettings}
+                                    />
+                                </div>
+                            </div>
+                            <div className="desktop-action-bar">
+                                <Actionbar 
+                                    charName={charName} 
+                                    chatName={chatName} 
+                                    getPreviewContent={() => Promise.resolve(previewContent)} 
+                                    messageNodes={messageNodes}
+                                    settings={savedSettings}
+                                    backgroundColor={backgroundColor}
+                                    charAvatarUrl={charAvatarUrl}
+                                    onOpenArcaHelper={() => setIsArcaHelperOpen(true)}
+                                />
+                            </div>
+                        </>
+                    )}
+                </div>
+            )}
         </div>
     );
 };
