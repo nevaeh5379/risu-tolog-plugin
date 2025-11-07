@@ -51,6 +51,9 @@ export default defineConfig({
       output: {
         entryFileNames: `plugin.js`,
         assetFileNames: `[name].[ext]`,
+        // 청크 분할 비활성화 (단일 파일로 번들링)
+        manualChunks: undefined,
+        inlineDynamicImports: true,
       },
     },
     modulePreload: {

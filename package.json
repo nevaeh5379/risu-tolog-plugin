@@ -11,14 +11,17 @@
   },
   "dependencies": {
     "@types/html2canvas": "^0.5.35",
+    "browser-image-compression": "^2.0.2",
     "dom-to-image-more": "^3.7.2",
+    "fast-png": "^7.0.1",
     "html-to-image": "^1.11.13",
     "html2canvas": "^1.4.1",
     "jpeg-js": "^0.4.4",
     "jszip": "^3.10.1",
     "pako": "^2.1.0",
     "react": "^19.1.1",
-    "react-dom": "^19.1.1"
+    "react-dom": "^19.1.1",
+    "webp-converter-browser": "^1.0.4"
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",

@@ -66,7 +66,7 @@ const Actionbar: React.FC<ActionbarProps> = ({ charName, chatName, getPreviewCon
     };
 
   return (
-    <div className="desktop-action-bar">
+    <>
         <button className="desktop-btn desktop-btn-primary" onClick={handleCopyHtml} title="HTML을 클립보드에 복사">
             📋 HTML 복사
         </button>
@@ -97,7 +97,7 @@ const Actionbar: React.FC<ActionbarProps> = ({ charName, chatName, getPreviewCon
                 🗑️ 선택 삭제
             </button>
         )}
-    </div>
+    </>
   );
 };
 

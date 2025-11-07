@@ -10,8 +10,8 @@ import PluginSettingsModal from './components/PluginSettingsModal';
 import ExportTab from './components/ExportTab';
 import FilterTab from './components/FilterTab';
 import AdvancedTab from './components/AdvancedTab';
-import MobileSettingsTab from './components/MobileSettingsTab';
-import MobileToolsTab from './components/MobileToolsTab';
+import MobileSettingsPanel from './components/MobileSettingsPanel';
+import MobileToolsPanel from './components/MobileToolsPanel';
 
 import PreviewPanel from './components/PreviewPanel';
 import ArcaHelperModal from './components/ArcaHelperModal';
@@ -472,7 +472,7 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
                                 </button>
                             </div>
                             <div className={`mobile-tab-content mobile-settings-tab ${activeTab === 'settings' ? 'active' : ''}`}>
-                                <MobileSettingsTab 
+                                <MobileSettingsPanel 
                                     settings={savedSettings} 
                                     onSettingChange={handleSettingChange} 
                                     themes={THEMES} 
@@ -499,7 +499,7 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
                                 />
                             </div>
                             <div className={`mobile-tab-content mobile-tools-tab ${activeTab === 'tools' ? 'active' : ''}`}>
-                                <MobileToolsTab 
+                                <MobileToolsPanel 
                                     settings={savedSettings}
                                     onSettingChange={handleSettingChange}
                                     imageSizeWarning={imageSizeWarning}

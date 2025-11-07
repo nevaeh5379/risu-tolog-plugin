@@ -3,9 +3,10 @@ import React from 'react';
 interface MobileToolsPanelProps {
   settings: any;
   onSettingChange: (key: string, value: any) => void;
+  imageSizeWarning?: string;
 }
 
-const MobileToolsPanel: React.FC<MobileToolsPanelProps> = ({ settings, onSettingChange }) => {
+const MobileToolsPanel: React.FC<MobileToolsPanelProps> = ({ settings, onSettingChange, imageSizeWarning }) => {
   return (
     <div className="mobile-settings-container">
       {/* 미리보기 옵션 */}
@@ -47,6 +48,11 @@ const MobileToolsPanel: React.FC<MobileToolsPanelProps> = ({ settings, onSetting
           <span className="mobile-card-icon">📷</span>
           <span className="mobile-card-title">이미지 내보내기</span>
         </div>
+        {imageSizeWarning && (
+          <div style={{ color: 'var(--text-warning)', padding: '12px 16px', fontSize: '0.9em', background: 'rgba(224, 175, 104, 0.1)', borderBottom: '1px solid var(--border-color-light)' }}>
+            {imageSizeWarning}
+          </div>
+        )}
         <div className="mobile-card-content">
           <div className="mobile-field">
             <label className="mobile-field-label">해상도</label>
