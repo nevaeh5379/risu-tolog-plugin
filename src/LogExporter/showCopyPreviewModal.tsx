@@ -363,7 +363,7 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
         }
 
         if (savedSettings.splitImage && estimatedImageSize.maxMessageHeight > (savedSettings.maxImageHeight || 10000)) {
-            warnings.push(`분할 최대 높이(${savedSettings.maxImageHeight || 10000}px)보다 긴 메시지가 있습니다. 해당 메시지는 분할되지 않으며 이미지 생성에 실패할 수 있습니다.`);
+            warnings.push(`분할 최대 높이(${savedSettings.maxImageHeight || 10000}px)보다 긴 메시지가 있습니다. 해당 메시지는 여러 섹션으로 분할 캡처 후 자동으로 병합됩니다.`);
         }
 
         setImageSizeWarning(warnings.join(' '));
