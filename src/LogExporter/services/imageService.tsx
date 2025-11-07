@@ -10,6 +10,7 @@ import type { CharInfo } from '../../types';
 import html2canvas from 'html2canvas';
 import { loadGlobalSettings } from './settingsService';
 import pako from 'pako';
+import jpeg from 'jpeg-js';
 
 // CRC32 계산 함수
 const crc32 = (data: Uint8Array): number => {
@@ -287,14 +288,82 @@ const mergePNGsBinary = async (
     return new Blob([finalPNG], { type: 'image/png' });
 };
 
-// 여러 이미지 Blob을 픽셀 단위로 병합하는 함수 (Canvas 사용)
-const mergeImageBlobsDirectly = async (
-    blobs: Blob[],
-    totalWidth: number,
-    totalHeight: number,
-    format: 'png' | 'jpeg' | 'webp'
+// JPEG 파일을 바이너리 레벨에서 병합하는 함수
+const mergeJPEGsBinary = async (
+    blobs: Blob[]
 ): Promise<Blob> => {
-    // 각 Blob을 Image로 로드
+    console.log(`[JPEG Merge] Starting JPEG merge for ${blobs.length} images...`);
+    
+    // 모든 JPEG를 디코딩
+    const decodedImages: { width: number; height: number; data: Uint8Array }[] = [];
+    let totalHeight = 0;
+    let width = 0;
+    
+    for (let i = 0; i < blobs.length; i++) {
+        const buffer = await blobs[i].arrayBuffer();
+        const uint8Array = new Uint8Array(buffer);
+        
+        try {
+            const decoded = jpeg.decode(uint8Array, { useTArray: true });
+            
+            if (i === 0) {
+                width = decoded.width;
+            } else if (decoded.width !== width) {
+                throw new Error(`Image ${i + 1} has different width: ${decoded.width} vs ${width}`);
+            }
+            
+            decodedImages.push({
+                width: decoded.width,
+                height: decoded.height,
+                data: decoded.data
+            });
+            
+            totalHeight += decoded.height;
+            console.log(`[JPEG Merge] Decoded image ${i + 1}: ${decoded.width}x${decoded.height}`);
+            
+        } catch (e) {
+            console.error(`[JPEG Merge] Failed to decode JPEG ${i + 1}:`, e);
+            throw e;
+        }
+    }
+    
+    console.log(`[JPEG Merge] Total dimensions: ${width}x${totalHeight}`);
+    
+    // 모든 이미지의 픽셀 데이터를 수직으로 병합
+    const mergedData = new Uint8Array(width * totalHeight * 4); // RGBA
+    let currentY = 0;
+    
+    for (const img of decodedImages) {
+        const srcData = img.data;
+        const dstOffset = currentY * width * 4;
+        mergedData.set(srcData, dstOffset);
+        currentY += img.height;
+    }
+    
+    console.log(`[JPEG Merge] Encoding merged JPEG...`);
+    
+    // 병합된 데이터를 JPEG로 인코딩
+    const encoded = jpeg.encode({
+        data: mergedData,
+        width: width,
+        height: totalHeight
+    }, 95); // 품질 95%
+    
+    console.log(`[JPEG Merge] Final JPEG size: ${encoded.data.length} bytes`);
+    
+    // Buffer를 Uint8Array로 변환
+    const jpegData = new Uint8Array(encoded.data);
+    return new Blob([jpegData], { type: 'image/jpeg' });
+};
+
+// WebP 파일을 바이너리 레벨에서 병합하는 함수 (Canvas 폴백)
+const mergeWebPsBinary = async (
+    blobs: Blob[]
+): Promise<Blob> => {
+    console.log(`[WebP Merge] WebP binary merge is complex, using Canvas fallback...`);
+    
+    // WebP는 VP8/VP8L 코덱을 사용하므로 완전한 바이너리 병합이 매우 복잡
+    // Canvas를 사용한 병합으로 폴백
     const images = await Promise.all(blobs.map(blob => {
         return new Promise<HTMLImageElement>((resolve, reject) => {
             const img = new Image();
@@ -304,76 +373,16 @@ const mergeImageBlobsDirectly = async (
         });
     }));
     
-    // Canvas 크기 제한 확인
-    const MAX_CANVAS_DIMENSION = 16384;
+    const width = images[0].width;
+    const totalHeight = images.reduce((sum, img) => sum + img.height, 0);
     
-    // 전체 높이가 제한을 초과하면 여러 개의 큰 Canvas로 나누기
-    if (totalHeight > MAX_CANVAS_DIMENSION) {
-        // 16384px 이하의 청크들로 나누기
-        const numChunks = Math.ceil(totalHeight / MAX_CANVAS_DIMENSION);
-        const chunkHeight = Math.ceil(totalHeight / numChunks);
-        
-        console.warn(`[Log Exporter] Total height ${totalHeight}px exceeds Canvas limit. Creating ${numChunks} merged images.`);
-        
-        // 각 청크별로 Canvas 생성하여 저장
-        const mergedBlobs: Blob[] = [];
-        let currentChunkY = 0;
-        
-        for (let chunkIdx = 0; chunkIdx < numChunks; chunkIdx++) {
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d', { willReadFrequently: false });
-            if (!ctx) throw new Error('Canvas context not available');
-            
-            const actualChunkHeight = Math.min(chunkHeight, totalHeight - currentChunkY);
-            canvas.width = totalWidth;
-            canvas.height = actualChunkHeight;
-            
-            // 현재 청크에 포함될 이미지들 그리기
-            let currentY = 0;
-            for (const img of images) {
-                const imgY = currentY - currentChunkY;
-                
-                // 이 이미지가 현재 청크 범위에 있는지 확인
-                if (imgY + img.height > 0 && imgY < actualChunkHeight) {
-                    // 이미지의 일부 또는 전체가 현재 청크에 포함됨
-                    const sourceY = Math.max(0, currentChunkY - currentY);
-                    const sourceHeight = Math.min(img.height - sourceY, actualChunkHeight - Math.max(0, imgY));
-                    const destY = Math.max(0, imgY);
-                    
-                    ctx.drawImage(
-                        img,
-                        0, sourceY, // source x, y
-                        img.width, sourceHeight, // source width, height
-                        0, destY, // dest x, y
-                        totalWidth, sourceHeight // dest width, height
-                    );
-                }
-                
-                currentY += img.height;
-                URL.revokeObjectURL(img.src);
-            }
-            
-            const blob = await new Promise<Blob>((resolve) => {
-                canvas.toBlob((b) => resolve(b!), `image/${format}`);
-            });
-            mergedBlobs.push(blob);
-            currentChunkY += chunkHeight;
-        }
-        
-        // 여러 개로 나눠진 경우 첫 번째 것만 반환 (또는 모두 저장)
-        // TODO: 여러 파일로 저장하는 로직 필요
-        return mergedBlobs[0];
-    }
-    
-    // 전체 높이가 제한 이내면 하나의 Canvas에 모두 그리기
     const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d', { willReadFrequently: false });
+    const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Canvas context not available');
     
-    canvas.width = totalWidth;
+    canvas.width = width;
     canvas.height = totalHeight;
     
-    // 모든 이미지를 순서대로 그리기
     let currentY = 0;
     for (const img of images) {
         ctx.drawImage(img, 0, currentY);
@@ -381,12 +390,9 @@ const mergeImageBlobsDirectly = async (
         URL.revokeObjectURL(img.src);
     }
     
-    // 최종 Blob으로 변환
-    const finalBlob = await new Promise<Blob>((resolve) => {
-        canvas.toBlob((blob) => resolve(blob!), `image/${format}`);
+    return await new Promise<Blob>((resolve) => {
+        canvas.toBlob((blob) => resolve(blob!), 'image/webp', 0.95);
     });
-    
-    return finalBlob;
 };
 
 // 큰 메시지를 분할하여 캡처한 후 하나의 이미지로 병합하는 함수
@@ -472,6 +478,34 @@ const splitAndMergeAsOneFile = async (
             }
             
             if (!blob) throw new Error('Failed to capture section');
+            
+            // 실제 Blob 타입 확인 및 로깅
+            console.log(`[Log Exporter] Section ${i + 1} captured: ${blob.type} (requested: image/${format})`);
+            
+            // dom-to-image와 html-to-image는 항상 PNG를 생성하므로
+            // JPEG나 WebP 요청 시 포맷 변환 필요
+            if (blob.type === 'image/png' && format !== 'png') {
+                console.log(`[Log Exporter] Converting PNG to ${format}...`);
+                const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+                    const image = new Image();
+                    image.onload = () => resolve(image);
+                    image.onerror = reject;
+                    image.src = URL.createObjectURL(blob!);
+                });
+                
+                const canvas = document.createElement('canvas');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) throw new Error('Canvas context not available');
+                ctx.drawImage(img, 0, 0);
+                URL.revokeObjectURL(img.src);
+                
+                blob = await new Promise<Blob>((resolve) => {
+                    canvas.toBlob((b) => resolve(b!), `image/${format}`, format === 'jpeg' ? 0.95 : undefined);
+                });
+            }
+            
             blobs.push(blob);
             
         } finally {
@@ -479,19 +513,17 @@ const splitAndMergeAsOneFile = async (
         }
     }
     
-    // PNG인 경우 바이너리 레벨에서 병합, 그 외는 Canvas 사용
+    // 포맷에 따라 바이너리 레벨 또는 Canvas 병합 사용
     onProgressUpdate({ message: `이미지 병합 중...` });
     if (format === 'png') {
         console.log('[Log Exporter] Using PNG binary merge (no Canvas!)');
         return await mergePNGsBinary(blobs);
+    } else if (format === 'jpeg') {
+        console.log('[Log Exporter] Using JPEG binary merge (no Canvas!)');
+        return await mergeJPEGsBinary(blobs);
     } else {
-        console.log('[Log Exporter] Using Canvas merge for JPEG/WebP');
-        return await mergeImageBlobsDirectly(
-            blobs,
-            totalWidth * resolution,
-            totalHeight * resolution,
-            format
-        );
+        console.log('[Log Exporter] Using WebP binary merge with Canvas fallback');
+        return await mergeWebPsBinary(blobs);
     }
 };
 
