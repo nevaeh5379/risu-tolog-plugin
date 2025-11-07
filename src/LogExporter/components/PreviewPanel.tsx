@@ -6,14 +6,51 @@ import { getLogHtml } from '../services/htmlGenerator';
 interface PreviewPanelProps {
   settings: any;
   logContainerProps: Omit<LogContainerProps, 'onReady'>;
-  otherFormatContent: string; 
+  otherFormatContent: string;
+  selectedIndices: Set<number>;
+  onSelectionChange: (newSelection: Set<number>) => void;
+  onLastSelectedIndexChange: (index: number | null) => void;
+  lastSelectedIndex: number | null;
+  onSelectAll?: () => void;
+  onDeselectAll?: () => void;
+  onInvertSelection?: () => void;
 }
 
-const PreviewPanel: React.FC<PreviewPanelProps> = ({ settings, logContainerProps, otherFormatContent }) => {
+const PreviewPanel: React.FC<PreviewPanelProps> = ({ 
+  settings, 
+  logContainerProps, 
+  otherFormatContent,
+  selectedIndices,
+  onSelectionChange,
+  onLastSelectedIndexChange,
+  lastSelectedIndex,
+  onSelectAll,
+  onDeselectAll,
+  onInvertSelection,
+}) => {
   const shadowHostRef = useRef<HTMLDivElement>(null);
   const [rawHtmlContent, setRawHtmlContent] = useState('');
 
   const isBasicFormat = settings.format === 'basic' || !settings.format;
+
+  const handleMessageSelect = (index: number, e: React.MouseEvent) => {
+    const newSelection = new Set(selectedIndices);
+    if (e.shiftKey && lastSelectedIndex !== null) {
+      const start = Math.min(lastSelectedIndex, index);
+      const end = Math.max(lastSelectedIndex, index);
+      for (let i = start; i <= end; i++) {
+        newSelection.add(i);
+      }
+    } else {
+      if (newSelection.has(index)) {
+        newSelection.delete(index);
+      } else {
+        newSelection.add(index);
+      }
+    }
+    onSelectionChange(newSelection);
+    onLastSelectedIndexChange(index);
+  };
 
   useEffect(() => {
     if (settings.rawHtmlView) {
@@ -53,7 +90,7 @@ const PreviewPanel: React.FC<PreviewPanelProps> = ({ settings, logContainerProps
       return <textarea readOnly style={{width: '100%', height: '100%', whiteSpace: 'pre-wrap', wordWrap: 'break-word', backgroundColor: '#1a1b26', color: '#c0caf5', border: 'none'}} value={rawHtmlContent}></textarea>;
     }
     if (isBasicFormat) {
-      return <LogContainer {...logContainerProps} />;
+      return <LogContainer {...logContainerProps} selectedIndices={selectedIndices} onMessageSelect={handleMessageSelect} />;
     }
     return <div ref={shadowHostRef}></div>;
   };
@@ -62,6 +99,11 @@ const PreviewPanel: React.FC<PreviewPanelProps> = ({ settings, logContainerProps
     <>
         <div className="desktop-preview-toolbar">
             <span className="desktop-preview-toolbar-title">📱 미리보기</span>
+            <div className="desktop-selection-controls">
+                <button className="desktop-btn desktop-btn-xs desktop-btn-secondary" onClick={onSelectAll} title="모든 메시지 선택">전체 선택</button>
+                <button className="desktop-btn desktop-btn-xs desktop-btn-secondary" onClick={onDeselectAll} title="모든 선택 해제">전체 해제</button>
+                <button className="desktop-btn desktop-btn-xs desktop-btn-secondary" onClick={onInvertSelection} title="선택 상태 반전">선택 반전</button>
+            </div>
         </div>
         <div className="desktop-preview-content">
             <div className="log-exporter-modal-preview">

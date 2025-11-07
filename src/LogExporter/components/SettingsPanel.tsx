@@ -15,6 +15,19 @@ interface SettingsPanelProps {
 const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onSettingChange, themes, colors, participants, globalSettings, onGlobalSettingChange, uiClasses }) => {
   const [newProfileClass, setNewProfileClass] = useState('');
   const [newParticipantNameClass, setNewParticipantNameClass] = useState('');
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set(['custom-selectors', 'filters', 'image-scale', 'html-options']));
+
+  const toggleSection = (sectionId: string) => {
+    setCollapsedSections(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(sectionId)) {
+        newSet.delete(sectionId);
+      } else {
+        newSet.add(sectionId);
+      }
+      return newSet;
+    });
+  };
 
   const handleAddProfileClass = () => {
     if (newProfileClass && !globalSettings.profileClasses?.includes(newProfileClass)) {
@@ -86,174 +99,207 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onSettingChange
 
   return (
     <>
-        <div className="desktop-section">
-            <div className="desktop-section-header">
+        <div className={`desktop-section ${collapsedSections.has('ui-settings') ? 'collapsed' : ''}`}>
+            <div className="desktop-section-header" onClick={() => toggleSection('ui-settings')}>
                 <span className="desktop-section-icon">🖥️</span>
                 <span className="desktop-section-title">UI 설정</span>
+                <span className="desktop-section-collapse-icon">▼</span>
             </div>
-            <div className="desktop-option-row">
-                <span className="desktop-option-label">UI 테마</span>
-                <select className="desktop-select" value={globalSettings.uiTheme || 'dark'} onChange={(e) => onGlobalSettingChange('uiTheme', e.target.value)}>
-                    <option value="dark">다크 (모던)</option>
-                    <option value="classic">클래식</option>
-                    <option value="light">라이트</option>
-                </select>
-            </div>
-        </div>
-
-        <div className="desktop-section">
-            <div className="desktop-section-header">
-                <span className="desktop-section-icon">✍️</span>
-                <span className="desktop-section-title">커스텀 선택자</span>
-            </div>
-            <div className="desktop-option-row" style={{flexDirection: 'column', alignItems: 'flex-start', gap: '8px'}}>
-                <span className="desktop-option-label" style={{marginBottom: '8px'}}>프로필 클래스</span>
-                <div style={{display: 'flex', gap: '8px', width: '100%', flexWrap: 'wrap'}}>
-                    <input 
-                        type="text" 
-                        className="desktop-input" 
-                        value={newProfileClass} 
-                        onChange={(e) => setNewProfileClass(e.target.value)}
-                        placeholder="클래스 이름 추가..."
-                        style={{flex: '1 1 auto', minWidth: '150px'}}
-                        onKeyDown={(e) => e.key === 'Enter' && handleAddProfileClass()}
-                    />
-                    <button className="desktop-btn desktop-btn-secondary" onClick={handleAddProfileClass} style={{padding: '8px 16px', flexShrink: 0}}>추가</button>
-                </div>
-                <div className="desktop-collapsible-content open" style={{width: '100%', marginTop: '10px', padding: '0'}}>
-                    {globalSettings.profileClasses?.map((cls: string) => (
-                        <div key={cls} className="desktop-option-row" style={{gap: '8px'}}>
-                            <span className="desktop-option-label" style={{fontFamily: 'monospace', fontSize: '0.9em', wordBreak: 'break-all'}}>{cls}</span>
-                            <button onClick={() => handleRemoveProfileClass(cls)} className="desktop-btn desktop-btn-danger" style={{padding: '6px 12px', fontSize: '0.85em', flexShrink: 0}}>삭제</button>
-                        </div>
-                    ))}
-                </div>
-            </div>
-            <div className="desktop-option-row" style={{flexDirection: 'column', alignItems: 'flex-start', borderTop: '1px solid var(--border-color-light)', paddingTop: '10px', gap: '8px'}}>
-                <span className="desktop-option-label" style={{marginBottom: '8px'}}>참가자 이름 클래스</span>
-                <div style={{display: 'flex', gap: '8px', width: '100%', flexWrap: 'wrap'}}>
-                    <input 
-                        type="text" 
-                        className="desktop-input" 
-                        value={newParticipantNameClass} 
-                        onChange={(e) => setNewParticipantNameClass(e.target.value)}
-                        placeholder="클래스 이름 추가..."
-                        style={{flex: '1 1 auto', minWidth: '150px'}}
-                        onKeyDown={(e) => e.key === 'Enter' && handleAddParticipantNameClass()}
-                    />
-                    <button className="desktop-btn desktop-btn-secondary" onClick={handleAddParticipantNameClass} style={{padding: '8px 16px', flexShrink: 0}}>추가</button>
-                </div>
-                <div className="desktop-collapsible-content open" style={{width: '100%', marginTop: '10px', padding: '0'}}>
-                    {globalSettings.participantNameClasses?.map((cls: string) => (
-                        <div key={cls} className="desktop-option-row" style={{gap: '8px'}}>
-                            <span className="desktop-option-label" style={{fontFamily: 'monospace', fontSize: '0.9em', wordBreak: 'break-all'}}>{cls}</span>
-                            <button onClick={() => handleRemoveParticipantNameClass(cls)} className="desktop-btn desktop-btn-danger" style={{padding: '6px 12px', fontSize: '0.85em', flexShrink: 0}}>삭제</button>
-                        </div>
-                    ))}
+            <div className="desktop-section-body">
+                <div className="desktop-option-row">
+                    <span className="desktop-option-label">UI 테마</span>
+                    <select className="desktop-select" value={globalSettings.uiTheme || 'dark'} onChange={(e) => onGlobalSettingChange('uiTheme', e.target.value)}>
+                        <option value="dark">다크 (모던)</option>
+                        <option value="classic">클래식</option>
+                        <option value="light">라이트</option>
+                    </select>
                 </div>
             </div>
         </div>
 
-        <div className="desktop-section">
-            <div className="desktop-section-header">
+        <div className={`desktop-section ${collapsedSections.has('output-format') ? 'collapsed' : ''}`}>
+            <div className="desktop-section-header" onClick={() => toggleSection('output-format')}>
                 <span className="desktop-section-icon">📄</span>
                 <span className="desktop-section-title">출력 형식</span>
+                <span className="desktop-section-collapse-icon">▼</span>
             </div>
-            <div className="desktop-radio-group">
-                <label className={`desktop-radio-label ${settings.format === 'html' ? 'active' : ''}`}>
-                    <input type="radio" name="log-format-desktop" value="html" data-setting-key="format" checked={settings.format === 'html'} onChange={handleFormatChange} style={{display: 'none'}} />
-                    HTML
-                </label>
-                <label className={`desktop-radio-label ${!settings.format || settings.format === 'basic' ? 'active' : ''}`}>
-                    <input type="radio" name="log-format-desktop" value="basic" data-setting-key="format" checked={!settings.format || settings.format === 'basic'} onChange={handleFormatChange} style={{display: 'none'}} />
-                    기본
-                </label>
-                <label className={`desktop-radio-label ${settings.format === 'markdown' ? 'active' : ''}`}>
-                    <input type="radio" name="log-format-desktop" value="markdown" data-setting-key="format" checked={settings.format === 'markdown'} onChange={handleFormatChange} style={{display: 'none'}} />
-                    마크다운
-                </label>
-                <label className={`desktop-radio-label ${settings.format === 'text' ? 'active' : ''}`}>
-                    <input type="radio" name="log-format-desktop" value="text" data-setting-key="format" checked={settings.format === 'text'} onChange={handleFormatChange} style={{display: 'none'}} />
-                    텍스트
-                </label>
+            <div className="desktop-section-body">
+                <div className="desktop-radio-group">
+                    <label className={`desktop-radio-label ${!settings.format || settings.format === 'basic' ? 'active' : ''}`}>
+                        <input type="radio" name="log-format-desktop" value="basic" data-setting-key="format" checked={!settings.format || settings.format === 'basic'} onChange={handleFormatChange} style={{display: 'none'}} />
+                        기본
+                    </label>
+                    <label className={`desktop-radio-label ${settings.format === 'html' ? 'active' : ''}`}>
+                        <input type="radio" name="log-format-desktop" value="html" data-setting-key="format" checked={settings.format === 'html'} onChange={handleFormatChange} style={{display: 'none'}} />
+                        HTML
+                    </label>
+                    <label className={`desktop-radio-label ${settings.format === 'markdown' ? 'active' : ''}`}>
+                        <input type="radio" name="log-format-desktop" value="markdown" data-setting-key="format" checked={settings.format === 'markdown'} onChange={handleFormatChange} style={{display: 'none'}} />
+                        마크다운
+                    </label>
+                    <label className={`desktop-radio-label ${settings.format === 'text' ? 'active' : ''}`}>
+                        <input type="radio" name="log-format-desktop" value="text" data-setting-key="format" checked={settings.format === 'text'} onChange={handleFormatChange} style={{display: 'none'}} />
+                        텍스트
+                    </label>
+                </div>
             </div>
         </div>
         
-        <div className="desktop-section" id="desktop-basic-options" style={{display: settings.format === 'basic' || !settings.format ? 'block' : 'none'}}>
-            <div className="desktop-section-header">
-                <span className="desktop-section-icon">🎨</span>
-                <span className="desktop-section-title">테마 & 스타일</span>
+        {(settings.format === 'basic' || !settings.format) && (
+            <div className={`desktop-section ${collapsedSections.has('theme-style') ? 'collapsed' : ''}`}>
+                <div className="desktop-section-header" onClick={() => toggleSection('theme-style')}>
+                    <span className="desktop-section-icon">🎨</span>
+                    <span className="desktop-section-title">테마 & 스타일</span>
+                    <span className="desktop-section-collapse-icon">▼</span>
+                </div>
+                <div className="desktop-section-body">
+                    <div className="desktop-option-row">
+                        <span className="desktop-option-label">테마</span>
+                        <select id="theme-selector" name="log-theme" className="desktop-select" data-setting-key="theme" value={settings.theme || 'basic'} onChange={handleThemeChange}>
+                        {Object.entries(themes).map(([key, theme]: [string, any]) => 
+                            <option value={key} key={key}>{theme.name}</option>
+                        )}
+                        </select>
+                    </div>
+                    <div className="desktop-option-row" id="color-selector-container">
+                        <span className="desktop-option-label">색상</span>
+                        <select id="color-selector" name="log-color" className="desktop-select" data-setting-key="color" value={settings.color || 'dark'} onChange={handleColorChange}>
+                            {Object.entries(colors).map(([key, color]: [string, any]) => 
+                                <option value={key} key={key}>{color.name}</option>
+                            )}
+                        </select>
+                    </div>
+                    <Toggle settingKey="showAvatar" label="💬 아바타 표시" value={settings.showAvatar} />
+                    <Toggle settingKey="showBubble" label="💭 말풍선 표시" value={settings.showBubble} />
+                    <Toggle settingKey="showHeader" label="📌 헤더 표시" value={settings.showHeader} />
+                    <Toggle settingKey="showFooter" label="📝 푸터 표시" value={settings.showFooter} />
+                </div>
             </div>
-            <div className="desktop-option-row">
-                <span className="desktop-option-label">테마</span>
-                <select id="theme-selector" name="log-theme" className="desktop-select" data-setting-key="theme" value={settings.theme || 'basic'} onChange={handleThemeChange}>
-                {Object.entries(themes).map(([key, theme]: [string, any]) => 
-                    <option value={key} key={key}>{theme.name}</option>
-                )}
-                </select>
-            </div>
-            <div className="desktop-option-row" id="color-selector-container">
-                <span className="desktop-option-label">색상</span>
-                <select id="color-selector" name="log-color" className="desktop-select" data-setting-key="color" value={settings.color || 'dark'} onChange={handleColorChange}>
-                    {Object.entries(colors).map(([key, color]: [string, any]) => 
-                        <option value={key} key={key}>{color.name}</option>
-                    )}
-                </select>
-            </div>
-            <Toggle settingKey="showAvatar" label="💬 아바타 표시" value={settings.showAvatar} />
-            <Toggle settingKey="showBubble" label="💭 말풍선 표시" value={settings.showBubble} />
-            <Toggle settingKey="showHeader" label="📌 헤더 표시" value={settings.showHeader} />
-            <Toggle settingKey="showFooter" label="📝 푸터 표시" value={settings.showFooter} />
-        </div>
+        )}
 
-        <div className="desktop-section" id="desktop-image-scale-controls" style={{display: settings.format === 'basic' || !settings.format ? 'block' : 'none'}}>
-            <div className="desktop-section-header">
-                <span className="desktop-section-icon">🖼️</span>
-                <span className="desktop-section-title">이미지 스케일</span>
+        {(settings.format === 'basic' || !settings.format) && (
+            <div className={`desktop-section ${collapsedSections.has('image-scale') ? 'collapsed' : ''}`}>
+                <div className="desktop-section-header" onClick={() => toggleSection('image-scale')}>
+                    <span className="desktop-section-icon">🖼️</span>
+                    <span className="desktop-section-title">이미지 스케일</span>
+                    <span className="desktop-section-collapse-icon">▼</span>
+                </div>
+                <div className="desktop-section-body">
+                    <div className="desktop-slider-container">
+                        <input type="range" min="50" max="200" step="10" data-setting-key="imageScale" value={settings.imageScale || 100} className="desktop-slider" onChange={(e) => onSettingChange('imageScale', e.target.value)} />
+                        <div style={{textAlign: 'center', fontSize: '0.85em', color: 'var(--text-secondary)', marginTop: '6px'}}>{settings.imageScale || 100}%</div>
+                    </div>
+                </div>
             </div>
-            <div className="desktop-slider-container">
-                <input type="range" min="50" max="200" step="10" data-setting-key="imageScale" value={settings.imageScale || 100} className="desktop-slider" onChange={(e) => onSettingChange('imageScale', e.target.value)} />
-                <div style={{textAlign: 'center', fontSize: '0.9em', color: '#8a98c9', marginTop: '8px'}}>{settings.imageScale || 100}%</div>
-            </div>
-        </div>
+        )}
 
-        <div className="desktop-section" id="desktop-html-options" style={{display: settings.format === 'html' ? 'block' : 'none'}}>
-            <div className="desktop-section-header">
-                <span className="desktop-section-icon">⚙️</span>
-                <span className="desktop-section-title">HTML 옵션</span>
+        {settings.format === 'html' && (
+            <div className={`desktop-section ${collapsedSections.has('html-options') ? 'collapsed' : ''}`}>
+                <div className="desktop-section-header" onClick={() => toggleSection('html-options')}>
+                    <span className="desktop-section-icon">⚙️</span>
+                    <span className="desktop-section-title">HTML 옵션</span>
+                    <span className="desktop-section-collapse-icon">▼</span>
+                </div>
+                <div className="desktop-section-body">
+                    <Toggle settingKey="embedImages" label="🖼️ 이미지 내장" value={settings.embedImages} />
+                    <Toggle settingKey="expandHover" label="🖱️ 호버 요소 펼치기" value={settings.expandHover} defaultOn={false} />
+                </div>
             </div>
-            <Toggle settingKey="embedImages" label="🖼️ 이미지 내장" value={settings.embedImages} />
-            <Toggle settingKey="expandHover" label="🖱️ 호버 요소 펼치기" value={settings.expandHover} defaultOn={false} />
-        </div>
+        )}
 
-        <div className="desktop-section">
-            <div className="desktop-section-header">
+        <div className={`desktop-section ${collapsedSections.has('filters') ? 'collapsed' : ''}`}>
+            <div className="desktop-section-header" onClick={() => toggleSection('filters')}>
                 <span className="desktop-section-icon">🔍</span>
                 <span className="desktop-section-title">필터</span>
+                <span className="desktop-section-collapse-icon">▼</span>
             </div>
-            <div className="desktop-option-row">
-                <span className="desktop-option-label">참가자</span>
-            </div>
-            <div className="desktop-collapsible-content open">
+            <div className="desktop-section-body">
+                <div className="desktop-option-row" style={{borderBottom: 'none', paddingBottom: '6px'}}>
+                    <span className="desktop-option-label" style={{fontWeight: 600, color: 'var(--text-title)'}}>참가자</span>
+                </div>
                 {Array.from(participants).map(p => (
                     <Toggle key={p} settingKey="filteredParticipants" label={p} value={p} isGlobal={true} />
                 ))}
-            </div>
-            <div className="desktop-option-row">
-                <span className="desktop-option-label">UI 요소 필터</span>
-            </div>
-            <div className="desktop-collapsible-content open" style={{maxHeight: '200px', overflowY: 'auto'}}>
-                {uiClasses.map(classInfo => {
-                    const isChecked = settings.customFilters?.[classInfo.name] ?? false;
-                    return (
-                        <div key={classInfo.name} className="desktop-option-row">
-                            <label htmlFor={`filter-${classInfo.name}`} className="desktop-option-label" style={{fontFamily: 'monospace', fontSize: '0.9em'}}>{classInfo.displayName}</label>
-                            <div className={`desktop-toggle ${isChecked ? 'active' : ''}`} onClick={() => handleCustomFilterChange(classInfo.name, !isChecked)}>
-                                <input id={`filter-${classInfo.name}`} type="checkbox" checked={isChecked} style={{display: 'none'}} readOnly />
-                            </div>
+                {uiClasses.length > 0 && (
+                    <>
+                        <div className="desktop-option-row" style={{borderBottom: 'none', paddingTop: '12px', paddingBottom: '6px'}}>
+                            <span className="desktop-option-label" style={{fontWeight: 600, color: 'var(--text-title)'}}>UI 요소 필터</span>
                         </div>
-                    )
-                })}
+                        <div style={{maxHeight: '150px', overflowY: 'auto', paddingRight: '4px'}}>
+                            {uiClasses.map(classInfo => {
+                                const isChecked = settings.customFilters?.[classInfo.name] ?? false;
+                                return (
+                                    <div key={classInfo.name} className="desktop-option-row">
+                                        <label htmlFor={`filter-${classInfo.name}`} className="desktop-option-label" style={{fontFamily: 'monospace', fontSize: '0.85em', cursor: 'pointer'}}>{classInfo.displayName}</label>
+                                        <div className={`desktop-toggle ${isChecked ? 'active' : ''}`} onClick={() => handleCustomFilterChange(classInfo.name, !isChecked)}>
+                                            <input id={`filter-${classInfo.name}`} type="checkbox" checked={isChecked} style={{display: 'none'}} readOnly />
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </>
+                )}
+            </div>
+        </div>
+
+        <div className={`desktop-section ${collapsedSections.has('custom-selectors') ? 'collapsed' : ''}`}>
+            <div className="desktop-section-header" onClick={() => toggleSection('custom-selectors')}>
+                <span className="desktop-section-icon">✍️</span>
+                <span className="desktop-section-title">커스텀 선택자</span>
+                <span className="desktop-section-collapse-icon">▼</span>
+            </div>
+            <div className="desktop-section-body">
+                <div style={{marginBottom: '12px'}}>
+                    <div style={{marginBottom: '6px', fontWeight: 600, fontSize: '0.88em', color: 'var(--text-title)'}}>프로필 클래스</div>
+                    <div style={{display: 'flex', gap: '6px'}}>
+                        <input 
+                            type="text" 
+                            className="desktop-input" 
+                            value={newProfileClass} 
+                            onChange={(e) => setNewProfileClass(e.target.value)}
+                            placeholder="클래스 이름..."
+                            style={{flex: 1}}
+                            onKeyDown={(e) => e.key === 'Enter' && handleAddProfileClass()}
+                        />
+                        <button className="desktop-btn desktop-btn-secondary desktop-btn-xs" onClick={handleAddProfileClass}>추가</button>
+                    </div>
+                    {globalSettings.profileClasses && globalSettings.profileClasses.length > 0 && (
+                        <div style={{marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px'}}>
+                            {globalSettings.profileClasses.map((cls: string) => (
+                                <div key={cls} style={{display: 'flex', alignItems: 'center', gap: '6px', padding: '6px', background: 'var(--bg-primary)', borderRadius: '4px'}}>
+                                    <span style={{fontFamily: 'monospace', fontSize: '0.82em', flex: 1, wordBreak: 'break-all'}}>{cls}</span>
+                                    <button onClick={() => handleRemoveProfileClass(cls)} className="desktop-btn desktop-btn-danger desktop-btn-xs">삭제</button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+                <div style={{borderTop: '1px solid var(--border-color-light)', paddingTop: '12px'}}>
+                    <div style={{marginBottom: '6px', fontWeight: 600, fontSize: '0.88em', color: 'var(--text-title)'}}>참가자 이름 클래스</div>
+                    <div style={{display: 'flex', gap: '6px'}}>
+                        <input 
+                            type="text" 
+                            className="desktop-input" 
+                            value={newParticipantNameClass} 
+                            onChange={(e) => setNewParticipantNameClass(e.target.value)}
+                            placeholder="클래스 이름..."
+                            style={{flex: 1}}
+                            onKeyDown={(e) => e.key === 'Enter' && handleAddParticipantNameClass()}
+                        />
+                        <button className="desktop-btn desktop-btn-secondary desktop-btn-xs" onClick={handleAddParticipantNameClass}>추가</button>
+                    </div>
+                    {globalSettings.participantNameClasses && globalSettings.participantNameClasses.length > 0 && (
+                        <div style={{marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px'}}>
+                            {globalSettings.participantNameClasses.map((cls: string) => (
+                                <div key={cls} style={{display: 'flex', alignItems: 'center', gap: '6px', padding: '6px', background: 'var(--bg-primary)', borderRadius: '4px'}}>
+                                    <span style={{fontFamily: 'monospace', fontSize: '0.82em', flex: 1, wordBreak: 'break-all'}}>{cls}</span>
+                                    <button onClick={() => handleRemoveParticipantNameClass(cls)} className="desktop-btn desktop-btn-danger desktop-btn-xs">삭제</button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     </>

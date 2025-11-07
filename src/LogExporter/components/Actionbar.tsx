@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { copyToClipboard, saveAsFile } from '../services/fileService';
 import { saveAsImage } from '../services/imageService';
 import { THEMES, COLORS } from './constants';
@@ -17,10 +17,11 @@ interface ActionbarProps {
   onProgressEnd: () => void;
   onSaveLogData: () => void;
   onLoadLogData: () => void;
+  onDeleteSelected?: () => void;
+  hasSelection?: boolean;
 }
 
-const Actionbar: React.FC<ActionbarProps> = ({ charName, chatName, getPreviewContent, messageNodes, settings, backgroundColor, charAvatarUrl, onOpenArcaHelper, onProgressStart, onProgressUpdate, onProgressEnd, onSaveLogData, onLoadLogData }) => {
-    const [imageFormat, setImageFormat] = useState<'png' | 'jpeg' | 'webp'>('png');
+const Actionbar: React.FC<ActionbarProps> = ({ charName, chatName, getPreviewContent, messageNodes, settings, backgroundColor, charAvatarUrl, onOpenArcaHelper, onProgressStart, onProgressUpdate, onProgressEnd, onSaveLogData, onLoadLogData, onDeleteSelected, hasSelection }) => {
 
     const handleCopyHtml = async () => {
         const content = await getPreviewContent();
@@ -36,6 +37,7 @@ const Actionbar: React.FC<ActionbarProps> = ({ charName, chatName, getPreviewCon
     };
 
     const handleSaveAsImage = async () => {
+        const imageFormat = settings.imageFormat || 'png';
         const fullOptions = {
             ...settings,
             charAvatarUrl,
@@ -50,31 +52,36 @@ const Actionbar: React.FC<ActionbarProps> = ({ charName, chatName, getPreviewCon
 
   return (
     <div className="desktop-action-bar">
-        <button className="desktop-btn desktop-btn-primary" onClick={handleCopyHtml}>
+        <button className="desktop-btn desktop-btn-primary" onClick={handleCopyHtml} title="HTML을 클립보드에 복사">
             📋 HTML 복사
         </button>
-        <button className="desktop-btn desktop-btn-secondary" onClick={handleSaveHtml}>
-            💾 HTML 파일로 저장
+        <button className="desktop-btn desktop-btn-secondary" onClick={handleSaveHtml} title="HTML 파일로 저장">
+            💾 HTML 저장
         </button>
-        <div className="desktop-image-save-group">
-            <button className="desktop-btn desktop-btn-success" onClick={handleSaveAsImage}>
-                🖼️ 이미지로 저장
+        <button className="desktop-btn desktop-btn-success" onClick={handleSaveAsImage} title="이미지 파일로 저장">
+            🖼️ 이미지 저장
+        </button>
+        <button className="desktop-btn desktop-btn-warning" onClick={onOpenArcaHelper} title="아카라이브 업로드 도우미">
+            🚀 아카 도우미
+        </button>
+        <div style={{flex: 1}}></div>
+        <button className="desktop-btn desktop-btn-secondary" onClick={onSaveLogData} title="로그 데이터를 JSON으로 저장">
+            📦 데이터 저장
+        </button>
+        <button className="desktop-btn desktop-btn-secondary" onClick={onLoadLogData} title="저장된 로그 데이터 불러오기">
+            📂 데이터 불러오기
+        </button>
+        {settings.isEditable && (
+            <button 
+                className="desktop-btn desktop-btn-danger"
+                onClick={onDeleteSelected}
+                disabled={!hasSelection}
+                title={!hasSelection ? '삭제할 메시지를 선택하세요' : '선택한 메시지 삭제'}
+                style={{opacity: !hasSelection ? 0.5 : 1, cursor: !hasSelection ? 'not-allowed' : 'pointer'}}
+            >
+                🗑️ 선택 삭제
             </button>
-            <select value={imageFormat} onChange={(e) => setImageFormat(e.target.value as any)} className="desktop-select">
-                <option value="png">PNG</option>
-                <option value="jpeg">JPG</option>
-                <option value="webp">WebP</option>
-            </select>
-        </div>
-        <button className="desktop-btn desktop-btn-warning" onClick={onOpenArcaHelper}>
-            🚀 아카라이브 도우미
-        </button>
-        <button className="desktop-btn desktop-btn-secondary" onClick={onSaveLogData}>
-            📦 로그 데이터 저장
-        </button>
-        <button className="desktop-btn desktop-btn-secondary" onClick={onLoadLogData}>
-            📂 로그 데이터 불러오기
-        </button>
+        )}
     </div>
   );
 };

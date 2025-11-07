@@ -33,6 +33,7 @@ interface Settings {
   expandHover?: boolean;
   imageResolution?: number;
   imageLibrary?: 'html-to-image' | 'dom-to-image' | 'html2canvas';
+  imageFormat?: 'png' | 'jpeg' | 'webp';
   previewFontSize?: number;
   previewWidth?: number;
   rawHtmlView?: boolean;
@@ -80,6 +81,42 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
     const [isArcaHelperOpen, setIsArcaHelperOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [progress, setProgress] = useState({ active: false, message: '', current: 0, total: 0 });
+    const [selectedIndices, setSelectedIndices] = useState(new Set<number>());
+    const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null);
+
+    const handleSelectionChange = (newSelection: Set<number>) => {
+        setSelectedIndices(newSelection);
+    };
+
+    const handleLastSelectedIndexChange = (index: number | null) => {
+        setLastSelectedIndex(index);
+    };
+
+    const handleSelectAll = () => {
+        const allIndices = new Set(messageNodes.map((_, i) => i));
+        setSelectedIndices(allIndices);
+    };
+
+    const handleDeselectAll = () => {
+        setSelectedIndices(new Set());
+        setLastSelectedIndex(null);
+    };
+
+    const handleInvertSelection = () => {
+        const allIndices = new Set(messageNodes.map((_, i) => i));
+        const newSelection = new Set(
+            [...allIndices].filter(i => !selectedIndices.has(i))
+        );
+        setSelectedIndices(newSelection);
+    };
+
+    const handleDeleteSelected = () => {
+        if (selectedIndices.size === 0) return;
+        const newNodes = messageNodes.filter((_, i) => !selectedIndices.has(i));
+        setMessageNodes(newNodes);
+        setSelectedIndices(new Set());
+        setLastSelectedIndex(null);
+    };
 
     const handleProgressStart = (message: string, total = 0) => {
         setProgress({ active: true, message, current: 0, total });
@@ -211,12 +248,31 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
     }, [chatIndex, options]);
 
     const activeFilters = savedSettings.customFilters ? Object.entries(savedSettings.customFilters).filter(([, checked]) => checked).map(([key]) => key) : [];
-    const filteredNodes = activeFilters.length > 0 
-        ? messageNodes.map(node => filterWithCustomClasses(node, activeFilters, globalSettings))
-        : messageNodes;
+    
+    const finalNodes = messageNodes
+        .map(node => { // for customFilters
+            if (activeFilters.length > 0) {
+                return filterWithCustomClasses(node, activeFilters, globalSettings);
+            }
+            return node;
+        })
+        .filter(node => { // for participant filter
+            const isMessageNode = node.querySelector('.prose, .chattext');
+            if (isMessageNode) {
+                const name = getNameFromNode(node as HTMLElement, globalSettings, charName);
+                if (globalSettings?.filteredParticipants?.includes(name)) {
+                    return false;
+                }
+            }
+            return true;
+        });
+
+    const nodesForExport = selectedIndices.size > 0
+        ? finalNodes.filter((_, i) => selectedIndices.has(i))
+        : finalNodes;
 
     const logContainerProps = {
-        nodes: filteredNodes,
+        nodes: finalNodes,
         charInfo: { name: charName, chatName: chatName, avatarUrl: charAvatarUrl },
         selectedThemeKey: savedSettings.theme || 'basic',
         selectedColorKey: savedSettings.color || 'dark',
@@ -234,9 +290,9 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
 
     const getPreviewContentForExport = async () => {
         if (savedSettings.format === 'basic' || !savedSettings.format) {
-            return await getLogHtml({...logContainerProps, isEditable: false, embedImagesAsBase64: true });
+            return await getLogHtml({...logContainerProps, nodes: nodesForExport, isEditable: false, embedImagesAsBase64: true });
         } else if (savedSettings.format === 'html') {
-            const htmlLog = await generateHtmlPreview(filteredNodes, savedSettings);
+            const htmlLog = await generateHtmlPreview(nodesForExport, savedSettings);
             return htmlLog.replace('</style>', `
               .x-risu-asset-table,
               .x-risu-asset-table table {
@@ -252,9 +308,9 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
               }
             </style>`);
         } else if (savedSettings.format === 'markdown') {
-            return await generateMarkdownLog(filteredNodes, charName);
+            return await generateMarkdownLog(nodesForExport, charName);
         } else if (savedSettings.format === 'text') {
-            return await generateTextLog(filteredNodes, charName);
+            return await generateTextLog(nodesForExport, charName);
         }
         return '';
     };
@@ -275,7 +331,7 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
         };
 
         generateOtherFormatPreview();
-    }, [filteredNodes, savedSettings, globalSettings, charName]);
+    }, [finalNodes, selectedIndices, savedSettings, globalSettings, charName]);
 
     const handleClose = () => {
         onClose();
@@ -339,6 +395,13 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
                                     logContainerProps={logContainerProps}
                                     settings={savedSettings}
                                     otherFormatContent={otherFormatContent}
+                                    selectedIndices={selectedIndices}
+                                    onSelectionChange={handleSelectionChange}
+                                    lastSelectedIndex={lastSelectedIndex}
+                                    onLastSelectedIndexChange={handleLastSelectedIndexChange}
+                                    onSelectAll={handleSelectAll}
+                                    onDeselectAll={handleDeselectAll}
+                                    onInvertSelection={handleInvertSelection}
                                 />
                             </div>
                             <div className={`mobile-tab-content mobile-tools-tab ${activeTab === 'tools' ? 'active' : ''}`}>
@@ -352,7 +415,7 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
                                     charName={charName} 
                                     chatName={chatName} 
                                     getPreviewContent={getPreviewContentForExport} 
-                                    messageNodes={messageNodes}
+                                    messageNodes={nodesForExport}
                                     settings={savedSettings}
                                     backgroundColor={backgroundColor}
                                     charAvatarUrl={charAvatarUrl}
@@ -362,6 +425,8 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
                                     onProgressEnd={handleProgressEnd}
                                     onSaveLogData={handleSaveLogData}
                                     onLoadLogData={handleLoadLogData}
+                                    onDeleteSelected={handleDeleteSelected}
+                                    hasSelection={selectedIndices.size > 0}
                                 />
                             </div>
                         </div>
@@ -389,6 +454,13 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
                                         logContainerProps={logContainerProps}
                                         settings={savedSettings}
                                         otherFormatContent={otherFormatContent}
+                                        selectedIndices={selectedIndices}
+                                        onSelectionChange={handleSelectionChange}
+                                        lastSelectedIndex={lastSelectedIndex}
+                                        onLastSelectedIndexChange={handleLastSelectedIndexChange}
+                                        onSelectAll={handleSelectAll}
+                                        onDeselectAll={handleDeselectAll}
+                                        onInvertSelection={handleInvertSelection}
                                     />
                                 </div>
                             </div>
@@ -397,7 +469,7 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
                                     charName={charName} 
                                     chatName={chatName} 
                                     getPreviewContent={getPreviewContentForExport} 
-                                    messageNodes={messageNodes}
+                                    messageNodes={nodesForExport}
                                     settings={savedSettings}
                                     backgroundColor={backgroundColor}
                                     charAvatarUrl={charAvatarUrl}
@@ -407,6 +479,8 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
                                     onProgressEnd={handleProgressEnd}
                                     onSaveLogData={handleSaveLogData}
                                     onLoadLogData={handleLoadLogData}
+                                    onDeleteSelected={handleDeleteSelected}
+                                    hasSelection={selectedIndices.size > 0}
                                 />
                             </div>
                         </>

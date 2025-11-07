@@ -65,6 +65,8 @@ export interface LogContainerProps {
   containerWidth?: number;
   isEditable?: boolean;
   onMessageUpdate?: (index: number, newHtml: string) => void;
+  selectedIndices?: Set<number>;
+  onMessageSelect?: (index: number, e: React.MouseEvent) => void;
 }
 
 // 메시지 컴포넌트 Props
@@ -83,6 +85,8 @@ export interface MessageProps {
   globalSettings: any;
   isEditable?: boolean;
   onMessageUpdate?: (index: number, newHtml: string) => void;
+  isSelected?: boolean;
+  onSelect?: (index: number, e: React.MouseEvent) => void;
 }
 
 export type LogNode = HTMLElement;

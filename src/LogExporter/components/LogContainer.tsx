@@ -7,7 +7,6 @@ import LogHeader from './LogHeader';
 import LogFooter from './LogFooter';
 import MessageRenderer from './MessageRenderer';
 
-import { getNameFromNode } from '../utils/domUtils';
 
 const LogContainer: React.FC<LogContainerProps> = (props) => {
   const {
@@ -27,6 +26,8 @@ const LogContainer: React.FC<LogContainerProps> = (props) => {
     globalSettings,
     fontSize,
     containerWidth,
+    selectedIndices,
+    onMessageSelect,
   } = props;
 
   const [avatarMap, setAvatarMap] = useState<Map<string, string>>(preCollectedAvatarMap || new Map());
@@ -69,23 +70,11 @@ const LogContainer: React.FC<LogContainerProps> = (props) => {
       boxShadow: selectedThemeKey === 'log' ? 'none' : (color.shadow || 'none'),
   };
 
-  const filteredNodes = nodes.filter(node => {
-    // 메시지 노드인지 간단히 확인 (더 정교한 방법이 필요할 수 있음)
-    const isMessageNode = node.querySelector('.prose, .chattext');
-    if (isMessageNode) {
-      const name = getNameFromNode(node as HTMLElement, globalSettings, charInfo.name);
-      if (globalSettings?.filteredParticipants?.includes(name)) {
-        return false; // 필터링 목록에 있으면 제외
-      }
-    }
-    return true; // 그 외 모든 노드는 포함
-  });
-
   return (
     <div style={containerStyle}>
       {showHeader && <LogHeader charInfo={charInfo} color={color} embedImagesAsBase64={embedImagesAsBase64} />}
       <main>
-        {filteredNodes.map((node, index) => (
+        {nodes.map((node, index) => (
           <MessageRenderer
             key={index} // It's better to have a unique key from the message data
             node={node}
@@ -102,6 +91,8 @@ const LogContainer: React.FC<LogContainerProps> = (props) => {
             globalSettings={globalSettings}
             isEditable={props.isEditable}
             onMessageUpdate={props.onMessageUpdate}
+            isSelected={selectedIndices?.has(index)}
+            onSelect={onMessageSelect}
           />
         ))}
       </main>
