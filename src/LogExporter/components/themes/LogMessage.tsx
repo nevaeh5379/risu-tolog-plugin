@@ -5,7 +5,7 @@ import { useMessageProcessor } from '../../hooks/useMessageProcessor';
 import { getNameFromNode } from '../../utils/domUtils';
 
 const LogMessage: React.FC<MessageProps> = (props) => {
-  const { node, index, charInfoName, color, embedImagesAsBase64, allowHtmlRendering, globalSettings } = props;
+  const { node, index, charInfoName, color, embedImagesAsBase64, allowHtmlRendering, globalSettings, isEditable, onMessageUpdate } = props;
   const originalMessageEl = node.querySelector('.prose, .chattext');
   const messageHtml = useMessageProcessor(originalMessageEl, embedImagesAsBase64, allowHtmlRendering, color);
 
@@ -13,6 +13,12 @@ const LogMessage: React.FC<MessageProps> = (props) => {
 
   const isUser = node.classList.contains('justify-end');
   const name = getNameFromNode(node as HTMLElement, globalSettings, charInfoName);
+
+  const handleBlur = (e: React.FocusEvent<HTMLDivElement>) => {
+    if (onMessageUpdate) {
+        onMessageUpdate(index, e.currentTarget.innerHTML);
+    }
+  };
 
   const lineNumber = String(index + 1).padStart(4, '0');
   const logBg = isUser ? color.cardBgUser : color.cardBg;
@@ -42,7 +48,7 @@ const LogMessage: React.FC<MessageProps> = (props) => {
       <div style={{ color: color.nameColor, fontWeight: 'bold', width: '80px', flexShrink: 0, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', fontSize: '0.85em' }}>
         [{name.toUpperCase()}]
       </div>
-      <div style={{ color: color.text, flex: 1, lineHeight: 1.4, wordWrap: 'break-word' }} dangerouslySetInnerHTML={{ __html: finalMessageHtml }} />
+      <div style={{ color: color.text, flex: 1, lineHeight: 1.4, wordWrap: 'break-word' }} dangerouslySetInnerHTML={{ __html: finalMessageHtml }} contentEditable={isEditable} onBlur={handleBlur} suppressContentEditableWarning={true} />
       <button className="log-exporter-delete-msg-btn" data-message-index={index} title="메시지 삭제">&times;</button>
     </div>
   );

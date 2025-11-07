@@ -12,9 +12,14 @@ interface ActionbarProps {
   backgroundColor: string;
   charAvatarUrl: string;
   onOpenArcaHelper?: () => void;
+  onProgressStart: (message: string, total?: number) => void;
+  onProgressUpdate: (update: { current?: number; message?: string }) => void;
+  onProgressEnd: () => void;
+  onSaveLogData: () => void;
+  onLoadLogData: () => void;
 }
 
-const Actionbar: React.FC<ActionbarProps> = ({ charName, chatName, getPreviewContent, messageNodes, settings, backgroundColor, charAvatarUrl, onOpenArcaHelper }) => {
+const Actionbar: React.FC<ActionbarProps> = ({ charName, chatName, getPreviewContent, messageNodes, settings, backgroundColor, charAvatarUrl, onOpenArcaHelper, onProgressStart, onProgressUpdate, onProgressEnd, onSaveLogData, onLoadLogData }) => {
     const [imageFormat, setImageFormat] = useState<'png' | 'jpeg' | 'webp'>('png');
 
     const handleCopyHtml = async () => {
@@ -36,6 +41,9 @@ const Actionbar: React.FC<ActionbarProps> = ({ charName, chatName, getPreviewCon
             charAvatarUrl,
             themes: THEMES,
             colors: COLORS,
+            onProgressStart,
+            onProgressUpdate,
+            onProgressEnd,
         };
         await saveAsImage(messageNodes, imageFormat, charName, chatName, fullOptions, backgroundColor);
     };
@@ -60,6 +68,12 @@ const Actionbar: React.FC<ActionbarProps> = ({ charName, chatName, getPreviewCon
         </div>
         <button className="desktop-btn desktop-btn-warning" onClick={onOpenArcaHelper}>
             🚀 아카라이브 도우미
+        </button>
+        <button className="desktop-btn desktop-btn-secondary" onClick={onSaveLogData}>
+            📦 로그 데이터 저장
+        </button>
+        <button className="desktop-btn desktop-btn-secondary" onClick={onLoadLogData}>
+            📂 로그 데이터 불러오기
         </button>
     </div>
   );

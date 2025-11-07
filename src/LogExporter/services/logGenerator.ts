@@ -6,14 +6,14 @@ import { loadGlobalSettings } from './settingsService';
 // This is a simplified version of the original generateBasicFormatLog function.
 // It will be expanded later.
 export const generateBasicLog = async (nodes: HTMLElement[], charName: string, chatName: string, charAvatarUrl: string, settings: any, themes: any, colors: any) => {
-    let html = '';
+    let contentHtml = '';
     const globalSettings = loadGlobalSettings();
 
     const themeInfo = themes[settings.theme || 'basic'] || themes.basic;
     const colorPalette = settings.theme === 'basic' ? (colors[settings.color || 'dark'] || colors.dark) : (themeInfo.color || colors.dark);
 
     if (settings.showHeader !== false) {
-        html += `
+        contentHtml += `
             <header style="text-align: center; padding-bottom: 1.5em; margin-bottom: 2em; border-bottom: 2px solid ${colorPalette.border};">
                 <img src="${charAvatarUrl}" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; margin: 0 auto 1em; display: block; border: 3px solid ${colorPalette.avatarBorder}; box-shadow: ${colorPalette.shadow};" />
                 <h1 style="color: ${colorPalette.nameColor}; margin: 0 0 0.25em 0; font-size: 1.8em; letter-spacing: 1px;">${charName}</h1>
@@ -28,7 +28,7 @@ export const generateBasicLog = async (nodes: HTMLElement[], charName: string, c
         const messageEl = node.querySelector('.prose, .chattext');
         const messageHtml = messageEl ? messageEl.innerHTML : '';
 
-        html += `
+        contentHtml += `
             <div class="chat-message-container" style="display: flex; align-items: flex-start; margin-bottom: 20px; flex-direction: ${isUser ? 'row-reverse' : 'row'};">
                 <div style="flex: 1;">
                     <strong style="color: ${colorPalette.nameColor}; font-weight: 600; display: block; margin-bottom: 8px; text-align: ${isUser ? 'right' : 'left'};">${name}</strong>
@@ -40,7 +40,7 @@ export const generateBasicLog = async (nodes: HTMLElement[], charName: string, c
         `;
     }
 
-    return html;
+    return `<div style="padding: 20px; background-color: ${colorPalette.background};">${contentHtml}</div>`;
 };
 
 export const generateMarkdownLog = async (nodes: HTMLElement[], charName: string) => {

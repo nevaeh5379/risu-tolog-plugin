@@ -1730,3 +1730,43 @@
     border-top: 1px solid var(--border-color);
     background: var(--bg-secondary);
 }
+
+.desktop-modal-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    gap: 16px;
+    color: var(--text-secondary);
+}
+
+.progress-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.75);
+    z-index: 10002; /* Higher than the modal backdrop */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    gap: 16px;
+    backdrop-filter: blur(4px);
+}
+
+.progress-overlay p {
+    font-size: 1.1em;
+    font-weight: 600;
+}
+
+.progress-overlay span {
+    font-size: 1.2em;
+    font-weight: bold;
+    background: rgba(0,0,0,0.3);
+    padding: 4px 12px;
+    border-radius: 8px;
+}

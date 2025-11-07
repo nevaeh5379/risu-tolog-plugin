@@ -6,7 +6,7 @@ import { useMessageProcessor } from '../../hooks/useMessageProcessor';
 import { getNameFromNode } from '../../utils/domUtils';
 
 const OceanMessage: React.FC<MessageProps> = (props) => {
-  const { node, index, charInfoName, color, showAvatar, isForArca, embedImagesAsBase64, allowHtmlRendering, globalSettings } = props;
+  const { node, index, charInfoName, color, showAvatar, isForArca, embedImagesAsBase64, allowHtmlRendering, globalSettings, isEditable, onMessageUpdate } = props;
   const originalMessageEl = node.querySelector('.prose, .chattext');
   const messageHtml = useMessageProcessor(originalMessageEl, embedImagesAsBase64, allowHtmlRendering, color);
 
@@ -15,6 +15,12 @@ const OceanMessage: React.FC<MessageProps> = (props) => {
   const isUser = node.classList.contains('justify-end');
   const name = getNameFromNode(node as HTMLElement, globalSettings, charInfoName);
   const avatarSrc = props.avatarMap.get(name);
+
+  const handleBlur = (e: React.FocusEvent<HTMLDivElement>) => {
+    if (onMessageUpdate) {
+        onMessageUpdate(index, e.currentTarget.innerHTML);
+    }
+  };
 
   const avatarBaseStyle: React.CSSProperties = {
     width:'48px',height:'48px',minWidth:'48px',borderRadius:'50%',boxShadow:color.shadow || 'none',border:`2px solid ${color.avatarBorder}`
@@ -32,7 +38,7 @@ const OceanMessage: React.FC<MessageProps> = (props) => {
         <strong style={{ color: color.nameColor, fontWeight: 600, fontSize: '1em', display: 'block', marginBottom: '10px', textAlign: isUser ? 'right' : 'left', textShadow: '0 0 8px rgba(34, 211, 238, 0.4)' }}>{name}</strong>
         <div style={{ background: isUser ? color.cardBgUser : color.cardBg, borderRadius: '18px', padding: '16px 20px', boxShadow: color.shadow, border: '1px solid rgba(34, 211, 238, 0.3)', color: color.text, lineHeight: 1.75, wordWrap: 'break-word', position: 'relative', overflow: 'hidden' }}>
           <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '100%', background: `radial-gradient(ellipse at ${isUser ? 'right' : 'left'} top, rgba(34, 211, 238, 0.05), transparent 70%)`, pointerEvents: 'none' }}></div>
-          <div style={{ position: 'relative', zIndex: 1 }} dangerouslySetInnerHTML={{ __html: messageHtml }} />
+          <div style={{ position: 'relative', zIndex: 1 }} dangerouslySetInnerHTML={{ __html: messageHtml }} contentEditable={isEditable} onBlur={handleBlur} suppressContentEditableWarning={true} />
         </div>
       </div>
     </div>

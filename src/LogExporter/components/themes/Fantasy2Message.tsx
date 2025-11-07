@@ -6,7 +6,7 @@ import { useMessageProcessor } from '../../hooks/useMessageProcessor';
 import { getNameFromNode } from '../../utils/domUtils';
 
 const Fantasy2Message: React.FC<MessageProps> = (props) => {
-  const { node, index, charInfoName, color, showAvatar, isForArca, embedImagesAsBase64, allowHtmlRendering, globalSettings } = props;
+  const { node, index, charInfoName, color, showAvatar, isForArca, embedImagesAsBase64, allowHtmlRendering, globalSettings, isEditable, onMessageUpdate } = props;
   const originalMessageEl = node.querySelector('.prose, .chattext');
   const messageHtml = useMessageProcessor(originalMessageEl, embedImagesAsBase64, allowHtmlRendering, color);
 
@@ -16,6 +16,12 @@ const Fantasy2Message: React.FC<MessageProps> = (props) => {
   const name = getNameFromNode(node as HTMLElement, globalSettings, charInfoName);
   const avatarSrc = props.avatarMap.get(name);
   const elfFont = `'Nanum Myeongjo', serif`;
+
+  const handleBlur = (e: React.FocusEvent<HTMLDivElement>) => {
+    if (onMessageUpdate) {
+        onMessageUpdate(index, e.currentTarget.innerHTML);
+    }
+  };
 
   const avatarBaseStyle: React.CSSProperties = {
     width:'50px',height:'50px',minWidth:'50px',borderRadius:'50%',border:`3px solid ${color.avatarBorder}`, boxShadow: color.shadow, position: 'relative'
@@ -43,7 +49,7 @@ const Fantasy2Message: React.FC<MessageProps> = (props) => {
           <strong style={{ color: color.nameColor, fontWeight: 600, fontSize: '1.2em', textShadow: '0 0 8px rgba(52, 211, 153, 0.4)', letterSpacing: '1px', marginBottom: '0.8em', display: 'block', textAlign: isUser ? 'right' : 'left' }}>{name}</strong>
           <div style={{ background: isUser ? color.cardBgUser : color.cardBg, borderRadius: '15px', padding: '16px 20px', boxShadow: color.shadow, border: '1px solid rgba(52, 211, 153, 0.2)', position: 'relative', overflow: 'hidden' }}>
             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '1px', background: `linear-gradient(90deg, transparent, ${color.nameColor}, transparent)` }}></div>
-            <div style={{ color: color.text, lineHeight: 1.7, fontSize: '1.05em', position: 'relative', zIndex: 1 }} dangerouslySetInnerHTML={{ __html: messageHtml }} />
+            <div style={{ color: color.text, lineHeight: 1.7, fontSize: '1.05em', position: 'relative', zIndex: 1 }} dangerouslySetInnerHTML={{ __html: messageHtml }} contentEditable={isEditable} onBlur={handleBlur} suppressContentEditableWarning={true} />
           </div>
         </div>
       </div>

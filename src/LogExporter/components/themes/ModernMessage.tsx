@@ -6,7 +6,7 @@ import { useMessageProcessor } from '../../hooks/useMessageProcessor';
 import { getNameFromNode } from '../../utils/domUtils';
 
 const ModernMessage: React.FC<MessageProps> = (props) => {
-  const { node, index, charInfoName, color, showAvatar, isForArca, embedImagesAsBase64, allowHtmlRendering, globalSettings } = props;
+  const { node, index, charInfoName, color, showAvatar, isForArca, embedImagesAsBase64, allowHtmlRendering, globalSettings, isEditable, onMessageUpdate } = props;
   const originalMessageEl = node.querySelector('.prose, .chattext');
   const messageHtml = useMessageProcessor(originalMessageEl, embedImagesAsBase64, allowHtmlRendering, color);
 
@@ -15,6 +15,12 @@ const ModernMessage: React.FC<MessageProps> = (props) => {
   const isUser = node.classList.contains('justify-end');
   const name = getNameFromNode(node as HTMLElement, globalSettings, charInfoName);
   const avatarSrc = props.avatarMap.get(name);
+
+  const handleBlur = (e: React.FocusEvent<HTMLDivElement>) => {
+    if (onMessageUpdate) {
+        onMessageUpdate(index, e.currentTarget.innerHTML);
+    }
+  };
 
   const avatarBaseStyle: React.CSSProperties = {
     width:'48px',height:'48px',minWidth:'48px',borderRadius:'50%',boxShadow:color.shadow || 'none',border:`2px solid ${color.avatarBorder}`
@@ -35,7 +41,7 @@ const ModernMessage: React.FC<MessageProps> = (props) => {
       </div>
       <div style={{ flex: 1, borderRadius: '8px', background: modernCardBg, boxShadow: color.shadow, overflow: 'hidden' }}>
         <strong style={{ color: color.nameColor, fontWeight: 600, fontSize: '0.9em', display: 'block', padding: '10px 14px', backgroundColor: 'rgba(0,0,0,0.15)', textAlign: isUser ? 'right' : 'left' }}>{name}</strong>
-        <div style={{ padding: '14px', color: color.text, lineHeight: 1.8, wordWrap: 'break-word' }} dangerouslySetInnerHTML={{ __html: messageHtml }} />
+        <div style={{ padding: '14px', color: color.text, lineHeight: 1.8, wordWrap: 'break-word' }} dangerouslySetInnerHTML={{ __html: messageHtml }} contentEditable={isEditable} onBlur={handleBlur} suppressContentEditableWarning={true} />
       </div>
     </div>
   );

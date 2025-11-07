@@ -68,6 +68,7 @@ const ToolsPanel: React.FC<ToolsPanelProps> = ({ settings, onSettingChange }) =>
                 </div>
             )}
             <Toggle settingKey="rawHtmlView" label="Raw HTML 보기" value={settings.rawHtmlView} defaultOn={false} />
+            <Toggle settingKey="isEditable" label="✍️ 로그 편집 활성화" value={settings.isEditable} defaultOn={false} />
         </div>
 
 

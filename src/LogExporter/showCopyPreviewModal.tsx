@@ -13,13 +13,12 @@ import ToolsPanel from './components/ToolsPanel';
 import ArcaHelperModal from './components/ArcaHelperModal';
 
 import Actionbar from './components/Actionbar';
-import MobileSettingsPanel from './components/MobileSettingsPanel';
-import MobileToolsPanel from './components/MobileToolsPanel';
 import { generateMarkdownLog, generateTextLog, generateHtmlPreview } from './services/logGenerator';
 import { getLogHtml } from './services/htmlGenerator';
 import { collectUIClasses, filterWithCustomClasses, getNameFromNode } from './utils/domUtils';
 import type { UIClassInfo } from './utils/domUtils';
 import { loadAllCharSettings, loadGlobalSettings } from './services/settingsService';
+import { saveAsFile } from './services/fileService';
 
 interface Settings {
   format?: 'basic' | 'html' | 'markdown' | 'text';
@@ -39,6 +38,7 @@ interface Settings {
   rawHtmlView?: boolean;
   showArcaHelper?: boolean;
   customFilters?: { [key: string]: boolean };
+  isEditable?: boolean;
 }
 
 
@@ -75,9 +75,21 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
 
     const [savedSettings, setSavedSettings] = useState<Settings>({});
     const [globalSettings, setGlobalSettings] = useState<any>({});
-    const [previewContent, setPreviewContent] = useState('');
+    const [otherFormatContent, setOtherFormatContent] = useState('');
     const [activeTab, setActiveTab] = useState('preview');
     const [isArcaHelperOpen, setIsArcaHelperOpen] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const [progress, setProgress] = useState({ active: false, message: '', current: 0, total: 0 });
+
+    const handleProgressStart = (message: string, total = 0) => {
+        setProgress({ active: true, message, current: 0, total });
+    };
+    const handleProgressUpdate = (update: { current?: number; message?: string }) => {
+        setProgress(p => ({ ...p, ...update }));
+    };
+    const handleProgressEnd = () => {
+        setProgress({ active: false, message: '', current: 0, total: 0 });
+    };
 
     const isMobile = useMediaQuery('(max-width: 768px)');
 
@@ -96,6 +108,65 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
         localStorage.setItem('logExporterGlobalSettings', JSON.stringify(newSettings));
     };
 
+    const handleMessageUpdate = (index: number, newHtml: string) => {
+        const newNodes = [...messageNodes];
+        const nodeToUpdate = newNodes[index].cloneNode(true) as HTMLElement;
+        const messageEl = nodeToUpdate.querySelector('.prose, .chattext');
+        if (messageEl) {
+            messageEl.innerHTML = newHtml;
+            newNodes[index] = nodeToUpdate;
+            setMessageNodes(newNodes);
+        }
+    };
+
+    const handleSaveLogData = () => {
+        const data = {
+            charName,
+            chatName,
+            charAvatarUrl,
+            messageNodes: messageNodes.map(node => node.outerHTML),
+        };
+        const content = JSON.stringify(data, null, 2);
+        const safeCharName = charName.replace(/[\\/\?%\\*:|"<>]/g, '-');
+        const safeChatName = chatName.replace(/[\\/\?%\\*:|"<>]/g, '-');
+        const filename = `Risu_Log_Data_${safeCharName}_${safeChatName}.json`;
+        saveAsFile(filename, content, 'application/json;charset=utf-8');
+    };
+
+    const handleLoadLogData = () => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json,application/json';
+        input.onchange = async (e) => {
+            const file = (e.target as HTMLInputElement).files?.[0];
+            if (!file) return;
+
+            const content = await file.text();
+            try {
+                const data = JSON.parse(content);
+                if (data.charName && data.chatName && data.charAvatarUrl && Array.isArray(data.messageNodes)) {
+                    setCharName(data.charName);
+                    setChatName(data.chatName);
+                    setCharAvatarUrl(data.charAvatarUrl);
+                    
+                    const newNodes = data.messageNodes.map((html: string) => {
+                        const tempDiv = document.createElement('div');
+                        tempDiv.innerHTML = html;
+                        return tempDiv.firstChild as HTMLElement;
+                    });
+                    setMessageNodes(newNodes);
+                    alert('로그 데이터를 성공적으로 불러왔습니다.');
+                } else {
+                    alert('잘못된 형식의 로그 데이터 파일입니다.');
+                }
+            } catch (err) {
+                alert('로그 데이터 파일을 읽는 데 실패했습니다.');
+                console.error(err);
+            }
+        };
+        input.click();
+    };
+
     useEffect(() => {
         if (character?.chaId && Object.keys(savedSettings).length > 0) {
             const allSettings = loadAllCharSettings();
@@ -108,6 +179,7 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
 
     useEffect(() => {
         const fetchData = async () => {
+            setIsLoading(true);
             try {
                 const { charName, chatName, charAvatarUrl, messageNodes, character } = await processChatLog(chatIndex, options);
                 setCharName(charName);
@@ -130,90 +202,80 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
 
             } catch (error) {
                 console.error('[Log Exporter] Modal open error:', error);
+            } finally {
+                setIsLoading(false);
             }
         };
 
         fetchData();
     }, [chatIndex, options]);
 
+    const activeFilters = savedSettings.customFilters ? Object.entries(savedSettings.customFilters).filter(([, checked]) => checked).map(([key]) => key) : [];
+    const filteredNodes = activeFilters.length > 0 
+        ? messageNodes.map(node => filterWithCustomClasses(node, activeFilters, globalSettings))
+        : messageNodes;
+
+    const logContainerProps = {
+        nodes: filteredNodes,
+        charInfo: { name: charName, chatName: chatName, avatarUrl: charAvatarUrl },
+        selectedThemeKey: savedSettings.theme || 'basic',
+        selectedColorKey: savedSettings.color || 'dark',
+        showAvatar: savedSettings.showAvatar,
+        showHeader: savedSettings.showHeader,
+        showFooter: savedSettings.showFooter,
+        showBubble: savedSettings.showBubble,
+        embedImagesAsBase64: true,
+        globalSettings: globalSettings,
+        fontSize: savedSettings.previewFontSize,
+        containerWidth: savedSettings.previewWidth,
+        isEditable: savedSettings.isEditable,
+        onMessageUpdate: handleMessageUpdate,
+    };
+
+    const getPreviewContentForExport = async () => {
+        if (savedSettings.format === 'basic' || !savedSettings.format) {
+            return await getLogHtml({...logContainerProps, isEditable: false, embedImagesAsBase64: true });
+        } else if (savedSettings.format === 'html') {
+            const htmlLog = await generateHtmlPreview(filteredNodes, savedSettings);
+            return htmlLog.replace('</style>', `
+              .x-risu-asset-table,
+              .x-risu-asset-table table {
+                width: 100% !important;
+                table-layout: fixed !important;
+                word-break: break-all;
+              }
+              .x-risu-asset-table img {
+                max-width: 100% !important;
+                height: auto !important;
+                display: block;
+                margin: 0 auto;
+              }
+            </style>`);
+        } else if (savedSettings.format === 'markdown') {
+            return await generateMarkdownLog(filteredNodes, charName);
+        } else if (savedSettings.format === 'text') {
+            return await generateTextLog(filteredNodes, charName);
+        }
+        return '';
+    };
+
     useEffect(() => {
-        const generatePreview = async () => {
-            if (messageNodes.length === 0) return;
-
-            let content = '';
-            const settings = savedSettings;
-
-            const activeFilters = settings.customFilters ? Object.entries(settings.customFilters).filter(([, checked]) => checked).map(([key]) => key) : [];
-            const filteredNodes = activeFilters.length > 0 
-                ? messageNodes.map(node => filterWithCustomClasses(node, activeFilters, globalSettings))
-                : messageNodes;
-
-            const style = `font-size: ${settings.previewFontSize || 16}px; max-width: ${settings.previewWidth || 800}px; margin: 0 auto;`;
-            const preStyle = `font-size: ${settings.previewFontSize || 16}px;`;
-            const preWrapperStyle = `max-width: ${settings.previewWidth || 800}px; margin: 0 auto;`;
-            const overrideStyle = `
-              <style>
-                .x-risu-asset-table,
-                .x-risu-asset-table table {
-                  width: 100% !important;
-                  table-layout: fixed !important;
-                  word-break: break-all;
-                }
-                .x-risu-asset-table img {
-                  max-width: 100% !important;
-                  height: auto !important;
-                  display: block;
-                  margin: 0 auto;
-                }
-                img, video {
-                  max-width: 100%;
-                  height: auto;
-                }
-              </style>
-            `;
-
-            if (settings.format === 'basic' || !settings.format) {
-                const logHtml = await getLogHtml({
-                    nodes: filteredNodes,
-                    charInfo: { name: charName, chatName: chatName, avatarUrl: charAvatarUrl },
-                    selectedThemeKey: settings.theme || 'basic',
-                    selectedColorKey: settings.color || 'dark',
-                    showAvatar: settings.showAvatar,
-                    showHeader: settings.showHeader,
-                    showFooter: settings.showFooter,
-                    showBubble: settings.showBubble,
-                    embedImagesAsBase64: true, // Embed images for preview
-                    globalSettings: globalSettings,
-                });
-                content = `${overrideStyle}<div style="${style}">${logHtml}</div>`;
-            } else if (settings.format === 'html') {
-                const htmlLog = await generateHtmlPreview(filteredNodes, settings);
-                content = htmlLog.replace('</style>', `
-                  .x-risu-asset-table,
-                  .x-risu-asset-table table {
-                    width: 100% !important;
-                    table-layout: fixed !important;
-                    word-break: break-all;
-                  }
-                  .x-risu-asset-table img {
-                    max-width: 100% !important;
-                    height: auto !important;
-                    display: block;
-                    margin: 0 auto;
-                  }
-                </style>`);
-            } else if (settings.format === 'markdown') {
-                const markdownLog = await generateMarkdownLog(filteredNodes, charName);
-                content = `${overrideStyle}<div style="${preWrapperStyle}"><pre style="${preStyle}">${markdownLog}</pre></div>`;
-            } else {
-                const textLog = await generateTextLog(filteredNodes, charName);
-                content = `${overrideStyle}<div style="${preWrapperStyle}"><pre style="${preStyle}">${textLog}</pre></div>`;
+        const generateOtherFormatPreview = async () => {
+            if (savedSettings.format === 'basic' || !savedSettings.format) {
+                setOtherFormatContent('');
+                return;
             }
-            setPreviewContent(content);
+            const content = await getPreviewContentForExport();
+            if (savedSettings.format === 'markdown' || savedSettings.format === 'text') {
+                const style = `font-size: ${savedSettings.previewFontSize || 16}px; max-width: ${savedSettings.previewWidth || 800}px; margin: 20px auto; padding: 20px; background-color: #1a1b26; color: #c0caf5; border-radius: 8px;`;
+                setOtherFormatContent(`<div style="${style}"><pre style="white-space: pre-wrap; word-wrap: break-word;">${content}</pre></div>`);
+            } else {
+                setOtherFormatContent(content);
+            }
         };
 
-        generatePreview();
-    }, [messageNodes, savedSettings, globalSettings, charName, chatName, charAvatarUrl]);
+        generateOtherFormatPreview();
+    }, [filteredNodes, savedSettings, globalSettings, charName]);
 
     const handleClose = () => {
         onClose();
@@ -242,7 +304,12 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
                         <span className="header-title">로그 내보내기 옵션</span>
                         <span className="header-help">(Ctrl+/ 도움말)</span>
                     </div>
-                    {isMobile ? (
+                    {isLoading ? (
+                        <div className="desktop-modal-loading">
+                            <div className="desktop-spinner"></div>
+                            <p>로그 데이터를 불러오는 중...</p>
+                        </div>
+                    ) : isMobile ? (
                         <div className="log-exporter-modal-content">
                             <div className="mobile-tab-navigation">
                                 <button className={`mobile-tab-btn ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
@@ -256,7 +323,7 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
                                 </button>
                             </div>
                             <div className={`mobile-tab-content mobile-settings-tab ${activeTab === 'settings' ? 'active' : ''}`}>
-                                <MobileSettingsPanel 
+                                <SettingsPanel 
                                     settings={savedSettings} 
                                     onSettingChange={handleSettingChange} 
                                     themes={THEMES} 
@@ -269,26 +336,32 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
                             </div>
                             <div className={`mobile-tab-content mobile-preview-tab ${activeTab === 'preview' ? 'active' : ''}`}>
                                 <PreviewPanel 
-                                    previewContent={previewContent}
+                                    logContainerProps={logContainerProps}
                                     settings={savedSettings}
+                                    otherFormatContent={otherFormatContent}
                                 />
                             </div>
-                                <div className={`mobile-tab-content mobile-tools-tab ${activeTab === 'tools' ? 'active' : ''}`}>
-                                    <MobileToolsPanel 
-                                        settings={savedSettings}
-                                        onSettingChange={handleSettingChange}
-                                    />
-                                </div>
+                            <div className={`mobile-tab-content mobile-tools-tab ${activeTab === 'tools' ? 'active' : ''}`}>
+                                <ToolsPanel 
+                                    settings={savedSettings}
+                                    onSettingChange={handleSettingChange}
+                                />
+                            </div>
                             <div className="mobile-action-bar">
                                 <Actionbar 
                                     charName={charName} 
                                     chatName={chatName} 
-                                    getPreviewContent={() => Promise.resolve(previewContent)} 
+                                    getPreviewContent={getPreviewContentForExport} 
                                     messageNodes={messageNodes}
                                     settings={savedSettings}
                                     backgroundColor={backgroundColor}
                                     charAvatarUrl={charAvatarUrl}
                                     onOpenArcaHelper={() => setIsArcaHelperOpen(true)}
+                                    onProgressStart={handleProgressStart}
+                                    onProgressUpdate={handleProgressUpdate}
+                                    onProgressEnd={handleProgressEnd}
+                                    onSaveLogData={handleSaveLogData}
+                                    onLoadLogData={handleLoadLogData}
                                 />
                             </div>
                         </div>
@@ -313,8 +386,9 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
                                 </div>
                                 <div className="desktop-preview-panel">
                                     <PreviewPanel 
-                                        previewContent={previewContent}
+                                        logContainerProps={logContainerProps}
                                         settings={savedSettings}
+                                        otherFormatContent={otherFormatContent}
                                     />
                                 </div>
                             </div>
@@ -322,15 +396,29 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
                                 <Actionbar 
                                     charName={charName} 
                                     chatName={chatName} 
-                                    getPreviewContent={() => Promise.resolve(previewContent)} 
+                                    getPreviewContent={getPreviewContentForExport} 
                                     messageNodes={messageNodes}
                                     settings={savedSettings}
                                     backgroundColor={backgroundColor}
                                     charAvatarUrl={charAvatarUrl}
                                     onOpenArcaHelper={() => setIsArcaHelperOpen(true)}
+                                    onProgressStart={handleProgressStart}
+                                    onProgressUpdate={handleProgressUpdate}
+                                    onProgressEnd={handleProgressEnd}
+                                    onSaveLogData={handleSaveLogData}
+                                    onLoadLogData={handleLoadLogData}
                                 />
                             </div>
                         </>
+                    )}
+                </div>
+            )}
+            {progress.active && (
+                <div className="desktop-modal-loading progress-overlay">
+                    <div className="desktop-spinner"></div>
+                    <p>{progress.message}</p>
+                    {progress.total > 0 && (
+                        <span>{progress.current} / {progress.total}</span>
                     )}
                 </div>
             )}

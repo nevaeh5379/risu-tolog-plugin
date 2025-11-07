@@ -6,7 +6,7 @@ import { useMessageProcessor } from '../../hooks/useMessageProcessor';
 import { getNameFromNode } from '../../utils/domUtils';
 
 const RoyalMessage: React.FC<MessageProps> = (props) => {
-  const { node, index, charInfoName, color, showAvatar, isForArca, embedImagesAsBase64, allowHtmlRendering, globalSettings } = props;
+  const { node, index, charInfoName, color, showAvatar, isForArca, embedImagesAsBase64, allowHtmlRendering, globalSettings, isEditable, onMessageUpdate } = props;
   const originalMessageEl = node.querySelector('.prose, .chattext');
   const messageHtml = useMessageProcessor(originalMessageEl, embedImagesAsBase64, allowHtmlRendering, color);
 
@@ -16,6 +16,12 @@ const RoyalMessage: React.FC<MessageProps> = (props) => {
   const name = getNameFromNode(node as HTMLElement, globalSettings, charInfoName);
   const avatarSrc = props.avatarMap.get(name);
   const royalFont = `'Nanum Myeongjo', serif`;
+
+  const handleBlur = (e: React.FocusEvent<HTMLDivElement>) => {
+    if (onMessageUpdate) {
+        onMessageUpdate(index, e.currentTarget.innerHTML);
+    }
+  };
 
   const avatarBaseStyle: React.CSSProperties = {
     width:'55px',height:'55px',minWidth:'55px',borderRadius:'50%',border:`3px solid ${color.avatarBorder}`, boxShadow: color.shadow, position: 'relative'
@@ -37,7 +43,7 @@ const RoyalMessage: React.FC<MessageProps> = (props) => {
         <strong style={{ color: color.nameColor, fontWeight: 500, fontSize: '1.5em', marginTop: '1em', letterSpacing: '2px', textShadow: '0 0 12px rgba(251, 191, 36, 0.5)' }}>{name}</strong>
         <div style={{ background: isUser ? color.cardBgUser : color.cardBg, color: color.text, lineHeight: 1.8, fontSize: '1.1em', textAlign: 'justify', marginTop: '1.5em', maxWidth: '95%', padding: '20px 25px', borderRadius: '15px', border: '2px solid transparent', backgroundClip: 'padding-box', boxShadow: color.shadow, position: 'relative', overflow: 'hidden' }}>
           <div style={{ position: 'absolute', inset: '-2px', background: 'linear-gradient(45deg, #7c3aed, #fbbf24, #7c3aed)', borderRadius: '17px', zIndex: -1 }}></div>
-          <div dangerouslySetInnerHTML={{ __html: messageHtml }} />
+          <div dangerouslySetInnerHTML={{ __html: messageHtml }} contentEditable={isEditable} onBlur={handleBlur} suppressContentEditableWarning={true} />
         </div>
       </div>
     </>

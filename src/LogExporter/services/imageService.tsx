@@ -1,25 +1,14 @@
 import { toPng, toJpeg } from 'html-to-image';
 import domtoimage from 'dom-to-image-more';
 import JSZip from 'jszip';
+import { createRoot } from 'react-dom/client';
+import LogContainer from '../components/LogContainer';
 import { convertWebMToAnimatedWebP } from '../../services/webmConverter';
 import { getLogHtml } from './htmlGenerator';
 import { collectCharacterAvatars } from './avatarService';
 import type { CharInfo } from '../../types';
 import html2canvas from 'html2canvas';
-import { imageUrlToBase64 } from '../utils/imageUtils';
-import { generateBasicLog } from './logGenerator';
 import { loadGlobalSettings } from './settingsService';
-
-
-
-const toAbsoluteUrl = (url: string) => {
-    try {
-        return new URL(url, window.location.href).href;
-    } catch (e) {
-        console.error('Invalid URL:', url, e);
-        return url;
-    }
-};
 
 export const saveAsImage = async (nodes: HTMLElement[], format: 'png' | 'jpeg' | 'webp', charName: string, chatName: string, options: any, backgroundColor?: string) => {
     const { 
@@ -27,12 +16,17 @@ export const saveAsImage = async (nodes: HTMLElement[], format: 'png' | 'jpeg' |
         imageLibrary = 'html-to-image', 
         splitImage = false, 
         maxImageHeight = 10000,
+        onProgressStart = (_message: string, _total?: number) => {},
+        onProgressUpdate = (_update: { current?: number; message?: string }) => {},
+        onProgressEnd = () => {},
         ...htmlOptions
     } = options;
 
     const renderImage = async (element: HTMLElement, part = 0, totalParts = 1) => {
-        const safeCharName = charName.replace(/[\/\?%\*:|"<>]/g, '-');
-        const safeChatName = chatName.replace(/[\/\?%\*:|"<>]/g, '-');
+        onProgressUpdate({ message: `[${part + 1}/${totalParts}] 이미지 데이터 생성 중...` });
+        await new Promise(resolve => setTimeout(resolve, 50));
+        const safeCharName = charName.replace(/[\\/\?%\\*:|\"<>]/g, '-');
+        const safeChatName = chatName.replace(/[\\/\?%\\*:|\"<>]/g, '-');
         const filename = totalParts > 1 
             ? `Risu_Log_${safeCharName}_${safeChatName}_part${part + 1}.${format}`
             : `Risu_Log_${safeCharName}_${safeChatName}.${format}`;
@@ -59,19 +53,22 @@ export const saveAsImage = async (nodes: HTMLElement[], format: 'png' | 'jpeg' |
                 if (format === 'png') {
                     dataUrl = await toPng(element, libOptions);
                 } else if (format === 'jpeg') {
-                    dataUrl = await toJpeg(element, libOptions);
+                    dataUrl = await toJpeg(element, { ...libOptions, quality: 1.0 });
                 } else {
                     const canvas = await html2canvas(element, { scale: imageResolution, useCORS: true, backgroundColor: bgColor });
                     dataUrl = canvas.toDataURL('image/webp');
                 }
             }
 
+            onProgressUpdate({ message: `[${part + 1}/${totalParts}] 파일 다운로드 중...` });
+            await new Promise(resolve => setTimeout(resolve, 50));
             const a = document.createElement('a');
             a.href = dataUrl;
             a.download = filename;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
+            await new Promise(resolve => setTimeout(resolve, 100));
 
         } catch (error) {
             console.error('Error saving image part:', error);
@@ -83,17 +80,30 @@ export const saveAsImage = async (nodes: HTMLElement[], format: 'png' | 'jpeg' |
     container.style.position = 'absolute';
     container.style.top = '-9999px';
     container.style.left = '-9999px';
-    container.style.all = 'initial';
+    container.style.width = '940px';
+    container.style.padding = '20px';
     document.body.appendChild(container);
 
     try {
+        onProgressStart('분할 이미지 계산 중...', 1);
+        await new Promise(resolve => setTimeout(resolve, 50));
         const chunks: HTMLElement[][] = [];
         if (splitImage) {
             let currentChunk: HTMLElement[] = [];
             let currentHeight = 0;
+            const tempRenderDiv = document.createElement('div');
+            tempRenderDiv.style.position = 'absolute';
+            tempRenderDiv.style.top = '-9999px';
+            tempRenderDiv.style.left = '-9999px';
+            tempRenderDiv.style.width = `${htmlOptions.previewWidth || 900}px`;
+            document.body.appendChild(tempRenderDiv);
 
             for (const node of nodes) {
-                const nodeHeight = (node as HTMLElement).offsetHeight;
+                const nodeClone = node.cloneNode(true) as HTMLElement;
+                tempRenderDiv.appendChild(nodeClone);
+                const nodeHeight = nodeClone.offsetHeight;
+                tempRenderDiv.removeChild(nodeClone);
+
                 if (currentHeight + nodeHeight > maxImageHeight && currentChunk.length > 0) {
                     chunks.push(currentChunk);
                     currentChunk = [];
@@ -105,102 +115,51 @@ export const saveAsImage = async (nodes: HTMLElement[], format: 'png' | 'jpeg' |
             if (currentChunk.length > 0) {
                 chunks.push(currentChunk);
             }
+            document.body.removeChild(tempRenderDiv);
         } else {
             chunks.push(nodes);
         }
 
+        onProgressStart(`이미지 생성 중...`, chunks.length);
+        await new Promise(resolve => setTimeout(resolve, 50));
+
         for (let i = 0; i < chunks.length; i++) {
             const chunkNodes = chunks[i];
-            const htmlContent = await generateBasicLog(chunkNodes, charName, chatName, options.charAvatarUrl, htmlOptions, options.themes, options.colors);
+            onProgressUpdate({ current: i + 1, message: `[${i + 1}/${chunks.length}] 컴포넌트 렌더링 중...` });
+            await new Promise(resolve => setTimeout(resolve, 50));
 
-            const tempDoc = document.createElement('div');
-            tempDoc.innerHTML = htmlContent;
-
-            const promises: Promise<void>[] = [];
-
-            // Image Base64 embedding
-            tempDoc.querySelectorAll('img').forEach((img) => {
-                const src = img.getAttribute('src');
-                if (src && !src.startsWith('data:')) {
-                    promises.push(
-                        imageUrlToBase64(toAbsoluteUrl(src)).then((base64) => { img.src = base64; })
-                    );
-                }
-            });
-            tempDoc.querySelectorAll('[style*="background-image"]').forEach((el) => {
-                const style = (el as HTMLElement).style;
-                const bgImage = style.backgroundImage;
-                const urlMatch = bgImage.match(/url\(['"]?(.*?)['"]?\)/);
-                if (urlMatch && urlMatch[1] && !urlMatch[1].startsWith('data:')) {
-                    const url = urlMatch[1];
-                    promises.push(
-                        imageUrlToBase64(toAbsoluteUrl(url)).then((base64) => { style.backgroundImage = `url(${base64})`; })
-                    );
-                }
+            await new Promise<void>(resolve => {
+                const onReady = () => resolve();
+                const props = {
+                    nodes: chunkNodes,
+                    charInfo: { name: charName, chatName: chatName, avatarUrl: options.charAvatarUrl },
+                    selectedThemeKey: htmlOptions.theme,
+                    selectedColorKey: htmlOptions.color,
+                    showAvatar: htmlOptions.showAvatar,
+                    showHeader: htmlOptions.showHeader,
+                    showFooter: htmlOptions.showFooter,
+                    showBubble: htmlOptions.showBubble,
+                    embedImagesAsBase64: true,
+                    globalSettings: loadGlobalSettings(),
+                    onReady: onReady,
+                    fontSize: htmlOptions.previewFontSize,
+                    containerWidth: htmlOptions.previewWidth,
+                };
+                const root = createRoot(container);
+                root.render(<LogContainer {...props} />);
             });
 
-            // Video to Image conversion
-            tempDoc.querySelectorAll('video').forEach((video) => {
-                promises.push(new Promise<void>((resolve) => {
-                    const canvas = document.createElement('canvas');
-                    const videoSrc = video.querySelector('source')?.src || video.src;
-                    if (!videoSrc) { resolve(); return; }
-
-                    const newVideo = document.createElement('video');
-                    newVideo.crossOrigin = 'anonymous';
-                    newVideo.src = toAbsoluteUrl(videoSrc);
-
-                    newVideo.addEventListener('loadeddata', () => { newVideo.currentTime = 0; });
-                    newVideo.addEventListener('seeked', () => {
-                        canvas.width = newVideo.videoWidth;
-                        canvas.height = newVideo.videoHeight;
-                        const ctx = canvas.getContext('2d');
-                        if (ctx) {
-                            ctx.drawImage(newVideo, 0, 0, canvas.width, canvas.height);
-                            const img = document.createElement('img');
-                            img.src = canvas.toDataURL();
-                            img.style.width = video.style.width || `${canvas.width}px`;
-                            img.style.height = video.style.height || `${canvas.height}px`;
-                            video.parentNode?.replaceChild(img, video);
-                        }
-                        resolve();
-                    });
-                    newVideo.addEventListener('error', () => {
-                        console.warn('Failed to load video for thumbnailing:', newVideo.src);
-                        resolve();
-                    });
-                }));
-            });
-
-            await Promise.all(promises);
-
-            container.innerHTML = tempDoc.innerHTML;
-
-            let elementToRender: HTMLElement | null = null;
-            for (const child of Array.from(container.childNodes)) {
-                if (child.nodeType === Node.ELEMENT_NODE && (child as HTMLElement).tagName !== 'STYLE') {
-                    elementToRender = child as HTMLElement;
-                    break;
-                }
-            }
+            const elementToRender = container.firstChild as HTMLElement;
             if (!elementToRender) continue;
 
-            let finalElementToRender = elementToRender;
-            if (imageLibrary === 'html-to-image') {
-                const clonedEl = elementToRender.cloneNode(true) as HTMLElement;
-                clonedEl.style.margin = '0';
-                container.innerHTML = '';
-                container.appendChild(clonedEl);
-                finalElementToRender = clonedEl;
-            }
-
-            await renderImage(finalElementToRender, i, chunks.length);
+            await renderImage(elementToRender, i, chunks.length);
+            container.innerHTML = '';
         }
-
     } catch (error) {
         console.error('Error preparing images:', error);
         alert('이미지 준비 중 오류가 발생했습니다.');
     } finally {
+        onProgressEnd();
         document.body.removeChild(container);
     }
 };
@@ -345,8 +304,8 @@ export const downloadImagesAsZip = async (
 
         await Promise.all(mediaPromises);
         const content = await zip.generateAsync({ type: "blob" });
-        const safeCharName = charInfo.name.replace(/[\/\?%\*:|"<>]/g, '-');
-        const safeChatName = charInfo.chatName.replace(/[\/\?%\*:|"<>]/g, '-');
+        const safeCharName = charInfo.name.replace(/[\\/\?%\\*:|\"<>]/g, '-');
+        const safeChatName = charInfo.chatName.replace(/[\\/\?%\\*:|\"<>]/g, '-');
         const zipFilename = `Risu_Log_Media_${safeCharName}_${safeChatName}${sequentialNaming ? '_Arca' : ''}.zip`;
 
         const link = document.createElement('a');
@@ -362,4 +321,3 @@ export const downloadImagesAsZip = async (
         alert('An error occurred while creating the media ZIP file.');
     }
 };
-

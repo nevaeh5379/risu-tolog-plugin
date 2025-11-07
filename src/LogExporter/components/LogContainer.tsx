@@ -25,6 +25,8 @@ const LogContainer: React.FC<LogContainerProps> = (props) => {
     allowHtmlRendering = false,
     onReady,
     globalSettings,
+    fontSize,
+    containerWidth,
   } = props;
 
   const [avatarMap, setAvatarMap] = useState<Map<string, string>>(preCollectedAvatarMap || new Map());
@@ -57,7 +59,8 @@ const LogContainer: React.FC<LogContainerProps> = (props) => {
 
   const containerStyle: React.CSSProperties = {
       margin: '16px auto',
-      maxWidth: '900px',
+      maxWidth: containerWidth ? `${containerWidth}px` : '900px',
+      fontSize: fontSize ? `${fontSize}px` : '16px',
       backgroundColor: color.background,
       borderRadius: selectedThemeKey === 'log' ? '8px' : '12px',
       overflow: 'hidden',
@@ -97,6 +100,8 @@ const LogContainer: React.FC<LogContainerProps> = (props) => {
             embedImagesAsBase64={embedImagesAsBase64}
             allowHtmlRendering={allowHtmlRendering}
             globalSettings={globalSettings}
+            isEditable={props.isEditable}
+            onMessageUpdate={props.onMessageUpdate}
           />
         ))}
       </main>

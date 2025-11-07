@@ -53,9 +53,9 @@ export default defineConfig({
         assetFileNames: `[name].[ext]`,
       },
     },
-    // Vite가 주입하는 modulepreload polyfill을 비활성화합니다.
-    // RisuAI 환경에서는 필요하지 않을 가능성이 높고, 코드 시작 부분을 복잡하게 만듭니다.
-    polyfillModulePreload: false,
+    modulePreload: {
+      polyfill: false
+    },
   },
   define: {
     '__NAME__': JSON.stringify('Hello React Plugin'),

@@ -120,6 +120,16 @@ const MobileToolsPanel: React.FC<MobileToolsPanelProps> = ({ settings, onSetting
                 <div className="mobile-switch-thumb"></div>
               </div>
             </div>
+
+            <div className="mobile-toggle-item">
+              <span className="mobile-toggle-label">✍️ 로그 편집</span>
+              <div 
+                className={`mobile-switch ${settings.isEditable === true ? 'active' : ''}`}
+                onClick={() => onSettingChange('isEditable', settings.isEditable !== true)}
+              >
+                <div className="mobile-switch-thumb"></div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

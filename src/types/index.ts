@@ -61,6 +61,10 @@ export interface LogContainerProps {
   allowHtmlRendering?: boolean;
   onReady?: () => void;
   globalSettings: any;
+  fontSize?: number;
+  containerWidth?: number;
+  isEditable?: boolean;
+  onMessageUpdate?: (index: number, newHtml: string) => void;
 }
 
 // 메시지 컴포넌트 Props
@@ -77,6 +81,8 @@ export interface MessageProps {
   embedImagesAsBase64: boolean;
   allowHtmlRendering: boolean;
   globalSettings: any;
+  isEditable?: boolean;
+  onMessageUpdate?: (index: number, newHtml: string) => void;
 }
 
 export type LogNode = HTMLElement;
