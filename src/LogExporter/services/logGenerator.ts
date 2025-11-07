@@ -1,4 +1,5 @@
 import { getNameFromNode } from '../utils/domUtils';
+import { imageUrlToBlob } from '../utils/imageUtils';
 import { loadGlobalSettings } from './settingsService';
 
 
@@ -143,28 +144,17 @@ export const generateHtmlPreview = async (nodes: HTMLElement[], settings: any) =
         return Array.from(cssTexts).join('\n');
     }
 
-    const imageUrlToBase64 = async (url: string) => {
-        try {
-            if (!url || url.startsWith('data:')) return url;
-            const response = await fetch(url);
-            const blob = await response.blob();
-            return new Promise<string>((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onloadend = () => resolve(reader.result as string);
-                reader.onerror = reject;
-                reader.readAsDataURL(blob);
-            });
-        } catch (error) {
-            console.warn(`Base64 conversion error for ${url}:`, error);
-            return '';
-        }
-    }
-
     const clonedNodesHtml = await Promise.all(nodes.map(async (node) => {
         const clonedNode = node.cloneNode(true) as HTMLElement;
         if (settings.embedImages !== false) {
             for (const img of Array.from(clonedNode.querySelectorAll('img'))) {
-                img.src = await imageUrlToBase64(img.src);
+                if (img.src && !img.src.startsWith('data:') && !img.src.startsWith('blob:')) {
+                    try {
+                        img.src = await imageUrlToBlob(img.src);
+                    } catch (e) {
+                        console.warn(`Blob conversion error for ${img.src}:`, e);
+                    }
+                }
             }
         }
         return clonedNode.outerHTML;
@@ -177,11 +167,18 @@ export const generateHtmlPreview = async (nodes: HTMLElement[], settings: any) =
     }
 
     const wrapperClass = settings.expandHover ? 'class="expand-hover-globally"' : '';
+    const wrapperStyle = `
+        margin: 16px auto;
+        max-width: ${settings.previewWidth || 800}px;
+        font-size: ${settings.previewFontSize || 16}px;
+    `;
 
     return `
         <style>${fullCss}\n${extraCss}</style>
         <div ${wrapperClass}>
-         ${clonedNodesHtml.join('')}
+            <div id="log-html-preview-container" style="${wrapperStyle}">
+                ${clonedNodesHtml.join('')}
+            </div>
         </div>
     `;
 };

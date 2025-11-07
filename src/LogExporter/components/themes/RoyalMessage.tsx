@@ -6,9 +6,9 @@ import { useMessageProcessor } from '../../hooks/useMessageProcessor';
 import { getNameFromNode } from '../../utils/domUtils';
 
 const RoyalMessage: React.FC<MessageProps> = (props) => {
-  const { node, index, charInfoName, color, showAvatar, isForArca, embedImagesAsBase64, allowHtmlRendering, globalSettings, isEditable, onMessageUpdate } = props;
+  const { node, index, charInfoName, color, showAvatar, isForArca, embedImagesAsBlob, allowHtmlRendering, globalSettings, isEditable, onMessageUpdate } = props;
   const originalMessageEl = node.querySelector('.prose, .chattext');
-  const messageHtml = useMessageProcessor(originalMessageEl, embedImagesAsBase64, allowHtmlRendering, color);
+  const messageHtml = useMessageProcessor(originalMessageEl, embedImagesAsBlob, allowHtmlRendering, color);
 
   if (!messageHtml || messageHtml.trim().length === 0) return null;
 
@@ -37,7 +37,7 @@ const RoyalMessage: React.FC<MessageProps> = (props) => {
         </div>
       )}
       <div className="chat-message-container" style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', fontFamily: isForArca ? '' : royalFont, textAlign: 'center', marginBottom: '3em' }}>
-        <button className="log-exporter-delete-msg-btn" data-message-index={index} title="메시지 삭제">&times;</button>
+        {isEditable && <button className="log-exporter-delete-msg-btn" data-message-index={index} title="메시지 삭제">&times;</button>}
         <div style={{ position: 'absolute', top: '-10px', left: '50%', transform: 'translateX(-50%)', width: '80%', height: '2px', background: `linear-gradient(90deg, transparent, ${color.nameColor}, transparent)`, opacity: 0.6 }}></div>
         <Avatar avatarSrc={avatarSrc} name={name} isUser={isUser} isForArca={isForArca} showAvatar={showAvatar} baseStyle={avatarBaseStyle} marginStyle={{}} />
         <strong style={{ color: color.nameColor, fontWeight: 500, fontSize: '1.5em', marginTop: '1em', letterSpacing: '2px', textShadow: '0 0 12px rgba(251, 191, 36, 0.5)' }}>{name}</strong>

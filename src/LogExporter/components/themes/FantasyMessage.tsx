@@ -6,9 +6,9 @@ import { useMessageProcessor } from '../../hooks/useMessageProcessor';
 import { getNameFromNode } from '../../utils/domUtils';
 
 const FantasyMessage: React.FC<MessageProps> = (props) => {
-  const { node, index, charInfoName, color, showAvatar, isForArca, embedImagesAsBase64, allowHtmlRendering, globalSettings, isEditable, onMessageUpdate } = props;
+  const { node, index, charInfoName, color, showAvatar, isForArca, embedImagesAsBlob, allowHtmlRendering, globalSettings, isEditable, onMessageUpdate } = props;
   const originalMessageEl = node.querySelector('.prose, .chattext');
-  const messageHtml = useMessageProcessor(originalMessageEl, embedImagesAsBase64, allowHtmlRendering, color);
+  const messageHtml = useMessageProcessor(originalMessageEl, embedImagesAsBlob, allowHtmlRendering, color);
 
   if (!messageHtml || messageHtml.trim().length === 0) return null;
 
@@ -38,7 +38,7 @@ const FantasyMessage: React.FC<MessageProps> = (props) => {
         </div>
       )}
       <div className="chat-message-container" style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', fontFamily: isForArca ? '' : fantasyFont, textAlign: 'center', marginBottom: '28px' }}>
-        <button className="log-exporter-delete-msg-btn" data-message-index={index} title="메시지 삭제">&times;</button>
+        {isEditable && <button className="log-exporter-delete-msg-btn" data-message-index={index} title="메시지 삭제">&times;</button>}
         <Avatar avatarSrc={avatarSrc} name={name} isUser={isUser} isForArca={isForArca} showAvatar={showAvatar} baseStyle={avatarBaseStyle} marginStyle={{}} />
         <strong style={{ color: color.nameColor, fontWeight: 400, fontSize: '1.4em', marginTop: '0.6em', letterSpacing: '1.5px', textShadow: '0 0 10px rgba(255, 201, 120, 0.6)' }}>{name}</strong>
         <div style={{ color: color.text, lineHeight: 1.85, fontSize: '1.1em', textAlign: 'justify', marginTop: '1.2em', maxWidth: '95%', marginLeft: 'auto', marginRight: 'auto', backgroundColor: isUser ? color.cardBgUser : color.cardBg, padding: '14px 18px', border: `1px solid ${color.border}`, boxShadow: color.shadow }} dangerouslySetInnerHTML={{ __html: messageHtml }} contentEditable={isEditable} onBlur={handleBlur} suppressContentEditableWarning={true} />

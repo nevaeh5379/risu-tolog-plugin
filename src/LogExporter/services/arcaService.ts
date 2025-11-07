@@ -12,7 +12,7 @@ export const generateArcaContent = async (nodes: LogNode[], settings: any, optio
         showHeader: settings.showHeader,
         showFooter: settings.showFooter,
         showBubble: settings.showBubble,
-        embedImagesAsBase64: false, // URL을 그대로 사용
+        embedImagesAsBlob: false, // URL을 그대로 사용
         globalSettings,
     });
 

@@ -1,27 +1,29 @@
-
-export const imageUrlToBase64 = async (url: string): Promise<string> => {
-  try {
-    const response = await fetch(url);
-    const blob = await response.blob();
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
-  } catch (error) {
-    console.error('Error converting image to base64:', error);
-    return ''; // or a fallback image URL
-  }
-};
+const blobCache = new Map<string, string>();
 
 export const imageUrlToBlob = async (url: string): Promise<string> => {
+    if (!url || url.startsWith('blob:')) {
+        return url;
+    }
+    if (blobCache.has(url)) {
+        return blobCache.get(url)!;
+    }
+
     try {
         const response = await fetch(url);
         const blob = await response.blob();
-        return URL.createObjectURL(blob);
+        const blobUrl = URL.createObjectURL(blob);
+        blobCache.set(url, blobUrl);
+        return blobUrl;
     } catch (error) {
         console.error('Error converting image to blob:', error);
-        return ''; // or a fallback image URL
+        return url; // Return original url on error to avoid broken images
     }
+};
+
+export const clearBlobUrlCache = () => {
+    for (const blobUrl of blobCache.values()) {
+        URL.revokeObjectURL(blobUrl);
+    }
+    blobCache.clear();
+    console.log('[Log Exporter] Blob URL cache cleared.');
 };

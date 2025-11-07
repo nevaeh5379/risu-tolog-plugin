@@ -1,11 +1,10 @@
-
 import { useState, useEffect } from 'react';
-import { imageUrlToBase64 } from '../utils/imageUtils';
+import { imageUrlToBlob } from '../utils/imageUtils';
 import type { ColorPalette } from '../../types';
 
 export const useMessageProcessor = (
   originalMessageEl: Element | null,
-  embedImagesAsBase64: boolean,
+  embedImagesAsBlob: boolean,
   allowHtmlRendering: boolean,
   color: ColorPalette
 ) => {
@@ -16,14 +15,14 @@ export const useMessageProcessor = (
 
     const process = async () => {
       if (allowHtmlRendering) {
-        setProcessedContent(await processRawHtmlContent(originalMessageEl, embedImagesAsBase64));
+        setProcessedContent(await processRawHtmlContent(originalMessageEl, embedImagesAsBlob));
       } else {
-        setProcessedContent(await processMessageContent(originalMessageEl, embedImagesAsBase64, color));
+        setProcessedContent(await processMessageContent(originalMessageEl, embedImagesAsBlob, color));
       }
     };
 
     process();
-  }, [originalMessageEl, embedImagesAsBase64, allowHtmlRendering, color]);
+  }, [originalMessageEl, embedImagesAsBlob, allowHtmlRendering, color]);
 
   return processedContent;
 };
@@ -38,7 +37,7 @@ const processRawHtmlContent = async (originalMessageEl: Element, embedImages: bo
             const img = element as HTMLImageElement;
             if (img.src && embedImages && !img.src.startsWith('data:') && !img.src.startsWith('blob:')) {
                 try {
-                    img.src = await imageUrlToBase64(img.src);
+                    img.src = await imageUrlToBlob(img.src);
                 } catch (e) { /* ignore */ }
             }
         } else {
@@ -46,7 +45,7 @@ const processRawHtmlContent = async (originalMessageEl: Element, embedImages: bo
             const urlMatch = style?.match(/url\(["'"]?(.+?)["'"]?\)/);
             if (urlMatch?.[1] && embedImages && !urlMatch[1].startsWith('data:') && !urlMatch[1].startsWith('blob:')) {
                 try {
-                    const convertedUrl = await imageUrlToBase64(urlMatch[1]);
+                    const convertedUrl = await imageUrlToBlob(urlMatch[1]);
                     element.style.backgroundImage = `url("${convertedUrl}")`;
                 } catch (e) { /* ignore */ }
             }
@@ -66,7 +65,7 @@ const processMessageContent = async (originalMessageEl: Element, embedImages: bo
         const urlMatch = style?.match(/url\(["'"]?(.+?)["'"]?\)/);
         if (urlMatch?.[1]) {
             const img = document.createElement('img');
-            img.src = embedImages ? await imageUrlToBase64(urlMatch[1]) : urlMatch[1];
+            img.src = embedImages ? await imageUrlToBlob(urlMatch[1]) : urlMatch[1];
             el.parentNode?.insertBefore(img, el);
             el.remove();
         }

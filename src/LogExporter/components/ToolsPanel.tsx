@@ -63,13 +63,16 @@ const ToolsPanel: React.FC<ToolsPanelProps> = ({ settings, onSettingChange }) =>
             </div>
             <div className="desktop-section-body">
                 <div className="desktop-option-row">
-                    <span className="desktop-option-label">해상도</span>
-                    <select className="desktop-select" data-setting-key="imageResolution" value={settings.imageResolution || 1} onChange={(e) => onSettingChange('imageResolution', e.target.value)}>
-                        <option value="1">1x</option>
-                        <option value="2">2x</option>
-                        <option value="3">3x</option>
-                    </select>
-                </div>
+                                    <span className="desktop-option-label">해상도</span>
+                                    <select className="desktop-select" data-setting-key="imageResolution" value={settings.imageResolution || 1} onChange={(e) => onSettingChange('imageResolution', e.target.value === 'auto' ? 'auto' : Number(e.target.value))}>
+                                        <option value="auto">자동</option>
+                                        <option value="1">1x</option>
+                                                            <option value="2">2x</option>
+                                                            <option value="3">3x</option>
+                                                            <option value="4">4x</option>
+                                                            <option value="8">8x</option>
+                                                            <option value="16">16x</option>
+                                                        </select>                </div>
                 <div className="desktop-option-row">
                     <span className="desktop-option-label">라이브러리</span>
                     <select className="desktop-select" data-setting-key="imageLibrary" value={settings.imageLibrary || 'html-to-image'} onChange={(e) => onSettingChange('imageLibrary', e.target.value)}>

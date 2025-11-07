@@ -5,9 +5,9 @@ import { useMessageProcessor } from '../../hooks/useMessageProcessor';
 import { getNameFromNode } from '../../utils/domUtils';
 
 const LogMessage: React.FC<MessageProps> = (props) => {
-  const { node, index, charInfoName, color, embedImagesAsBase64, allowHtmlRendering, globalSettings, isEditable, onMessageUpdate } = props;
+  const { node, index, charInfoName, color, allowHtmlRendering, globalSettings, isEditable, onMessageUpdate } = props;
   const originalMessageEl = node.querySelector('.prose, .chattext');
-  const messageHtml = useMessageProcessor(originalMessageEl, embedImagesAsBase64, allowHtmlRendering, color);
+  const messageHtml = useMessageProcessor(originalMessageEl, false, allowHtmlRendering, color);
 
   if (!messageHtml || messageHtml.trim().length === 0) return null;
 
@@ -49,7 +49,7 @@ const LogMessage: React.FC<MessageProps> = (props) => {
         [{name.toUpperCase()}]
       </div>
       <div style={{ color: color.text, flex: 1, lineHeight: 1.4, wordWrap: 'break-word' }} dangerouslySetInnerHTML={{ __html: finalMessageHtml }} contentEditable={isEditable} onBlur={handleBlur} suppressContentEditableWarning={true} />
-      <button className="log-exporter-delete-msg-btn" data-message-index={index} title="메시지 삭제">&times;</button>
+      {isEditable && <button className="log-exporter-delete-msg-btn" data-message-index={index} title="메시지 삭제">&times;</button>}
     </div>
   );
 };

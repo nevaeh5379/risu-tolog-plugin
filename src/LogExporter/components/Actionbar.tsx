@@ -47,7 +47,22 @@ const Actionbar: React.FC<ActionbarProps> = ({ charName, chatName, getPreviewCon
             onProgressUpdate,
             onProgressEnd,
         };
-        await saveAsImage(messageNodes, imageFormat, charName, chatName, fullOptions, backgroundColor);
+        
+        if (settings.format !== 'basic') {
+            const content = await getPreviewContent();
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = content;
+            const elementToCapture = tempDiv.querySelector('div');
+            
+            if (!elementToCapture) {
+                alert('이미지를 생성할 콘텐츠가 없습니다.');
+                return;
+            }
+
+            await saveAsImage(elementToCapture, imageFormat, charName, chatName, fullOptions, backgroundColor);
+        } else {
+            await saveAsImage(messageNodes, imageFormat, charName, chatName, fullOptions, backgroundColor);
+        }
     };
 
   return (

@@ -6,9 +6,9 @@ import { useMessageProcessor } from '../../hooks/useMessageProcessor';
 import { getNameFromNode } from '../../utils/domUtils';
 
 const MatrixMessage: React.FC<MessageProps> = (props) => {
-  const { node, index, charInfoName, color, showAvatar, isForArca, embedImagesAsBase64, allowHtmlRendering, globalSettings, isEditable, onMessageUpdate } = props;
+  const { node, index, charInfoName, color, showAvatar, globalSettings, isEditable, onMessageUpdate, allowHtmlRendering, isForArca } = props;
   const originalMessageEl = node.querySelector('.prose, .chattext');
-  const messageHtml = useMessageProcessor(originalMessageEl, embedImagesAsBase64, allowHtmlRendering, color);
+  const messageHtml = useMessageProcessor(originalMessageEl, false, allowHtmlRendering, color);
 
   if (!messageHtml || messageHtml.trim().length === 0) return null;
 
@@ -33,7 +33,7 @@ const MatrixMessage: React.FC<MessageProps> = (props) => {
     <div className="chat-message-container" style={{ display: 'flex', alignItems: 'flex-start', marginBottom: '1.5em', fontFamily: 'Courier New, monospace', flexDirection: isUser ? 'row-reverse' : 'row' }}>
       <div style={{ position: 'relative' }}>
         <Avatar avatarSrc={avatarSrc} name={name} isUser={isUser} isForArca={isForArca} showAvatar={showAvatar} baseStyle={avatarBaseStyle} marginStyle={avatarMarginStyle} />
-        <button className="log-exporter-delete-msg-btn" data-message-index={index} title="메시지 삭제">&times;</button>
+        {isEditable && <button className="log-exporter-delete-msg-btn" data-message-index={index} title="메시지 삭제">&times;</button>}
       </div>
       <div style={{ flex: 1 }}>
         <div style={{ color: color.nameColor, fontWeight: 'bold', fontSize: '0.9em', marginBottom: '5px', textAlign: isUser ? 'right' : 'left', textShadow: `0 0 5px ${color.nameColor}`, fontFamily: 'Courier New, monospace' }}>&gt; {name.toUpperCase()}</div>

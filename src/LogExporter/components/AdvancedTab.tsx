@@ -3,9 +3,10 @@ import React from 'react';
 interface AdvancedTabProps {
   settings: any;
   onSettingChange: (key: string, value: any) => void;
+  imageSizeWarning?: string;
 }
 
-const AdvancedTab: React.FC<AdvancedTabProps> = ({ settings, onSettingChange }) => {
+const AdvancedTab: React.FC<AdvancedTabProps> = ({ settings, onSettingChange, imageSizeWarning }) => {
 
   const Toggle: React.FC<{ settingKey: string, label: string, value: any, defaultOn?: boolean, description?: string }> = ({ 
     settingKey, label, value, defaultOn = true, description 
@@ -65,6 +66,11 @@ const AdvancedTab: React.FC<AdvancedTabProps> = ({ settings, onSettingChange }) 
 
       <div className="tab-section">
         <h3 className="tab-section-title">📷 이미지 내보내기</h3>
+        {imageSizeWarning && (
+          <div className="tab-option-row" style={{ color: 'var(--text-warning)', fontSize: '0.85em', padding: '8px', background: 'rgba(224, 175, 104, 0.1)', borderRadius: '4px', display: 'block' }}>
+            {imageSizeWarning}
+          </div>
+        )}
         <div className="tab-option-row">
           <span className="option-label">해상도</span>
           <select 
@@ -72,9 +78,17 @@ const AdvancedTab: React.FC<AdvancedTabProps> = ({ settings, onSettingChange }) 
             value={settings.imageResolution || 1} 
             onChange={(e) => onSettingChange('imageResolution', e.target.value)}
           >
-            <option value="1">1x (기본)</option>
-            <option value="2">2x (고해상도)</option>
-            <option value="3">3x (초고해상도)</option>
+            <option value="auto">자동</option>
+                                        <option value="1">1x</option>
+                                                            <option value="2">2x</option>
+                                                            <option value="3">3x</option>
+                                                            <option value="4">4x</option>
+                                                            <option value="8">8x</option>
+                                                            <option value="16">16x</option>
+                                                            <option value="32">32x</option>
+                                                            <option value="64">64x</option>
+                                                            <option value="128">128x</option>
+
           </select>
         </div>
         <div className="tab-option-row">

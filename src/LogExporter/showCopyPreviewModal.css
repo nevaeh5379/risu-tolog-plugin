@@ -20,6 +20,7 @@
     --btn-secondary-text: #c0caf5;
     --btn-success-bg: #9ece6a;
     --btn-success-text: #1a1b26;
+    --text-warning: #e0af68;
 }
 
 /* 새로운 모던 다크 테마 */
@@ -41,6 +42,7 @@
     --btn-secondary-text: #e4e6eb;
     --btn-success-bg: #98c379;
     --btn-success-text: #0f1117;
+    --text-warning: #e0af68;
 }
 
 
@@ -62,6 +64,7 @@
     --btn-secondary-text: #ffffff;
     --btn-success-bg: #28a745;
     --btn-success-text: #ffffff;
+    --text-warning: #b95000;
 }
 
 .log-exporter-modal-backdrop { 

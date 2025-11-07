@@ -19,7 +19,7 @@ const LogContainer: React.FC<LogContainerProps> = (props) => {
     showFooter = true,
     showBubble = true,
     isForArca = false,
-    embedImagesAsBase64 = true,
+    embedImagesAsBlob = true,
     preCollectedAvatarMap,
     allowHtmlRendering = false,
     onReady,
@@ -28,6 +28,7 @@ const LogContainer: React.FC<LogContainerProps> = (props) => {
     containerWidth,
     selectedIndices,
     onMessageSelect,
+    isForImageExport,
   } = props;
 
   const [avatarMap, setAvatarMap] = useState<Map<string, string>>(preCollectedAvatarMap || new Map());
@@ -59,7 +60,7 @@ const LogContainer: React.FC<LogContainerProps> = (props) => {
   }, [isReady, onReady]);
 
   const containerStyle: React.CSSProperties = {
-      margin: '16px auto',
+      margin: isForImageExport ? '0' : '16px auto',
       maxWidth: containerWidth ? `${containerWidth}px` : '900px',
       fontSize: fontSize ? `${fontSize}px` : '16px',
       backgroundColor: color.background,
@@ -72,7 +73,7 @@ const LogContainer: React.FC<LogContainerProps> = (props) => {
 
   return (
     <div style={containerStyle}>
-      {showHeader && <LogHeader charInfo={charInfo} color={color} embedImagesAsBase64={embedImagesAsBase64} />}
+      {showHeader && <LogHeader charInfo={charInfo} color={color} embedImagesAsBlob={embedImagesAsBlob} />}
       <main>
         {nodes.map((node, index) => (
           <MessageRenderer
@@ -86,7 +87,7 @@ const LogContainer: React.FC<LogContainerProps> = (props) => {
             showAvatar={showAvatar}
             showBubble={showBubble}
             isForArca={isForArca}
-            embedImagesAsBase64={embedImagesAsBase64}
+            embedImagesAsBlob={embedImagesAsBlob}
             allowHtmlRendering={allowHtmlRendering}
             globalSettings={globalSettings}
             isEditable={props.isEditable}

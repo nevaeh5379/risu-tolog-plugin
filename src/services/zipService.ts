@@ -180,7 +180,7 @@ export async function downloadImagesAsZip(
       const { charAvatarUrl } = await processChatLog(parseInt(selectedChatIdx, 10));
       const charInfoForLog = { name: charName, chatName: chatName, avatarUrl: charAvatarUrl };
       const globalSettings = loadGlobalSettings();
-      const baseHtml = await getLogHtml({nodes, charInfo: charInfoForLog, selectedThemeKey: 'basic', selectedColorKey: 'dark', showAvatar, showHeader: true, showFooter: false, showBubble: true, isForArca: true, embedImagesAsBase64: false, preCollectedAvatarMap: new Map(), globalSettings});
+      const baseHtml = await getLogHtml({nodes, charInfo: charInfoForLog, selectedThemeKey: 'basic', selectedColorKey: 'dark', showAvatar, showHeader: true, showFooter: false, showBubble: true, isForArca: true, embedImagesAsBlob: false, preCollectedAvatarMap: new Map(), globalSettings});
       const tempDiv = document.createElement('div');
       tempDiv.innerHTML = baseHtml;
       

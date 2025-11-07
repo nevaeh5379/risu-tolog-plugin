@@ -14,6 +14,7 @@ interface PreviewPanelProps {
   onSelectAll?: () => void;
   onDeselectAll?: () => void;
   onInvertSelection?: () => void;
+  onDimensionsChange: (dims: { width: number, height: number, maxMessageHeight: number }) => void;
 }
 
 const PreviewPanel: React.FC<PreviewPanelProps> = ({ 
@@ -27,11 +28,32 @@ const PreviewPanel: React.FC<PreviewPanelProps> = ({
   onSelectAll,
   onDeselectAll,
   onInvertSelection,
+  onDimensionsChange,
 }) => {
   const shadowHostRef = useRef<HTMLDivElement>(null);
+  const previewContentRef = useRef<HTMLDivElement>(null);
   const [rawHtmlContent, setRawHtmlContent] = useState('');
 
   const isBasicFormat = settings.format === 'basic' || !settings.format;
+
+  const onReady = React.useCallback(() => {
+    if (previewContentRef.current) {
+      const element = previewContentRef.current;
+      let maxMessageHeight = 0;
+      const messageElements = element.querySelectorAll('.chat-message-container');
+      messageElements.forEach(msg => {
+          if ((msg as HTMLElement).offsetHeight > maxMessageHeight) {
+              maxMessageHeight = (msg as HTMLElement).offsetHeight;
+          }
+      });
+
+      onDimensionsChange({
+        width: element.offsetWidth,
+        height: element.offsetHeight,
+        maxMessageHeight: maxMessageHeight,
+      });
+    }
+  }, [onDimensionsChange]);
 
   const handleMessageSelect = (index: number, e: React.MouseEvent) => {
     const newSelection = new Set(selectedIndices);
@@ -90,7 +112,7 @@ const PreviewPanel: React.FC<PreviewPanelProps> = ({
       return <textarea readOnly style={{width: '100%', height: '100%', whiteSpace: 'pre-wrap', wordWrap: 'break-word', backgroundColor: '#1a1b26', color: '#c0caf5', border: 'none'}} value={rawHtmlContent}></textarea>;
     }
     if (isBasicFormat) {
-      return <LogContainer {...logContainerProps} selectedIndices={selectedIndices} onMessageSelect={handleMessageSelect} />;
+      return <LogContainer {...logContainerProps} onReady={onReady} selectedIndices={selectedIndices} onMessageSelect={handleMessageSelect} />;
     }
     return <div ref={shadowHostRef}></div>;
   };
@@ -105,7 +127,7 @@ const PreviewPanel: React.FC<PreviewPanelProps> = ({
                 <button className="desktop-btn desktop-btn-xs desktop-btn-secondary" onClick={onInvertSelection} title="선택 상태 반전">선택 반전</button>
             </div>
         </div>
-        <div className="desktop-preview-content">
+        <div className="desktop-preview-content" ref={previewContentRef}>
             <div className="log-exporter-modal-preview">
                 {renderContent()}
             </div>

@@ -3,9 +3,10 @@ import React from 'react';
 interface MobileToolsTabProps {
   settings: any;
   onSettingChange: (key: string, value: any) => void;
+  imageSizeWarning?: string;
 }
 
-const MobileToolsTab: React.FC<MobileToolsTabProps> = ({ settings, onSettingChange }) => {
+const MobileToolsTab: React.FC<MobileToolsTabProps> = ({ settings, onSettingChange, imageSizeWarning }) => {
   return (
     <div className="mobile-settings-container">
       <div className="mobile-card">
@@ -45,6 +46,11 @@ const MobileToolsTab: React.FC<MobileToolsTabProps> = ({ settings, onSettingChan
           <span className="mobile-card-icon">📷</span>
           <span className="mobile-card-title">이미지 내보내기</span>
         </div>
+        {imageSizeWarning && (
+          <div style={{ color: 'var(--text-warning)', padding: '12px 16px', fontSize: '0.9em', background: 'rgba(224, 175, 104, 0.1)' }}>
+            {imageSizeWarning}
+          </div>
+        )}
         <div className="mobile-card-content">
           <div className="mobile-field">
             <label className="mobile-field-label">해상도</label>

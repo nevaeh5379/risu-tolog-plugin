@@ -1,27 +1,29 @@
-
 import React, { useEffect, useState } from 'react';
 import type { CharInfo, ColorPalette } from '../../types';
-import { imageUrlToBlob, imageUrlToBase64 } from '../utils/imageUtils';
+import { imageUrlToBlob } from '../utils/imageUtils';
 
 interface LogHeaderProps {
   charInfo: CharInfo;
   color: ColorPalette;
-  embedImagesAsBase64: boolean;
+  embedImagesAsBlob: boolean;
 }
 
-const LogHeader: React.FC<LogHeaderProps> = ({ charInfo, color, embedImagesAsBase64 }) => {
+const LogHeader: React.FC<LogHeaderProps> = ({ charInfo, color, embedImagesAsBlob }) => {
   const [avatarSrc, setAvatarSrc] = useState(charInfo.avatarUrl);
 
   useEffect(() => {
     const convertAvatar = async () => {
-      if (!embedImagesAsBase64) {
-        setAvatarSrc(await imageUrlToBlob(charInfo.avatarUrl));
-      } else if (embedImagesAsBase64) {
-        setAvatarSrc(await imageUrlToBase64(charInfo.avatarUrl));
+      if (embedImagesAsBlob && charInfo.avatarUrl) {
+        try {
+            const blobUrl = await imageUrlToBlob(charInfo.avatarUrl);
+            setAvatarSrc(blobUrl);
+        } catch (e) {
+            // ignore if conversion fails
+        }
       }
     };
     convertAvatar();
-  }, [charInfo.avatarUrl, embedImagesAsBase64]);
+  }, [charInfo.avatarUrl, embedImagesAsBlob]);
 
   const headerStyles: React.CSSProperties = {
     textAlign: 'center',

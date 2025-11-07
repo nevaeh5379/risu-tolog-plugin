@@ -6,9 +6,9 @@ import { useMessageProcessor } from '../../hooks/useMessageProcessor';
 import { getNameFromNode } from '../../utils/domUtils';
 
 const OceanMessage: React.FC<MessageProps> = (props) => {
-  const { node, index, charInfoName, color, showAvatar, isForArca, embedImagesAsBase64, allowHtmlRendering, globalSettings, isEditable, onMessageUpdate } = props;
+  const { node, index, charInfoName, color, showAvatar, isForArca, embedImagesAsBlob, allowHtmlRendering, globalSettings, isEditable, onMessageUpdate } = props;
   const originalMessageEl = node.querySelector('.prose, .chattext');
-  const messageHtml = useMessageProcessor(originalMessageEl, embedImagesAsBase64, allowHtmlRendering, color);
+  const messageHtml = useMessageProcessor(originalMessageEl, embedImagesAsBlob, allowHtmlRendering, color);
 
   if (!messageHtml || messageHtml.trim().length === 0) return null;
 
@@ -32,7 +32,7 @@ const OceanMessage: React.FC<MessageProps> = (props) => {
   return (
     <div className="chat-message-container" style={{ display: 'flex', alignItems: 'flex-start', marginBottom: '2em', position: 'relative', flexDirection: isUser ? 'row-reverse' : 'row' }}>
       <div style={{ position: 'absolute', top: 0, bottom: 0, left: isUser ? 'auto' : 0, right: isUser ? 0 : 'auto', width: '2px', background: `linear-gradient(to bottom, ${color.nameColor}, transparent)`, opacity: 0.5 }}></div>
-      <button className="log-exporter-delete-msg-btn" data-message-index={index} title="메시지 삭제">&times;</button>
+      {isEditable && <button className="log-exporter-delete-msg-btn" data-message-index={index} title="메시지 삭제">&times;</button>}
       <Avatar avatarSrc={avatarSrc} name={name} isUser={isUser} isForArca={isForArca} showAvatar={showAvatar} baseStyle={avatarBaseStyle} marginStyle={avatarMarginStyle} />
       <div style={{ flex: 1, position: 'relative' }}>
         <strong style={{ color: color.nameColor, fontWeight: 600, fontSize: '1em', display: 'block', marginBottom: '10px', textAlign: isUser ? 'right' : 'left', textShadow: '0 0 8px rgba(34, 211, 238, 0.4)' }}>{name}</strong>

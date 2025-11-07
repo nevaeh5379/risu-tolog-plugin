@@ -6,9 +6,9 @@ import { useMessageProcessor } from '../../hooks/useMessageProcessor';
 import { getNameFromNode } from '../../utils/domUtils';
 
 const Fantasy2Message: React.FC<MessageProps> = (props) => {
-  const { node, index, charInfoName, color, showAvatar, isForArca, embedImagesAsBase64, allowHtmlRendering, globalSettings, isEditable, onMessageUpdate } = props;
+  const { node, index, charInfoName, color, showAvatar, isForArca, embedImagesAsBlob, allowHtmlRendering, globalSettings, isEditable, onMessageUpdate } = props;
   const originalMessageEl = node.querySelector('.prose, .chattext');
-  const messageHtml = useMessageProcessor(originalMessageEl, embedImagesAsBase64, allowHtmlRendering, color);
+  const messageHtml = useMessageProcessor(originalMessageEl, embedImagesAsBlob, allowHtmlRendering, color);
 
   if (!messageHtml || messageHtml.trim().length === 0) return null;
 
@@ -42,7 +42,7 @@ const Fantasy2Message: React.FC<MessageProps> = (props) => {
         </div>
       )}
       <div className="chat-message-container" style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', gap: '16px', fontFamily: isForArca ? '' : elfFont, marginBottom: '2em', flexDirection: isUser ? 'row-reverse' : 'row' }}>
-        <button className="log-exporter-delete-msg-btn" data-message-index={index} title="메시지 삭제">&times;</button>
+        {isEditable && <button className="log-exporter-delete-msg-btn" data-message-index={index} title="메시지 삭제">&times;</button>}
         <Avatar avatarSrc={avatarSrc} name={name} isUser={isUser} isForArca={isForArca} showAvatar={showAvatar} baseStyle={avatarBaseStyle} marginStyle={{}} />
         <div style={{ flex: 1, position: 'relative' }}>
           <div style={{ position: 'absolute', top: '-5px', left: isUser ? 'auto' : '-8px', right: isUser ? '-8px' : 'auto', width: '3px', height: 'calc(100% + 10px)', background: color.border, borderRadius: '2px', opacity: 0.6 }}></div>

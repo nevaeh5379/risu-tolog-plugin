@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import ReactDOM from 'react-dom/client';
 import './showCopyPreviewModal.css';
 import { processChatLog } from '../utils/domParser';
@@ -23,6 +23,7 @@ import { collectUIClasses, filterWithCustomClasses, getNameFromNode } from './ut
 import type { UIClassInfo } from './utils/domUtils';
 import { loadAllCharSettings, loadGlobalSettings } from './services/settingsService';
 import { saveAsFile } from './services/fileService';
+import { clearBlobUrlCache } from './utils/imageUtils';
 
 interface Settings {
   format?: 'basic' | 'html' | 'markdown' | 'text';
@@ -35,7 +36,7 @@ interface Settings {
   imageScale?: number;
   embedImages?: boolean;
   expandHover?: boolean;
-  imageResolution?: number;
+  imageResolution?: number | 'auto';
   imageLibrary?: 'html-to-image' | 'dom-to-image' | 'html2canvas';
   imageFormat?: 'png' | 'jpeg' | 'webp';
   previewFontSize?: number;
@@ -44,6 +45,8 @@ interface Settings {
   showArcaHelper?: boolean;
   customFilters?: { [key: string]: boolean };
   isEditable?: boolean;
+  splitImage?: boolean;
+  maxImageHeight?: number;
 }
 
 
@@ -78,7 +81,30 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
     const [participants, setParticipants] = useState<Set<string>>(new Set());
     const [uiClasses, setUiClasses] = useState<UIClassInfo[]>([]);
 
-    const [savedSettings, setSavedSettings] = useState<Settings>({});
+    const defaultSettings: Settings = {
+        format: 'basic',
+        theme: 'basic',
+        color: 'dark',
+        showAvatar: true,
+        showBubble: true,
+        showHeader: true,
+        showFooter: true,
+        imageScale: 100,
+        embedImages: true,
+        expandHover: false,
+        imageResolution: 1,
+        imageLibrary: 'html-to-image',
+        imageFormat: 'png',
+        previewFontSize: 16,
+        previewWidth: 800,
+        rawHtmlView: false,
+        isEditable: false,
+        splitImage: false,
+        maxImageHeight: 10000,
+        customFilters: {},
+      };
+
+    const [savedSettings, setSavedSettings] = useState<Settings>(defaultSettings);
     const [globalSettings, setGlobalSettings] = useState<any>({});
     const [otherFormatContent, setOtherFormatContent] = useState('');
     const [activeTab, setActiveTab] = useState('export');
@@ -88,6 +114,8 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
     const [progress, setProgress] = useState({ active: false, message: '', current: 0, total: 0 });
     const [selectedIndices, setSelectedIndices] = useState(new Set<number>());
     const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null);
+    const [estimatedImageSize, setEstimatedImageSize] = useState<{width: number, height: number, maxMessageHeight: number} | null>(null);
+    const [imageSizeWarning, setImageSizeWarning] = useState<string>('');
 
     const handleSelectionChange = (newSelection: Set<number>) => {
         setSelectedIndices(newSelection);
@@ -150,16 +178,19 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
         localStorage.setItem('logExporterGlobalSettings', JSON.stringify(newSettings));
     };
 
-    const handleMessageUpdate = (index: number, newHtml: string) => {
-        const newNodes = [...messageNodes];
-        const nodeToUpdate = newNodes[index].cloneNode(true) as HTMLElement;
-        const messageEl = nodeToUpdate.querySelector('.prose, .chattext');
-        if (messageEl) {
-            messageEl.innerHTML = newHtml;
-            newNodes[index] = nodeToUpdate;
-            setMessageNodes(newNodes);
-        }
-    };
+    const handleMessageUpdate = useCallback((index: number, newHtml: string) => {
+        setMessageNodes(currentNodes => {
+            const newNodes = [...currentNodes];
+            const nodeToUpdate = newNodes[index].cloneNode(true) as HTMLElement;
+            const messageEl = nodeToUpdate.querySelector('.prose, .chattext');
+            if (messageEl) {
+                messageEl.innerHTML = newHtml;
+                newNodes[index] = nodeToUpdate;
+                return newNodes;
+            }
+            return currentNodes;
+        });
+    }, []);
 
     const handleSaveLogData = () => {
         const data = {
@@ -230,6 +261,10 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
                 setMessageNodes(messageNodes);
                 setCharacter(character);
 
+                const allCharSettings = loadAllCharSettings();
+                const charSettings = character ? allCharSettings[character.chaId] || {} : {};
+                setSavedSettings({ ...defaultSettings, ...charSettings });
+
                 const loadedGlobalSettings = loadGlobalSettings();
                 setGlobalSettings(loadedGlobalSettings);
 
@@ -276,7 +311,7 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
         ? finalNodes.filter((_, i) => selectedIndices.has(i))
         : finalNodes;
 
-    const logContainerProps = {
+    const logContainerProps = useMemo(() => ({
         nodes: finalNodes,
         charInfo: { name: charName, chatName: chatName, avatarUrl: charAvatarUrl },
         selectedThemeKey: savedSettings.theme || 'basic',
@@ -285,17 +320,63 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
         showHeader: savedSettings.showHeader,
         showFooter: savedSettings.showFooter,
         showBubble: savedSettings.showBubble,
-        embedImagesAsBase64: true,
+        embedImagesAsBlob: true,
         globalSettings: globalSettings,
         fontSize: savedSettings.previewFontSize,
         containerWidth: savedSettings.previewWidth,
         isEditable: savedSettings.isEditable,
         onMessageUpdate: handleMessageUpdate,
-    };
+    }), [
+        finalNodes, 
+        charName, chatName, charAvatarUrl, 
+        savedSettings, 
+        globalSettings, 
+        handleMessageUpdate
+    ]);
+
+    const handleDimensionsChange = useCallback((dims: { width: number, height: number, maxMessageHeight: number }) => {
+        setEstimatedImageSize(dims);
+    }, []);
+    
+    useEffect(() => {
+        if (!estimatedImageSize) {
+            setImageSizeWarning('');
+            return;
+        }
+    
+        const MAX_DIMENSION = 16384;
+        const resolution = savedSettings.imageResolution === 'auto' ? 1 : (Number(savedSettings.imageResolution) || 1);
+        
+        const finalWidth = estimatedImageSize.width * resolution;
+        const finalHeight = estimatedImageSize.height * resolution;
+    
+        let warnings = [];
+        if (finalWidth > MAX_DIMENSION || finalHeight > MAX_DIMENSION) {
+            let warning = `예상 이미지 크기(${Math.round(finalWidth)}x${Math.round(finalHeight)}px)가 브라우저 한계를 초과할 수 있습니다.`;
+            if (!savedSettings.splitImage) {
+                warning += " '긴 이미지 분할' 옵션 사용을 권장합니다.";
+            }
+            if (savedSettings.imageResolution === 'auto') {
+                warning += " '자동' 해상도는 현재 1x로 계산됩니다.";
+            }
+            warnings.push(warning);
+        }
+
+        if (savedSettings.splitImage && estimatedImageSize.maxMessageHeight > (savedSettings.maxImageHeight || 10000)) {
+            warnings.push(`분할 최대 높이(${savedSettings.maxImageHeight || 10000}px)보다 긴 메시지가 있습니다. 해당 메시지는 분할되지 않으며 이미지 생성에 실패할 수 있습니다.`);
+        }
+
+        setImageSizeWarning(warnings.join(' '));
+
+        console.log('[Log Exporter Debug] Estimated Size:', estimatedImageSize);
+        console.log('[Log Exporter Debug] Final Calculated Dims:', { width: Math.round(finalWidth), height: Math.round(finalHeight) });
+        console.log('[Log Exporter Debug] Generated Warning:', warnings.join(' '));
+    
+    }, [estimatedImageSize, savedSettings.imageResolution, savedSettings.splitImage, savedSettings.maxImageHeight]);
 
     const getPreviewContentForExport = async () => {
         if (savedSettings.format === 'basic' || !savedSettings.format) {
-            return await getLogHtml({...logContainerProps, nodes: nodesForExport, isEditable: false, embedImagesAsBase64: true });
+            return await getLogHtml({...logContainerProps, nodes: nodesForExport, isEditable: false, embedImagesAsBlob: true });
         } else if (savedSettings.format === 'html') {
             const htmlLog = await generateHtmlPreview(nodesForExport, savedSettings);
             return htmlLog.replace('</style>', `
@@ -339,6 +420,7 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
     }, [finalNodes, selectedIndices, savedSettings, globalSettings, charName]);
 
     const handleClose = () => {
+        clearBlobUrlCache();
         onClose();
     };
 
@@ -409,12 +491,14 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
                                     onSelectAll={handleSelectAll}
                                     onDeselectAll={handleDeselectAll}
                                     onInvertSelection={handleInvertSelection}
+                                    onDimensionsChange={handleDimensionsChange}
                                 />
                             </div>
                             <div className={`mobile-tab-content mobile-tools-tab ${activeTab === 'tools' ? 'active' : ''}`}>
                                 <MobileToolsTab 
                                     settings={savedSettings}
                                     onSettingChange={handleSettingChange}
+                                    imageSizeWarning={imageSizeWarning}
                                 />
                             </div>
                             <div className="mobile-action-bar">
@@ -484,24 +568,25 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
                                             <AdvancedTab 
                                                 settings={savedSettings}
                                                 onSettingChange={handleSettingChange}
+                                                imageSizeWarning={imageSizeWarning}
                                             />
                                         )}
                                     </div>
                                 </div>
                                 <div className="desktop-preview-panel">
-                                    <PreviewPanel 
-                                        logContainerProps={logContainerProps}
-                                        settings={savedSettings}
-                                        otherFormatContent={otherFormatContent}
-                                        selectedIndices={selectedIndices}
-                                        onSelectionChange={handleSelectionChange}
-                                        lastSelectedIndex={lastSelectedIndex}
-                                        onLastSelectedIndexChange={handleLastSelectedIndexChange}
-                                        onSelectAll={handleSelectAll}
-                                        onDeselectAll={handleDeselectAll}
-                                        onInvertSelection={handleInvertSelection}
-                                    />
-                                </div>
+                                                                    <PreviewPanel 
+                                                                        logContainerProps={logContainerProps}
+                                                                        settings={savedSettings}
+                                                                        otherFormatContent={otherFormatContent}
+                                                                        selectedIndices={selectedIndices}
+                                                                        onSelectionChange={handleSelectionChange}
+                                                                        lastSelectedIndex={lastSelectedIndex}
+                                                                        onLastSelectedIndexChange={handleLastSelectedIndexChange}
+                                                                        onSelectAll={handleSelectAll}
+                                                                        onDeselectAll={handleDeselectAll}
+                                                                        onInvertSelection={handleInvertSelection}
+                                                                        onDimensionsChange={handleDimensionsChange}
+                                                                    />                                </div>
                             </div>
                             <div className="desktop-action-bar">
                                 <Actionbar 

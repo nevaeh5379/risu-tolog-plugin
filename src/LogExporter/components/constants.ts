@@ -153,24 +153,13 @@ export const THEMES: Record<ThemeKey, ThemeInfo> = {
         }
     },
     log: {
-        name: '로그',
-        description: '개발자 콘솔과 같은 깔끔한 터미널 스타일 디자인입니다.',
-        color: {
-            background: '#0d1117',
-            cardBg: 'rgba(33, 38, 45, 0.3)',
-            cardBgUser: 'rgba(56, 139, 253, 0.1)',
-            text: '#e6edf3',
-            textSecondary: '#7d8590',
-            nameColor: '#58a6ff',
-            border: '#30363d',
-            shadow: '0 0 0 1px rgba(48, 54, 61, 0.5)',
-            avatarBorder: '#58a6ff',
-            quoteBg: 'rgba(88, 166, 255, 0.1)',
-            quoteText: '#79c0ff',
-            thoughtBg: 'rgba(125, 133, 144, 0.08)',
-            thoughtText: '#8b949e'
-        }
-    }
+    name: '로그',
+    description: '채팅 로그처럼 보이는 간단한 테마입니다.',
+  },
+  raw: {
+    name: 'Raw',
+    description: '원본 HTML 형식으로 렌더링합니다.',
+  },
 };
 
 export const COLORS: Record<ColorKey, ColorPalette> = {

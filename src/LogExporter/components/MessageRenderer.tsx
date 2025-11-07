@@ -10,6 +10,7 @@ import OceanMessage from './themes/OceanMessage';
 import SakuraMessage from './themes/SakuraMessage';
 import MatrixMessage from './themes/MatrixMessage';
 import LogMessage from './themes/LogMessage';
+import RawMessage from './themes/RawMessage';
 
 const themeMap: Record<ThemeKey, React.FC<MessageProps>> = {
   basic: BasicMessage,
@@ -21,10 +22,11 @@ const themeMap: Record<ThemeKey, React.FC<MessageProps>> = {
   sakura: SakuraMessage,
   matrix: MatrixMessage,
   log: LogMessage,
+  raw: RawMessage,
 };
 
 const MessageRenderer: React.FC<MessageProps> = (props) => {
-  const { themeKey, isSelected, onSelect, index } = props;
+  const { themeKey, isSelected, onSelect, index, isEditable } = props;
   const MessageComponent = themeMap[themeKey] || BasicMessage;
 
   const handleContainerClick = (e: React.MouseEvent) => {
@@ -41,6 +43,10 @@ const MessageRenderer: React.FC<MessageProps> = (props) => {
       onSelect(index, e);
     }
   };
+
+  if (!isEditable) {
+    return <MessageComponent {...props} />;
+  }
 
   return (
     <div 

@@ -52,7 +52,7 @@ const ArcaHelperModal: React.FC<ArcaHelperModalProps> = ({ isOpen, onClose, mess
         showHeader: settings.showHeader,
         showFooter: settings.showFooter,
         showBubble: settings.showBubble,
-        embedImagesAsBase64: false,
+        embedImagesAsBlob: false,
         globalSettings,
       });
 

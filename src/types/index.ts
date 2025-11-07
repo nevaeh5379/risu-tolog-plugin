@@ -31,7 +31,7 @@ description: string;
   color?: ColorPalette;
 }
 
-export type ThemeKey = 'basic' | 'modern' | 'fantasy' | 'fantasy2' | 'royal' | 'ocean' | 'sakura' | 'matrix' | 'log';
+export type ThemeKey = 'basic' | 'modern' | 'fantasy' | 'fantasy2' | 'royal' | 'ocean' | 'sakura' | 'matrix' | 'log' | 'raw';
 export type ColorKey =
   | 'dark'
   | 'classic'
@@ -56,7 +56,7 @@ export interface LogContainerProps {
   showFooter?: boolean;
   showBubble?: boolean;
   isForArca?: boolean;
-  embedImagesAsBase64?: boolean;
+  embedImagesAsBlob?: boolean;
   preCollectedAvatarMap?: Map<string, string>;
   allowHtmlRendering?: boolean;
   onReady?: () => void;
@@ -67,6 +67,7 @@ export interface LogContainerProps {
   onMessageUpdate?: (index: number, newHtml: string) => void;
   selectedIndices?: Set<number>;
   onMessageSelect?: (index: number, e: React.MouseEvent) => void;
+  isForImageExport?: boolean;
 }
 
 // 메시지 컴포넌트 Props
@@ -80,7 +81,7 @@ export interface MessageProps {
   showAvatar: boolean;
   showBubble: boolean;
   isForArca: boolean;
-  embedImagesAsBase64: boolean;
+  embedImagesAsBlob: boolean;
   allowHtmlRendering: boolean;
   globalSettings: any;
   isEditable?: boolean;
