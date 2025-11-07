@@ -45,7 +45,7 @@ interface Settings {
   showArcaHelper?: boolean;
   customFilters?: { [key: string]: boolean };
   isEditable?: boolean;
-  splitImage?: boolean;
+  splitImage?: 'none' | 'chunk' | 'message';
   maxImageHeight?: number;
 }
 
@@ -99,7 +99,7 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
         previewWidth: 800,
         rawHtmlView: false,
         isEditable: false,
-        splitImage: false,
+        splitImage: 'none',
         maxImageHeight: 10000,
         customFilters: {},
       };
@@ -353,7 +353,7 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
         let warnings = [];
         if (finalWidth > MAX_DIMENSION || finalHeight > MAX_DIMENSION) {
             let warning = `예상 이미지 크기(${Math.round(finalWidth)}x${Math.round(finalHeight)}px)가 브라우저 한계를 초과할 수 있습니다.`;
-            if (!savedSettings.splitImage) {
+            if (savedSettings.splitImage === 'none') {
                 warning += " '긴 이미지 분할' 옵션 사용을 권장합니다.";
             }
             if (savedSettings.imageResolution === 'auto') {
@@ -362,8 +362,12 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
             warnings.push(warning);
         }
 
-        if (savedSettings.splitImage && estimatedImageSize.maxMessageHeight > (savedSettings.maxImageHeight || 10000)) {
-            warnings.push(`분할 최대 높이(${savedSettings.maxImageHeight || 10000}px)보다 긴 메시지가 있습니다. 해당 메시지는 여러 섹션으로 분할 캡처 후 자동으로 병합됩니다.`);
+        if (savedSettings.splitImage !== 'none' && estimatedImageSize.maxMessageHeight > (savedSettings.maxImageHeight || 10000)) {
+            if (savedSettings.splitImage === 'chunk') {
+                warnings.push(`분할 최대 높이(${savedSettings.maxImageHeight || 10000}px)보다 긴 로그가 있습니다. 여러 섹션으로 분할 캡처 후 하나의 이미지 파일로 병합됩니다.`);
+            } else {
+                warnings.push(`분할 최대 높이(${savedSettings.maxImageHeight || 10000}px)보다 긴 메시지가 있습니다. 해당 메시지는 여러 섹션으로 분할하여 개별 파일로 저장됩니다.`);
+            }
         }
 
         setImageSizeWarning(warnings.join(' '));

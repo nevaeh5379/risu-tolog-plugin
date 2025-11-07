@@ -85,18 +85,20 @@ const MobileToolsPanel: React.FC<MobileToolsPanelProps> = ({ settings, onSetting
             </select>
           </div>
 
-          <div className="mobile-toggle-list">
-            <div className="mobile-toggle-item">
-              <span className="mobile-toggle-label">긴 이미지 분할</span>
-              <div 
-                className={`mobile-switch ${settings.splitImage === true ? 'active' : ''}`}
-                onClick={() => onSettingChange('splitImage', settings.splitImage !== true)}
-              >
-                <div className="mobile-switch-thumb"></div>
-              </div>
-            </div>
+          <div className="mobile-field">
+            <label className="mobile-field-label">이미지 분할</label>
+            <select 
+              className="mobile-select" 
+              value={settings.splitImage || 'none'} 
+              onChange={(e) => onSettingChange('splitImage', e.target.value)}
+            >
+              <option value="none">분할 안함</option>
+              <option value="chunk">청크 단위 (1개 파일로 병합)</option>
+              <option value="message">메시지 단위 (여러 파일)</option>
+            </select>
+          </div>
             
-            {settings.splitImage && (
+            {settings.splitImage && settings.splitImage !== 'none' && (
               <div className="mobile-field">
                 <label className="mobile-field-label">최대 높이 (px)</label>
                 <input 
@@ -110,7 +112,8 @@ const MobileToolsPanel: React.FC<MobileToolsPanelProps> = ({ settings, onSetting
                 />
               </div>
             )}
-            
+
+          <div className="mobile-toggle-list">
             <div className="mobile-toggle-item">
               <span className="mobile-toggle-label">Raw HTML 보기</span>
               <div 

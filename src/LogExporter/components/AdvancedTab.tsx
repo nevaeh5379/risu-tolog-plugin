@@ -116,15 +116,20 @@ const AdvancedTab: React.FC<AdvancedTabProps> = ({ settings, onSettingChange, im
           </select>
         </div>
         
-        <Toggle 
-          settingKey="splitImage" 
-          label="긴 이미지 분할" 
-          description="큰 이미지를 여러 조각으로 나눔"
-          value={settings.splitImage} 
-          defaultOn={false} 
-        />
+        <div className="tab-option-row">
+          <span className="option-label">이미지 분할</span>
+          <select 
+            className="tab-select" 
+            value={settings.splitImage || 'none'} 
+            onChange={(e) => onSettingChange('splitImage', e.target.value)}
+          >
+            <option value="none">분할 안함</option>
+            <option value="chunk">청크 단위 (1개 파일로 병합)</option>
+            <option value="message">메시지 단위 (여러 파일)</option>
+          </select>
+        </div>
         
-        {settings.splitImage && (
+        {settings.splitImage && settings.splitImage !== 'none' && (
           <div className="tab-option-row" style={{marginLeft: '20px'}}>
             <span className="option-label">최대 높이</span>
             <div className="number-input-group">
