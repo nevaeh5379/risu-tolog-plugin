@@ -13,6 +13,8 @@ import ToolsPanel from './components/ToolsPanel';
 import ArcaHelperModal from './components/ArcaHelperModal';
 
 import Actionbar from './components/Actionbar';
+import MobileSettingsPanel from './components/MobileSettingsPanel';
+import MobileToolsPanel from './components/MobileToolsPanel';
 import { generateMarkdownLog, generateTextLog, generateHtmlPreview } from './services/logGenerator';
 import { getLogHtml } from './services/htmlGenerator';
 import { collectUIClasses, filterWithCustomClasses, getNameFromNode } from './utils/domUtils';
@@ -254,7 +256,7 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
                                 </button>
                             </div>
                             <div className={`mobile-tab-content mobile-settings-tab ${activeTab === 'settings' ? 'active' : ''}`}>
-                                <SettingsPanel 
+                                <MobileSettingsPanel 
                                     settings={savedSettings} 
                                     onSettingChange={handleSettingChange} 
                                     themes={THEMES} 
@@ -272,7 +274,7 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
                                 />
                             </div>
                                 <div className={`mobile-tab-content mobile-tools-tab ${activeTab === 'tools' ? 'active' : ''}`}>
-                                    <ToolsPanel 
+                                    <MobileToolsPanel 
                                         settings={savedSettings}
                                         onSettingChange={handleSettingChange}
                                     />

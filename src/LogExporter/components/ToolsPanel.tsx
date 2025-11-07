@@ -31,11 +31,11 @@ const ToolsPanel: React.FC<ToolsPanelProps> = ({ settings, onSettingChange }) =>
             </div>
             <div className="desktop-option-row">
                 <span className="desktop-option-label">글자 크기</span>
-                <input type="number" className="desktop-input" data-setting-key="previewFontSize" value={settings.previewFontSize || 16} onChange={(e) => onSettingChange('previewFontSize', e.target.value)} />
+                <input type="number" className="desktop-input" data-setting-key="previewFontSize" value={settings.previewFontSize || 16} onChange={(e) => onSettingChange('previewFontSize', e.target.value)} min="10" max="32" />
             </div>
             <div className="desktop-option-row">
                 <span className="desktop-option-label">너비</span>
-                <input type="number" className="desktop-input" data-setting-key="previewWidth" value={settings.previewWidth || 800} onChange={(e) => onSettingChange('previewWidth', e.target.value)} />
+                <input type="number" className="desktop-input" data-setting-key="previewWidth" value={settings.previewWidth || 800} onChange={(e) => onSettingChange('previewWidth', e.target.value)} min="320" max="1920" step="10" />
             </div>
         </div>
 
@@ -63,8 +63,8 @@ const ToolsPanel: React.FC<ToolsPanelProps> = ({ settings, onSettingChange }) =>
             <Toggle settingKey="splitImage" label="긴 이미지 분할" value={settings.splitImage} defaultOn={false} />
             {settings.splitImage && (
                 <div className="desktop-option-row">
-                    <label htmlFor="max-height-input">최대 높이 (px)</label>
-                    <input id="max-height-input" type="number" className="desktop-input" value={settings.maxImageHeight || 10000} onChange={(e) => onSettingChange('maxImageHeight', parseInt(e.target.value, 10))} />
+                    <label htmlFor="max-height-input" className="desktop-option-label">최대 높이 (px)</label>
+                    <input id="max-height-input" type="number" className="desktop-input" value={settings.maxImageHeight || 10000} onChange={(e) => onSettingChange('maxImageHeight', parseInt(e.target.value, 10))} min="1000" max="50000" step="1000" />
                 </div>
             )}
             <Toggle settingKey="rawHtmlView" label="Raw HTML 보기" value={settings.rawHtmlView} defaultOn={false} />

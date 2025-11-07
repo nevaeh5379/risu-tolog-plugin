@@ -108,44 +108,46 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onSettingChange
             </div>
             <div className="desktop-option-row" style={{flexDirection: 'column', alignItems: 'flex-start', gap: '8px'}}>
                 <span className="desktop-option-label" style={{marginBottom: '8px'}}>프로필 클래스</span>
-                <div style={{display: 'flex', gap: '8px', width: '100%'}}>
+                <div style={{display: 'flex', gap: '8px', width: '100%', flexWrap: 'wrap'}}>
                     <input 
                         type="text" 
                         className="desktop-input" 
                         value={newProfileClass} 
                         onChange={(e) => setNewProfileClass(e.target.value)}
                         placeholder="클래스 이름 추가..."
-                        style={{flex: 1}}
+                        style={{flex: '1 1 auto', minWidth: '150px'}}
+                        onKeyDown={(e) => e.key === 'Enter' && handleAddProfileClass()}
                     />
-                    <button className="desktop-btn desktop-btn-secondary" onClick={handleAddProfileClass} style={{padding: '8px 12px'}}>추가</button>
+                    <button className="desktop-btn desktop-btn-secondary" onClick={handleAddProfileClass} style={{padding: '8px 16px', flexShrink: 0}}>추가</button>
                 </div>
                 <div className="desktop-collapsible-content open" style={{width: '100%', marginTop: '10px', padding: '0'}}>
                     {globalSettings.profileClasses?.map((cls: string) => (
-                        <div key={cls} className="desktop-option-row">
-                            <span className="desktop-option-label" style={{fontFamily: 'monospace', fontSize: '0.9em'}}>{cls}</span>
-                            <button onClick={() => handleRemoveProfileClass(cls)} className="desktop-btn desktop-btn-danger" style={{padding: '4px 8px', fontSize: '0.8em'}}>삭제</button>
+                        <div key={cls} className="desktop-option-row" style={{gap: '8px'}}>
+                            <span className="desktop-option-label" style={{fontFamily: 'monospace', fontSize: '0.9em', wordBreak: 'break-all'}}>{cls}</span>
+                            <button onClick={() => handleRemoveProfileClass(cls)} className="desktop-btn desktop-btn-danger" style={{padding: '6px 12px', fontSize: '0.85em', flexShrink: 0}}>삭제</button>
                         </div>
                     ))}
                 </div>
             </div>
             <div className="desktop-option-row" style={{flexDirection: 'column', alignItems: 'flex-start', borderTop: '1px solid var(--border-color-light)', paddingTop: '10px', gap: '8px'}}>
                 <span className="desktop-option-label" style={{marginBottom: '8px'}}>참가자 이름 클래스</span>
-                <div style={{display: 'flex', gap: '8px', width: '100%'}}>
+                <div style={{display: 'flex', gap: '8px', width: '100%', flexWrap: 'wrap'}}>
                     <input 
                         type="text" 
                         className="desktop-input" 
                         value={newParticipantNameClass} 
                         onChange={(e) => setNewParticipantNameClass(e.target.value)}
                         placeholder="클래스 이름 추가..."
-                        style={{flex: 1}}
+                        style={{flex: '1 1 auto', minWidth: '150px'}}
+                        onKeyDown={(e) => e.key === 'Enter' && handleAddParticipantNameClass()}
                     />
-                    <button className="desktop-btn desktop-btn-secondary" onClick={handleAddParticipantNameClass} style={{padding: '8px 12px'}}>추가</button>
+                    <button className="desktop-btn desktop-btn-secondary" onClick={handleAddParticipantNameClass} style={{padding: '8px 16px', flexShrink: 0}}>추가</button>
                 </div>
                 <div className="desktop-collapsible-content open" style={{width: '100%', marginTop: '10px', padding: '0'}}>
                     {globalSettings.participantNameClasses?.map((cls: string) => (
-                        <div key={cls} className="desktop-option-row">
-                            <span className="desktop-option-label" style={{fontFamily: 'monospace', fontSize: '0.9em'}}>{cls}</span>
-                            <button onClick={() => handleRemoveParticipantNameClass(cls)} className="desktop-btn desktop-btn-danger" style={{padding: '4px 8px', fontSize: '0.8em'}}>삭제</button>
+                        <div key={cls} className="desktop-option-row" style={{gap: '8px'}}>
+                            <span className="desktop-option-label" style={{fontFamily: 'monospace', fontSize: '0.9em', wordBreak: 'break-all'}}>{cls}</span>
+                            <button onClick={() => handleRemoveParticipantNameClass(cls)} className="desktop-btn desktop-btn-danger" style={{padding: '6px 12px', fontSize: '0.85em', flexShrink: 0}}>삭제</button>
                         </div>
                     ))}
                 </div>
