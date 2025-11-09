@@ -90,30 +90,30 @@ const MobileSettingsPanel: React.FC<MobileSettingsPanelProps> = ({
           <span className="mobile-card-title">출력 형식</span>
         </div>
         <div className="mobile-card-content">
-          <div className="mobile-chip-group">
-            <button 
-              className={`mobile-chip ${settings.format === 'html' ? 'active' : ''}`}
-              onClick={() => onSettingChange('format', 'html')}
-            >
-              HTML
-            </button>
+          <div className="mobile-chip-scroll">
             <button 
               className={`mobile-chip ${!settings.format || settings.format === 'basic' ? 'active' : ''}`}
               onClick={() => onSettingChange('format', 'basic')}
             >
-              기본
+              ✨ 기본
+            </button>
+            <button 
+              className={`mobile-chip ${settings.format === 'html' ? 'active' : ''}`}
+              onClick={() => onSettingChange('format', 'html')}
+            >
+              🌐 HTML
             </button>
             <button 
               className={`mobile-chip ${settings.format === 'markdown' ? 'active' : ''}`}
               onClick={() => onSettingChange('format', 'markdown')}
             >
-              마크다운
+              📝 마크다운
             </button>
             <button 
               className={`mobile-chip ${settings.format === 'text' ? 'active' : ''}`}
               onClick={() => onSettingChange('format', 'text')}
             >
-              텍스트
+              📄 텍스트
             </button>
           </div>
         </div>

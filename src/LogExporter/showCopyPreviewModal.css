@@ -517,6 +517,21 @@
         white-space: nowrap;
     }
     
+    /* 데스크톱에서 아이콘과 텍스트 모두 표시 */
+    .desktop-btn .btn-icon,
+    .desktop-btn .btn-text {
+        display: inline;
+    }
+    
+    .desktop-btn .btn-icon {
+        font-size: 1.1em;
+    }
+    
+    /* 데스크톱에서는 가로 배치 */
+    .desktop-btn {
+        flex-direction: row;
+    }
+    
     .desktop-btn:hover {
         transform: translateY(-1px);
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
@@ -1378,49 +1393,53 @@
     }
     .mobile-tab-navigation {
         display: flex;
-        background: var(--bg-primary);
-        border-bottom: 2px solid var(--border-color);
+        background: var(--bg-secondary);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
         flex-shrink: 0;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+        box-shadow: 0 1px 0 rgba(255, 255, 255, 0.05), 0 4px 12px rgba(0,0,0,0.2);
         position: sticky;
         top: 0;
         z-index: 90;
+        padding: 0 4px;
     }
     .mobile-tab-btn {
         flex: 1;
-        padding: 14px 10px;
+        padding: 16px 12px;
         background: transparent;
         border: none;
         color: var(--text-secondary);
-        font-size: 0.92em;
+        font-size: 0.95em;
         cursor: pointer;
         position: relative;
         transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         font-weight: 500;
-        /* 터치 영역 확대 */
-        min-height: 48px;
+        min-height: 56px;
         display: flex;
         align-items: center;
         justify-content: center;
+        -webkit-tap-highlight-color: transparent;
+        border-radius: 8px 8px 0 0;
     }
     .mobile-tab-btn:active {
-        background: var(--bg-tertiary);
-        transform: scale(0.98);
+        background: rgba(97, 175, 239, 0.1);
+        transform: scale(0.97);
     }
     .mobile-tab-btn.active {
         color: var(--accent-primary);
-        font-weight: 600;
+        font-weight: 700;
+        background: var(--bg-primary);
     }
     .mobile-tab-btn.active::after {
         content: '';
         position: absolute;
-        bottom: -2px;
-        left: 0;
-        right: 0;
+        bottom: 0;
+        left: 8px;
+        right: 8px;
         height: 3px;
-        background: var(--accent-primary);
+        background: linear-gradient(90deg, var(--accent-primary), #5a9fd4);
         border-radius: 3px 3px 0 0;
         animation: slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 0 8px rgba(97, 175, 239, 0.5);
     }
     
     @keyframes slideIn {
@@ -1467,45 +1486,84 @@
     }
     .mobile-settings-tab {
         padding: 0;
-        padding-bottom: 80px; /* 하단 액션바 공간 확보 */
+        padding-bottom: 90px; /* 하단 액션바 공간 확보 (1줄 스크롤) */
         overflow-x: hidden;
         background: var(--bg-primary);
     }
     .mobile-tools-tab {
         padding: 0;
-        padding-bottom: 80px;
+        padding-bottom: 90px; /* 하단 액션바 공간 확보 (1줄 스크롤) */
         overflow-x: hidden;
         background: var(--bg-primary);
     }
     
     /* 모바일 네이티브 스타일 컨테이너 */
     .mobile-settings-container {
-        padding: 12px;
+        padding: 0;
         display: flex;
         flex-direction: column;
-        gap: 12px;
+        gap: 0;
+        background: var(--bg-primary);
+        min-height: 100%;
     }
     
     /* 모바일 카드 */
     .mobile-card {
-        background: var(--bg-tertiary);
-        border-radius: 12px;
+        background: var(--bg-secondary);
+        border-radius: 0;
         overflow: hidden;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+        box-shadow: none;
+        border-bottom: 8px solid var(--bg-primary);
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        animation: cardSlideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) backwards;
+    }
+    
+    @keyframes cardSlideIn {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .mobile-card:nth-child(1) { animation-delay: 0.05s; }
+    .mobile-card:nth-child(2) { animation-delay: 0.1s; }
+    .mobile-card:nth-child(3) { animation-delay: 0.15s; }
+    .mobile-card:nth-child(4) { animation-delay: 0.2s; }
+    .mobile-card:nth-child(5) { animation-delay: 0.25s; }
+    
+    .mobile-card:last-child {
+        border-bottom: none;
     }
     
     .mobile-card-header {
         display: flex;
         align-items: center;
-        gap: 10px;
-        padding: 14px 16px;
-        background: var(--bg-secondary);
-        border-bottom: 1px solid var(--border-color-light);
+        gap: 12px;
+        padding: 16px 20px;
+        background: transparent;
+        border-bottom: none;
+        position: relative;
+    }
+    
+    .mobile-card-header::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 20px;
+        right: 20px;
+        height: 1px;
+        background: var(--border-color-light);
+        opacity: 0.3;
     }
     
     .mobile-card-header.clickable {
         cursor: pointer;
-        -webkit-tap-highlight-color: rgba(0,0,0,0.1);
+        -webkit-tap-highlight-color: transparent;
+        transition: background 0.15s ease;
     }
     
     .mobile-card-header.clickable:active {
@@ -1513,43 +1571,53 @@
     }
     
     .mobile-card-icon {
-        font-size: 1.2em;
+        font-size: 1.4em;
         line-height: 1;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--bg-tertiary);
+        border-radius: 8px;
     }
     
     .mobile-card-title {
         flex: 1;
-        font-size: 0.95em;
+        font-size: 1em;
         font-weight: 600;
         color: var(--text-title);
+        letter-spacing: -0.2px;
     }
     
     .mobile-expand-icon {
-        font-size: 0.75em;
+        font-size: 0.8em;
         color: var(--text-secondary);
-        transition: transform 0.2s ease;
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
     
     .mobile-card-content {
-        padding: 16px;
+        padding: 20px;
+        padding-top: 16px;
         display: flex;
         flex-direction: column;
-        gap: 16px;
+        gap: 20px;
     }
     
     /* 모바일 필드 */
     .mobile-field {
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        gap: 10px;
     }
     
     .mobile-field-label {
-        font-size: 0.85em;
-        font-weight: 500;
+        font-size: 0.8em;
+        font-weight: 600;
         color: var(--text-secondary);
         text-transform: uppercase;
-        letter-spacing: 0.5px;
+        letter-spacing: 0.8px;
+        margin-bottom: 2px;
     }
     
     /* 모바일 셀렉트 */
@@ -1559,93 +1627,210 @@
     
     .mobile-select {
         width: 100%;
-        background: var(--bg-primary);
+        background: var(--bg-tertiary);
         color: var(--text-primary);
-        border: 1px solid var(--border-color);
-        border-radius: 8px;
-        padding: 12px 14px;
-        font-size: 0.95em;
-        min-height: 48px;
+        border: 2px solid transparent;
+        border-radius: 12px;
+        padding: 14px 16px;
+        font-size: 1em;
+        font-weight: 500;
+        min-height: 52px;
         -webkit-appearance: none;
         appearance: none;
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath fill='%23888' d='M8 11L3 6h10z'/%3E%3C/svg%3E");
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20'%3E%3Cpath fill='%2361afef' d='M10 13L5 8h10z'/%3E%3C/svg%3E");
         background-repeat: no-repeat;
-        background-position: right 12px center;
-        padding-right: 40px;
+        background-position: right 14px center;
+        padding-right: 48px;
+        transition: all 0.2s ease;
+        cursor: pointer;
+    }
+    
+    .mobile-select:focus {
+        outline: none;
+        border-color: var(--accent-primary);
+        background-color: var(--bg-primary);
+    }
+    
+    .mobile-select:active {
+        transform: scale(0.98);
     }
     
     /* 모바일 입력 */
     .mobile-input {
         flex: 1;
-        background: var(--bg-primary);
+        background: var(--bg-tertiary);
         color: var(--text-primary);
-        border: 1px solid var(--border-color);
-        border-radius: 8px;
-        padding: 12px 14px;
-        font-size: 0.95em;
-        min-height: 48px;
+        border: 2px solid transparent;
+        border-radius: 12px;
+        padding: 14px 16px;
+        font-size: 1em;
+        font-weight: 500;
+        min-height: 52px;
+        transition: all 0.2s ease;
+    }
+    
+    .mobile-input:focus {
+        outline: none;
+        border-color: var(--accent-primary);
+        background-color: var(--bg-primary);
     }
     
     .mobile-input-number {
         width: 100%;
-        background: var(--bg-primary);
+        background: var(--bg-tertiary);
         color: var(--text-primary);
-        border: 1px solid var(--border-color);
-        border-radius: 8px;
-        padding: 12px 14px;
-        font-size: 1em;
-        min-height: 48px;
+        border: 2px solid transparent;
+        border-radius: 12px;
+        padding: 14px 16px;
+        font-size: 1.1em;
+        font-weight: 600;
+        min-height: 52px;
         text-align: center;
+        transition: all 0.2s ease;
+    }
+    
+    .mobile-input-number:focus {
+        outline: none;
+        border-color: var(--accent-primary);
+        background-color: var(--bg-primary);
     }
     
     .mobile-input-group {
         display: flex;
-        gap: 8px;
+        gap: 10px;
     }
     
     .mobile-input-btn {
         background: var(--accent-primary);
         color: var(--btn-primary-text);
         border: none;
-        border-radius: 8px;
-        padding: 0 20px;
-        font-size: 0.9em;
-        font-weight: 600;
-        min-height: 48px;
+        border-radius: 12px;
+        padding: 0 24px;
+        font-size: 0.95em;
+        font-weight: 700;
+        min-height: 52px;
         white-space: nowrap;
         cursor: pointer;
-        transition: all 0.2s ease;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 2px 8px rgba(97, 175, 239, 0.25);
     }
     
     .mobile-input-btn:active {
-        transform: scale(0.96);
-        opacity: 0.8;
+        transform: scale(0.95);
+        box-shadow: 0 1px 4px rgba(97, 175, 239, 0.3);
     }
     
     /* 모바일 칩 그룹 */
     .mobile-chip-group {
         display: flex;
-        gap: 8px;
+        gap: 10px;
         flex-wrap: wrap;
     }
     
+    /* 모바일 칩 스크롤 (가로 스크롤) */
+    .mobile-chip-scroll {
+        display: flex;
+        gap: 10px;
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+        scroll-behavior: smooth;
+        scrollbar-width: none; /* Firefox */
+        -ms-overflow-style: none; /* IE/Edge */
+        padding: 4px 0;
+        margin: -4px 0;
+    }
+    
+    .mobile-chip-scroll::-webkit-scrollbar {
+        display: none; /* Chrome/Safari */
+    }
+    
+    /* 모바일 칩 그리드 (2x2 레이아웃) */
+    .mobile-chip-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+    }
+    
     .mobile-chip {
-        flex: 1;
         min-width: 0;
-        background: var(--bg-primary);
-        color: var(--text-secondary);
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
         border: 2px solid var(--border-color);
         border-radius: 20px;
-        padding: 10px 16px;
-        font-size: 0.9em;
-        font-weight: 500;
+        padding: 12px 20px;
+        font-size: 0.95em;
+        font-weight: 600;
         text-align: center;
         cursor: pointer;
-        transition: all 0.2s ease;
-        min-height: 44px;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        min-height: 48px;
         display: flex;
+        flex-direction: row;
         align-items: center;
         justify-content: center;
+        gap: 6px;
+        -webkit-tap-highlight-color: transparent;
+        position: relative;
+        overflow: hidden;
+        white-space: nowrap;
+    }
+    
+    /* 스크롤 컨테이너 내 칩은 축소되지 않음 */
+    .mobile-chip-scroll .mobile-chip {
+        flex-shrink: 0;
+        min-width: auto;
+    }
+    
+    /* 그리드 레이아웃일 때 */
+    .mobile-chip-grid .mobile-chip {
+        flex: none;
+        flex-direction: column;
+        min-height: 70px;
+        border-radius: 16px;
+        padding: 16px 12px;
+    }
+    
+    /* 1줄 레이아웃일 때 */
+    .mobile-chip-group .mobile-chip {
+        flex: 1;
+        flex-direction: row;
+        min-height: 48px;
+        border-radius: 24px;
+        padding: 12px 20px;
+    }
+    
+    .mobile-chip-icon {
+        font-size: 1.5em;
+        line-height: 1;
+    }
+    
+    .mobile-chip-group .mobile-chip-icon,
+    .mobile-chip-scroll .mobile-chip-icon {
+        display: inline;
+        font-size: 1em;
+    }
+    
+    .mobile-chip-grid .mobile-chip-icon {
+        font-size: 1.5em;
+    }
+    
+    .mobile-chip-label {
+        font-size: 0.95em;
+        font-weight: 600;
+    }
+    
+    .mobile-chip::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(circle, rgba(97, 175, 239, 0.15) 0%, transparent 70%);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+    
+    .mobile-chip:active::before {
+        opacity: 1;
     }
     
     .mobile-chip:active {
@@ -1653,27 +1838,41 @@
     }
     
     .mobile-chip.active {
-        background: var(--accent-primary);
+        background: linear-gradient(135deg, var(--accent-primary) 0%, #5a9fd4 100%);
         color: var(--btn-primary-text);
-        border-color: var(--accent-primary);
+        border-color: transparent;
         font-weight: 700;
-        box-shadow: 0 2px 8px rgba(97, 175, 239, 0.3);
+        box-shadow: 0 4px 12px rgba(97, 175, 239, 0.35);
+        transform: translateY(-1px);
+    }
+    
+    .mobile-chip.active::before {
+        display: none;
     }
     
     /* 모바일 토글 리스트 */
     .mobile-toggle-list {
         display: flex;
         flex-direction: column;
-        gap: 4px;
+        gap: 0;
+        background: var(--bg-tertiary);
+        border-radius: 12px;
+        overflow: hidden;
     }
     
     .mobile-toggle-item {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 14px 0;
-        border-bottom: 1px solid var(--border-color-light);
-        min-height: 52px;
+        padding: 16px 18px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        min-height: 56px;
+        transition: background 0.15s ease;
+        -webkit-tap-highlight-color: transparent;
+    }
+    
+    .mobile-toggle-item:active {
+        background: var(--bg-primary);
     }
     
     .mobile-toggle-item:last-child {
@@ -1681,176 +1880,272 @@
     }
     
     .mobile-toggle-label {
-        font-size: 0.95em;
+        font-size: 1em;
+        font-weight: 500;
         color: var(--text-primary);
         flex: 1;
-        padding-right: 12px;
+        padding-right: 16px;
     }
     
     /* 모바일 스위치 */
     .mobile-switch {
         position: relative;
-        width: 52px;
-        height: 32px;
+        width: 56px;
+        height: 34px;
         background: var(--border-color);
-        border-radius: 16px;
+        border-radius: 17px;
         cursor: pointer;
-        transition: all 0.3s ease;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         flex-shrink: 0;
     }
     
     .mobile-switch-thumb {
         position: absolute;
-        top: 4px;
-        left: 4px;
-        width: 24px;
-        height: 24px;
+        top: 3px;
+        left: 3px;
+        width: 28px;
+        height: 28px;
         background: white;
         border-radius: 50%;
-        transition: all 0.3s ease;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 3px 8px rgba(0,0,0,0.25), 0 1px 3px rgba(0,0,0,0.15);
     }
     
     .mobile-switch.active {
         background: var(--accent-primary);
+        box-shadow: 0 0 0 2px rgba(97, 175, 239, 0.2);
     }
     
     .mobile-switch.active .mobile-switch-thumb {
-        left: 24px;
+        left: 25px;
+        box-shadow: 0 3px 8px rgba(0,0,0,0.3), 0 1px 3px rgba(0,0,0,0.2);
     }
     
     /* 모바일 슬라이더 */
     .mobile-slider-field {
         display: flex;
         flex-direction: column;
-        gap: 12px;
+        gap: 14px;
     }
     
     .mobile-slider {
         width: 100%;
-        height: 8px;
-        border-radius: 4px;
+        height: 6px;
+        border-radius: 3px;
         background: var(--border-color);
         outline: none;
         -webkit-appearance: none;
         appearance: none;
         cursor: pointer;
+        position: relative;
     }
     
     .mobile-slider::-webkit-slider-runnable-track {
-        height: 8px;
-        border-radius: 4px;
-        background: var(--border-color);
+        height: 6px;
+        border-radius: 3px;
+        background: linear-gradient(to right, var(--accent-primary) 0%, var(--accent-primary) var(--slider-progress, 50%), var(--border-color) var(--slider-progress, 50%), var(--border-color) 100%);
     }
     
     .mobile-slider::-webkit-slider-thumb {
         -webkit-appearance: none;
         appearance: none;
-        width: 28px;
-        height: 28px;
+        width: 30px;
+        height: 30px;
         border-radius: 50%;
-        background: var(--accent-primary);
+        background: white;
         cursor: pointer;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-        margin-top: -10px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.25), 0 0 0 3px var(--accent-primary);
+        margin-top: -12px;
+        transition: all 0.2s ease;
+    }
+    
+    .mobile-slider:active::-webkit-slider-thumb {
+        transform: scale(1.15);
+        box-shadow: 0 3px 12px rgba(0,0,0,0.3), 0 0 0 4px var(--accent-primary);
     }
     
     .mobile-slider::-moz-range-track {
-        height: 8px;
-        border-radius: 4px;
+        height: 6px;
+        border-radius: 3px;
         background: var(--border-color);
         border: none;
     }
     
-    .mobile-slider::-moz-range-thumb {
-        width: 28px;
-        height: 28px;
-        border-radius: 50%;
+    .mobile-slider::-moz-range-progress {
+        height: 6px;
+        border-radius: 3px;
         background: var(--accent-primary);
+    }
+    
+    .mobile-slider::-moz-range-thumb {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background: white;
         cursor: pointer;
-        border: none;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        border: 3px solid var(--accent-primary);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+        transition: all 0.2s ease;
+    }
+    
+    .mobile-slider:active::-moz-range-thumb {
+        transform: scale(1.15);
+        box-shadow: 0 3px 12px rgba(0,0,0,0.3);
     }
     
     .mobile-slider-value {
         text-align: center;
-        font-size: 1.1em;
+        font-size: 1.2em;
         font-weight: 700;
         color: var(--accent-primary);
+        padding: 8px;
+        background: var(--bg-tertiary);
+        border-radius: 10px;
     }
     
     /* 모바일 태그 */
     .mobile-tag {
         display: inline-flex;
         align-items: center;
-        gap: 8px;
-        background: var(--bg-primary);
-        border: 1px solid var(--border-color);
-        border-radius: 16px;
-        padding: 8px 12px;
+        gap: 10px;
+        background: var(--bg-tertiary);
+        border: 1.5px solid var(--border-color);
+        border-radius: 20px;
+        padding: 10px 14px;
         margin-top: 8px;
         margin-right: 8px;
+        transition: all 0.2s ease;
+    }
+    
+    .mobile-tag:active {
+        transform: scale(0.96);
     }
     
     .mobile-tag-text {
-        font-size: 0.85em;
-        font-family: monospace;
+        font-size: 0.9em;
+        font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+        font-weight: 500;
         color: var(--text-primary);
     }
     
     .mobile-tag-remove {
-        background: var(--btn-secondary-bg);
-        color: var(--text-secondary);
+        background: rgba(247, 118, 142, 0.15);
+        color: #f7768e;
         border: none;
         border-radius: 50%;
-        width: 22px;
-        height: 22px;
+        width: 24px;
+        height: 24px;
         display: flex;
         align-items: center;
         justify-content: center;
         cursor: pointer;
-        font-size: 1.2em;
+        font-size: 1.1em;
+        font-weight: 700;
         line-height: 1;
         padding: 0;
-        transition: all 0.2s ease;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        -webkit-tap-highlight-color: transparent;
     }
     
     .mobile-tag-remove:active {
         background: #f7768e;
         color: white;
-        transform: scale(0.9);
+        transform: scale(0.85);
+        box-shadow: 0 2px 8px rgba(247, 118, 142, 0.4);
     }
     .mobile-action-bar {
         position: fixed;
         bottom: 0;
         left: 0;
         right: 0;
-        background: var(--bg-primary);
-        border-top: 1px solid var(--border-color);
-        padding: 12px 16px;
-        padding-bottom: calc(12px + env(safe-area-inset-bottom));
+        background: rgba(26, 27, 38, 0.95);
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        padding: 8px;
+        padding-left: max(8px, env(safe-area-inset-left));
+        padding-right: max(8px, env(safe-area-inset-right));
+        padding-bottom: max(8px, env(safe-area-inset-bottom));
         display: flex;
-        gap: 10px;
+        gap: 8px;
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+        scroll-behavior: smooth;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
         flex-shrink: 0;
         z-index: 100;
-        box-shadow: 0 -4px 12px rgba(0,0,0,0.25);
-        backdrop-filter: blur(10px);
+        box-shadow: 0 -2px 20px rgba(0,0,0,0.4);
+        backdrop-filter: blur(20px) saturate(180%);
+        -webkit-backdrop-filter: blur(20px) saturate(180%);
+    }
+    
+    .mobile-action-bar::-webkit-scrollbar {
+        display: none;
+    }
+    
+    /* spacer 숨기기 */
+    .mobile-action-bar .action-spacer {
+        display: none;
     }
     
     .mobile-action-bar button {
-        flex: 1;
-        padding: 12px 8px;
-        border-radius: 8px;
-        font-size: 0.88em;
-        font-weight: 500;
-        /* 터치 친화적 최소 크기 */
-        min-height: 44px;
-        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        padding: 8px 12px;
+        border-radius: 12px;
+        font-size: 0.75em;
+        font-weight: 600;
+        min-height: 58px;
+        min-width: 70px;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        border: none;
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+        -webkit-tap-highlight-color: transparent;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+    
+    /* 모바일에서 텍스트 표시 */
+    .mobile-action-bar button .btn-text {
+        display: block;
+        font-size: 1em;
+        line-height: 1.2;
+        text-align: center;
+    }
+    
+    /* 아이콘 표시 */
+    .mobile-action-bar button .btn-icon {
+        font-size: 1.6em;
+        display: block;
+        line-height: 1;
+    }
+    
+    /* data-mobile-label 사용 안 함 */
+    .mobile-action-bar button::after {
+        display: none;
+    }
+    
+    .mobile-action-bar button::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(circle, rgba(255, 255, 255, 0.2) 0%, transparent 70%);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        z-index: -1;
+    }
+    
+    .mobile-action-bar button:active::before {
+        opacity: 1;
     }
     
     .mobile-action-bar button:active {
-        transform: scale(0.96);
-        box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
+        transform: scale(0.95);
     }
     
     .log-exporter-left-panel,
@@ -1861,56 +2156,71 @@
         display: none !important;
     }
     .mobile-section {
-        margin-bottom: 16px;
-        background: var(--bg-tertiary);
-        padding: 14px;
-        border-radius: 10px;
-        border: 1px solid var(--border-color);
-        box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        margin-bottom: 0;
+        background: transparent;
+        padding: 0;
+        border-radius: 0;
+        border: none;
+        box-shadow: none;
     }
     .mobile-section-title {
-        font-weight: 600;
-        margin-bottom: 12px;
+        font-weight: 700;
+        margin-bottom: 16px;
         color: var(--text-title);
-        font-size: 0.98em;
+        font-size: 1.05em;
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 10px;
+        padding: 20px 20px 0 20px;
     }
     .mobile-option-row {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 12px 0;
-        border-bottom: 1px solid var(--border-color-light);
-        /* 터치 영역 확대 */
-        min-height: 48px;
+        padding: 16px 20px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        min-height: 56px;
+        background: var(--bg-secondary);
+        transition: background 0.15s ease;
+        -webkit-tap-highlight-color: transparent;
+    }
+    .mobile-option-row:active {
+        background: var(--bg-tertiary);
     }
     .mobile-option-row:last-child {
         border-bottom: none;
     }
     .mobile-option-label {
-        font-size: 0.92em;
+        font-size: 1em;
+        font-weight: 500;
         color: var(--text-primary);
         flex: 1;
-        padding-right: 12px;
+        padding-right: 16px;
     }
     .mobile-option-control select,
     .mobile-option-control input[type="number"] {
-        background: var(--bg-primary);
+        background: var(--bg-tertiary);
         color: var(--text-primary);
-        border: 1px solid var(--border-color);
-        border-radius: 8px;
-        padding: 8px 12px;
-        font-size: 0.92em;
-        /* 터치 친화적 크기 */
-        min-height: 40px;
-        min-width: 100px;
+        border: 2px solid transparent;
+        border-radius: 10px;
+        padding: 10px 14px;
+        font-size: 0.95em;
+        font-weight: 600;
+        min-height: 44px;
+        min-width: 110px;
+        transition: all 0.2s ease;
+    }
+    
+    .mobile-option-control select:focus,
+    .mobile-option-control input[type="number"]:focus {
+        outline: none;
+        border-color: var(--accent-primary);
+        background: var(--bg-primary);
     }
     
     /* 스크롤바 스타일 (웹킷 브라우저용) */
     .mobile-tab-content::-webkit-scrollbar {
-        width: 4px;
+        width: 3px;
     }
     
     .mobile-tab-content::-webkit-scrollbar-track {
@@ -1918,14 +2228,28 @@
     }
     
     .mobile-tab-content::-webkit-scrollbar-thumb {
-        background: var(--border-color);
-        border-radius: 2px;
+        background: rgba(97, 175, 239, 0.4);
+        border-radius: 10px;
+    }
+    
+    .mobile-tab-content::-webkit-scrollbar-thumb:hover {
+        background: rgba(97, 175, 239, 0.6);
+    }
+    
+    /* 부드러운 스크롤 */
+    .mobile-tab-content {
+        scroll-behavior: smooth;
     }
     
     /* 터치 피드백 개선 */
     .desktop-toggle {
         min-width: 48px;
         min-height: 28px;
+    }
+    
+    /* Pull-to-refresh 비활성화 */
+    .mobile-tab-content {
+        overscroll-behavior-y: contain;
     }
 }
 @media (min-width: 769px) {
@@ -2449,4 +2773,99 @@
     background: rgba(0,0,0,0.3);
     padding: 4px 12px;
     border-radius: 8px;
+}
+
+/* ========================================
+   추가 모바일 최적화 스타일
+   ======================================== */
+
+@media (max-width: 768px) {
+    /* 모바일 환경에서 모든 상호작용 요소에 적절한 터치 영역 보장 */
+    button, select, input, .mobile-chip, .mobile-toggle-item {
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+    }
+    
+    /* 텍스트 선택 방지 (UI 요소에서) */
+    .mobile-card-header,
+    .mobile-tab-btn,
+    .mobile-chip,
+    .mobile-toggle-label,
+    .mobile-action-bar {
+        user-select: none;
+        -webkit-user-select: none;
+    }
+    
+    /* 입력 요소에는 줌 방지 */
+    input, select, textarea {
+        font-size: 16px !important; /* iOS 자동 줌 방지 */
+    }
+    
+    /* 모바일 safe area 지원 */
+    .mobile-tab-navigation {
+        padding-left: env(safe-area-inset-left);
+        padding-right: env(safe-area-inset-right);
+        padding-top: env(safe-area-inset-top);
+    }
+    
+    .mobile-settings-container {
+        padding-left: env(safe-area-inset-left);
+        padding-right: env(safe-area-inset-right);
+    }
+    
+    /* 스크롤 성능 최적화 */
+    .mobile-tab-content {
+        will-change: scroll-position;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    /* 버튼 활성 상태 개선 */
+    button:active, .mobile-chip:active {
+        opacity: 0.9;
+    }
+    
+    /* 로딩 상태 개선 */
+    .mobile-card.loading {
+        opacity: 0.7;
+        pointer-events: none;
+    }
+}
+
+/* 다크 모드 최적화 */
+@media (max-width: 768px) and (prefers-color-scheme: dark) {
+    .mobile-card-header::after {
+        opacity: 0.15;
+    }
+    
+    .mobile-toggle-item {
+        border-bottom-color: rgba(255, 255, 255, 0.03);
+    }
+}
+
+/* 고대비 모드 지원 */
+@media (max-width: 768px) and (prefers-contrast: high) {
+    .mobile-card {
+        border: 1px solid var(--border-color);
+    }
+    
+    .mobile-chip {
+        border-width: 3px;
+    }
+    
+    .mobile-chip.active {
+        box-shadow: 0 0 0 3px var(--accent-primary);
+    }
+}
+
+/* 애니메이션 감소 선호 */
+@media (max-width: 768px) and (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+    
+    .mobile-card {
+        animation: none;
+    }
 }

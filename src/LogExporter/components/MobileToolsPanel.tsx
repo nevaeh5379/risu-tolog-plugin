@@ -22,7 +22,7 @@ const MobileToolsPanel: React.FC<MobileToolsPanelProps> = ({ settings, onSetting
               type="number" 
               className="mobile-input-number" 
               value={settings.previewFontSize || 16} 
-              onChange={(e) => onSettingChange('previewFontSize', e.target.value)} 
+              onChange={(e) => onSettingChange('previewFontSize', Number(e.target.value))} 
               min="10" 
               max="32"
             />
@@ -33,7 +33,7 @@ const MobileToolsPanel: React.FC<MobileToolsPanelProps> = ({ settings, onSetting
               type="number" 
               className="mobile-input-number" 
               value={settings.previewWidth || 800} 
-              onChange={(e) => onSettingChange('previewWidth', e.target.value)} 
+              onChange={(e) => onSettingChange('previewWidth', Number(e.target.value))} 
               min="320" 
               max="1920" 
               step="10"
@@ -56,24 +56,24 @@ const MobileToolsPanel: React.FC<MobileToolsPanelProps> = ({ settings, onSetting
         <div className="mobile-card-content">
           <div className="mobile-field">
             <label className="mobile-field-label">해상도</label>
-            <div className="mobile-chip-group">
+            <div className="mobile-chip-scroll">
               <button 
                 className={`mobile-chip ${settings.imageResolution === '1' || !settings.imageResolution ? 'active' : ''}`}
                 onClick={() => onSettingChange('imageResolution', '1')}
               >
-                1x
+                ⚡ 1x
               </button>
               <button 
                 className={`mobile-chip ${settings.imageResolution === '2' ? 'active' : ''}`}
                 onClick={() => onSettingChange('imageResolution', '2')}
               >
-                2x
+                🔥 2x
               </button>
               <button 
                 className={`mobile-chip ${settings.imageResolution === '3' ? 'active' : ''}`}
                 onClick={() => onSettingChange('imageResolution', '3')}
               >
-                3x
+                💎 3x
               </button>
             </div>
           </div>

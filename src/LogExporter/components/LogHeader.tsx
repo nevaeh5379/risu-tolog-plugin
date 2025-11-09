@@ -34,9 +34,12 @@ const LogHeader: React.FC<LogHeaderProps> = ({ charInfo, color, embedImagesAsBlo
 
   return (
     <header style={headerStyles}>
-      <img src={avatarSrc} style={{ width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', margin: '0 auto 1em', display: 'block', border: `3px solid ${color.avatarBorder}`, boxShadow: color.shadow }} />
+      <div style={{textAlign:'center'}}>
+        <img src={avatarSrc} style={{ width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', margin: '0 auto 1em', display: 'block', border: `3px solid ${color.avatarBorder}`, boxShadow: color.shadow }} />
       <h1 style={{ color: color.nameColor, margin: '0 0 0.25em 0', fontSize: '1.8em', letterSpacing: '1px' }}>{charInfo.name}</h1>
       <p style={{ color: color.text, opacity: 0.8, margin: 0, fontSize: '0.9em' }}>{charInfo.chatName}</p>
+      </div>
+      
     </header>
   );
 };

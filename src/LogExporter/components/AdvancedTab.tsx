@@ -40,7 +40,7 @@ const AdvancedTab: React.FC<AdvancedTabProps> = ({ settings, onSettingChange, im
               type="number" 
               className="tab-number-input" 
               value={settings.previewFontSize || 16} 
-              onChange={(e) => onSettingChange('previewFontSize', e.target.value)} 
+              onChange={(e) => onSettingChange('previewFontSize', Number(e.target.value))} 
               min="10" 
               max="32" 
             />
@@ -54,7 +54,7 @@ const AdvancedTab: React.FC<AdvancedTabProps> = ({ settings, onSettingChange, im
               type="number" 
               className="tab-number-input" 
               value={settings.previewWidth || 800} 
-              onChange={(e) => onSettingChange('previewWidth', e.target.value)} 
+              onChange={(e) => onSettingChange('previewWidth', Number(e.target.value))} 
               min="320" 
               max="1920" 
               step="10" 
@@ -110,9 +110,9 @@ const AdvancedTab: React.FC<AdvancedTabProps> = ({ settings, onSettingChange, im
             value={settings.imageFormat || 'png'} 
             onChange={(e) => onSettingChange('imageFormat', e.target.value)}
           >
-            <option value="png">PNG (무손실)</option>
-            <option value="jpeg">JPEG (압축)</option>
-            <option value="webp">WebP (최신)</option>
+            <option value="png">PNG</option>
+            <option value="jpeg">JPEG</option>
+            <option value="webp">WebP</option>
           </select>
         </div>
         

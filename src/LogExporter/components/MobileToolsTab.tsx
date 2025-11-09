@@ -21,7 +21,7 @@ const MobileToolsTab: React.FC<MobileToolsTabProps> = ({ settings, onSettingChan
               type="number" 
               className="mobile-input-number" 
               value={settings.previewFontSize || 16} 
-              onChange={(e) => onSettingChange('previewFontSize', e.target.value)} 
+              onChange={(e) => onSettingChange('previewFontSize', Number(e.target.value))} 
               min="10" 
               max="32" 
             />
@@ -32,7 +32,7 @@ const MobileToolsTab: React.FC<MobileToolsTabProps> = ({ settings, onSettingChan
               type="number" 
               className="mobile-input-number" 
               value={settings.previewWidth || 800} 
-              onChange={(e) => onSettingChange('previewWidth', e.target.value)} 
+              onChange={(e) => onSettingChange('previewWidth', Number(e.target.value))} 
               min="320" 
               max="1920" 
               step="10" 
