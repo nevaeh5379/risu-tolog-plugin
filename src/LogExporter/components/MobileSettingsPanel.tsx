@@ -216,9 +216,9 @@ const MobileSettingsPanel: React.FC<MobileSettingsPanelProps> = ({
             <div className="mobile-slider-field">
               <input 
                 type="range" 
-                min="50" 
-                max="200" 
-                step="10" 
+                min="1" 
+                max="100" 
+                step="1" 
                 value={settings.imageScale || 100} 
                 className="mobile-slider" 
                 onChange={(e) => onSettingChange('imageScale', e.target.value)} 

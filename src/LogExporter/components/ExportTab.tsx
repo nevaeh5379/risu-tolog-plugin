@@ -119,9 +119,9 @@ const ExportTab: React.FC<ExportTabProps> = ({ settings, onSettingChange, themes
             <div className="slider-container">
               <input 
                 type="range" 
-                min="50" 
-                max="200" 
-                step="10" 
+                min="1" 
+                max="100" 
+                step="1" 
                 value={settings.imageScale || 100} 
                 className="tab-slider" 
                 onChange={(e) => onSettingChange('imageScale', e.target.value)} 

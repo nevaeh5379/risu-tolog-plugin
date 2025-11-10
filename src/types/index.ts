@@ -63,6 +63,7 @@ export interface LogContainerProps {
   globalSettings: any;
   fontSize?: number;
   containerWidth?: number;
+  imageScale?: number;
   isEditable?: boolean;
   onMessageUpdate?: (index: number, newHtml: string) => void;
   selectedIndices?: Set<number>;
@@ -84,6 +85,7 @@ export interface MessageProps {
   embedImagesAsBlob: boolean;
   allowHtmlRendering: boolean;
   globalSettings: any;
+  imageScale?: number;
   isEditable?: boolean;
   onMessageUpdate?: (index: number, newHtml: string) => void;
   isSelected?: boolean;

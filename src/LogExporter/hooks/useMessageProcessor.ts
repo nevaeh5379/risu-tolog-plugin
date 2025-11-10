@@ -6,7 +6,8 @@ export const useMessageProcessor = (
   originalMessageEl: Element | null,
   embedImagesAsBlob: boolean,
   allowHtmlRendering: boolean,
-  color: ColorPalette
+  color: ColorPalette,
+  imageScale?: number
 ) => {
   const [processedContent, setProcessedContent] = useState('');
 
@@ -17,12 +18,12 @@ export const useMessageProcessor = (
       if (allowHtmlRendering) {
         setProcessedContent(await processRawHtmlContent(originalMessageEl, embedImagesAsBlob));
       } else {
-        setProcessedContent(await processMessageContent(originalMessageEl, embedImagesAsBlob, color));
+        setProcessedContent(await processMessageContent(originalMessageEl, embedImagesAsBlob, color, imageScale));
       }
     };
 
     process();
-  }, [originalMessageEl, embedImagesAsBlob, allowHtmlRendering, color]);
+  }, [originalMessageEl, embedImagesAsBlob, allowHtmlRendering, color, imageScale]);
 
   return processedContent;
 };
@@ -56,7 +57,7 @@ const processRawHtmlContent = async (originalMessageEl: Element, embedImages: bo
     return clonedContentEl.outerHTML.trim();
 };
 
-const processMessageContent = async (originalMessageEl: Element, embedImages: boolean, color: ColorPalette): Promise<string> => {
+const processMessageContent = async (originalMessageEl: Element, embedImages: boolean, color: ColorPalette, imageScale?: number): Promise<string> => {
     let contentSourceEl = originalMessageEl.cloneNode(true) as HTMLElement;
     contentSourceEl.querySelectorAll('script, style, .log-exporter-msg-btn-group').forEach(el => el.remove());
 
@@ -71,6 +72,15 @@ const processMessageContent = async (originalMessageEl: Element, embedImages: bo
         }
     });
     await Promise.all(bgImagePromises);
+
+    if (imageScale && imageScale !== 100) {
+        contentSourceEl.querySelectorAll('img, video').forEach(el => {
+            const media = el as HTMLImageElement | HTMLVideoElement;
+            media.style.maxWidth = `${imageScale}%`;
+            media.style.width = `${imageScale}%`;
+            media.style.height = 'auto';
+        });
+    }
 
     const styleBlock = (el: Element, bg: string | undefined, textColor: string | undefined, border: string | null = null) => {
         const newBlock = document.createElement('div');

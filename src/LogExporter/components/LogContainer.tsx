@@ -26,6 +26,7 @@ const LogContainer: React.FC<LogContainerProps> = (props) => {
     globalSettings,
     fontSize,
     containerWidth,
+    imageScale,
     selectedIndices,
     onMessageSelect,
     isForImageExport,
@@ -90,6 +91,7 @@ const LogContainer: React.FC<LogContainerProps> = (props) => {
             embedImagesAsBlob={embedImagesAsBlob}
             allowHtmlRendering={allowHtmlRendering}
             globalSettings={globalSettings}
+            imageScale={imageScale}
             isEditable={props.isEditable}
             onMessageUpdate={props.onMessageUpdate}
             isSelected={selectedIndices?.has(index)}

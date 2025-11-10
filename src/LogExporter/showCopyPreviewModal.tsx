@@ -324,6 +324,7 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
         globalSettings: globalSettings,
         fontSize: savedSettings.previewFontSize,
         containerWidth: savedSettings.previewWidth,
+        imageScale: savedSettings.imageScale,
         isEditable: savedSettings.isEditable,
         onMessageUpdate: handleMessageUpdate,
     }), [

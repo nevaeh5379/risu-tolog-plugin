@@ -6,9 +6,9 @@ import { useMessageProcessor } from '../../hooks/useMessageProcessor';
 import { getNameFromNode } from '../../utils/domUtils';
 
 const MatrixMessage: React.FC<MessageProps> = (props) => {
-  const { node, index, charInfoName, color, showAvatar, globalSettings, isEditable, onMessageUpdate, allowHtmlRendering, isForArca } = props;
+  const { node, index, charInfoName, color, showAvatar, globalSettings, isEditable, onMessageUpdate, allowHtmlRendering, isForArca, imageScale } = props;
   const originalMessageEl = node.querySelector('.prose, .chattext');
-  const messageHtml = useMessageProcessor(originalMessageEl, false, allowHtmlRendering, color);
+  const messageHtml = useMessageProcessor(originalMessageEl, false, allowHtmlRendering, color, imageScale);
 
   if (!messageHtml || messageHtml.trim().length === 0) return null;
 
