@@ -59,7 +59,10 @@ const Actionbar: React.FC<ActionbarProps> = ({ charName, chatName, getPreviewCon
                 return;
             }
 
-            await saveAsImage(elementToCapture, imageFormat, charName, chatName, fullOptions, backgroundColor);
+            // HTML 형식은 Risu AI 원본 스타일을 사용하므로 backgroundColor를 전달하지 않음
+            // Markdown/Text는 단순 텍스트이므로 배경색 필요
+            const bgColor = (settings.format === 'html') ? undefined : backgroundColor;
+            await saveAsImage(elementToCapture, imageFormat, charName, chatName, fullOptions, bgColor);
         } else {
             await saveAsImage(messageNodes, imageFormat, charName, chatName, fullOptions, backgroundColor);
         }
