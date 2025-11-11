@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 
 interface AdvancedTabProps {
   settings: any;
@@ -7,6 +7,16 @@ interface AdvancedTabProps {
 }
 
 const AdvancedTab: React.FC<AdvancedTabProps> = ({ settings, onSettingChange, imageSizeWarning }) => {
+
+  const resolution = settings.imageResolution === 'auto' ? 1 : (Number(settings.imageResolution) || 1);
+  const browserMaxHeight = 16384;
+  const maxAllowedHeight = Math.floor(browserMaxHeight / resolution);
+
+  useEffect(() => {
+    if (settings.maxImageHeight > maxAllowedHeight) {
+      onSettingChange('maxImageHeight', maxAllowedHeight);
+    }
+  }, [settings.imageResolution, settings.maxImageHeight, maxAllowedHeight, onSettingChange]);
 
   const Toggle: React.FC<{ settingKey: string, label: string, value: any, defaultOn?: boolean, description?: string }> = ({ 
     settingKey, label, value, defaultOn = true, description 
@@ -139,7 +149,7 @@ const AdvancedTab: React.FC<AdvancedTabProps> = ({ settings, onSettingChange, im
                 value={settings.maxImageHeight || 10000} 
                 onChange={(e) => onSettingChange('maxImageHeight', parseInt(e.target.value, 10))} 
                 min="1000" 
-                max="50000" 
+                max={maxAllowedHeight} 
                 step="1000" 
               />
               <span className="input-unit">px</span>

@@ -106,12 +106,50 @@ const ExportTab: React.FC<ExportTabProps> = ({ settings, onSettingChange, themes
             </div>
           </div>
 
+          {settings.theme === 'custom' && (
+            <div className="tab-section">
+              <h3 className="tab-section-title">🎨 커스텀 CSS</h3>
+              <textarea
+                className="tab-textarea"
+                style={{ width: '100%', minHeight: '150px', resize: 'vertical' }}
+                value={settings.customCss || ''}
+                onChange={(e) => onSettingChange('customCss', e.target.value)}
+                placeholder="여기에 CSS 코드를 입력하세요..."
+              />
+            </div>
+          )}
+
           <div className="tab-section">
             <h3 className="tab-section-title">👁️ 표시 옵션</h3>
             <Toggle settingKey="showAvatar" label="아바타" description="프로필 이미지 표시" value={settings.showAvatar} />
             <Toggle settingKey="showBubble" label="말풍선" description="메시지 말풍선 스타일" value={settings.showBubble} />
             <Toggle settingKey="showHeader" label="헤더" description="상단 정보 표시" value={settings.showHeader} />
+            {settings.showHeader !== false && (
+              <div style={{marginTop: '10px', paddingLeft: '10px', borderLeft: '2px solid var(--border-color-light)'}}>
+                <Toggle settingKey="showHeaderIcon" label="헤더 아이콘" description="헤더 프로필 이미지 표시" value={settings.showHeaderIcon} />
+                <div className="tab-option-row">
+                  <span className="option-label">헤더 태그</span>
+                  <input type="text" className="tab-input" value={settings.headerTags || ''} onChange={(e) => onSettingChange('headerTags', e.target.value)} placeholder="쉼표로 태그 구분" />
+                </div>
+              </div>
+            )}
             <Toggle settingKey="showFooter" label="푸터" description="하단 정보 표시" value={settings.showFooter} />
+            {settings.showFooter !== false && (
+              <div style={{marginTop: '10px', paddingLeft: '10px', borderLeft: '2px solid var(--border-color-light)'}}>
+                <div className="tab-option-row">
+                  <span className="option-label">푸터 (왼쪽)</span>
+                  <input type="text" className="tab-input" value={settings.footerLeft || ''} onChange={(e) => onSettingChange('footerLeft', e.target.value)} />
+                </div>
+                <div className="tab-option-row">
+                  <span className="option-label">푸터 (중앙)</span>
+                  <input type="text" className="tab-input" value={settings.footerCenter || ''} onChange={(e) => onSettingChange('footerCenter', e.target.value)} />
+                </div>
+                <div className="tab-option-row">
+                  <span className="option-label">푸터 (오른쪽)</span>
+                  <input type="text" className="tab-input" value={settings.footerRight || ''} onChange={(e) => onSettingChange('footerRight', e.target.value)} />
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="tab-section">

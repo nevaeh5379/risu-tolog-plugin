@@ -29,10 +29,16 @@ interface Settings {
   format?: 'basic' | 'html' | 'markdown' | 'text';
   theme?: ThemeKey;
   color?: ColorKey;
+  customCss?: string;
   showAvatar?: boolean;
   showBubble?: boolean;
   showHeader?: boolean;
+  showHeaderIcon?: boolean;
+  headerTags?: string;
   showFooter?: boolean;
+  footerLeft?: string;
+  footerCenter?: string;
+  footerRight?: string;
   imageScale?: number;
   embedImages?: boolean;
   expandHover?: boolean;
@@ -85,10 +91,16 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
         format: 'basic',
         theme: 'basic',
         color: 'dark',
+        customCss: '',
         showAvatar: true,
         showBubble: true,
         showHeader: true,
+        showHeaderIcon: true,
+        headerTags: '',
         showFooter: true,
+        footerLeft: '',
+        footerCenter: 'Created by Log Plugin',
+        footerRight: '',
         imageScale: 100,
         embedImages: true,
         expandHover: false,
@@ -316,9 +328,15 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
         charInfo: { name: charName, chatName: chatName, avatarUrl: charAvatarUrl },
         selectedThemeKey: savedSettings.theme || 'basic',
         selectedColorKey: savedSettings.color || 'dark',
+        customCss: savedSettings.customCss,
         showAvatar: savedSettings.showAvatar,
         showHeader: savedSettings.showHeader,
+        showHeaderIcon: savedSettings.showHeaderIcon,
+        headerTags: savedSettings.headerTags,
         showFooter: savedSettings.showFooter,
+        footerLeft: savedSettings.footerLeft,
+        footerCenter: savedSettings.footerCenter,
+        footerRight: savedSettings.footerRight,
         showBubble: savedSettings.showBubble,
         embedImagesAsBlob: true,
         globalSettings: globalSettings,

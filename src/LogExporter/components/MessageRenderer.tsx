@@ -2,6 +2,7 @@
 import React from 'react';
 import type { MessageProps, ThemeKey } from '../../types';
 import BasicMessage from './themes/BasicMessage';
+import CustomMessage from './themes/CustomMessage';
 import ModernMessage from './themes/ModernMessage';
 import FantasyMessage from './themes/FantasyMessage';
 import Fantasy2Message from './themes/Fantasy2Message';
@@ -14,6 +15,7 @@ import RawMessage from './themes/RawMessage';
 
 const themeMap: Record<ThemeKey, React.FC<MessageProps>> = {
   basic: BasicMessage,
+  custom: CustomMessage,
   modern: ModernMessage,
   fantasy: FantasyMessage,
   fantasy2: Fantasy2Message,

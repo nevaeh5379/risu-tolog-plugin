@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 
 interface MobileToolsPanelProps {
   settings: any;
@@ -7,6 +7,17 @@ interface MobileToolsPanelProps {
 }
 
 const MobileToolsPanel: React.FC<MobileToolsPanelProps> = ({ settings, onSettingChange, imageSizeWarning }) => {
+  
+  const resolution = settings.imageResolution === 'auto' ? 1 : (Number(settings.imageResolution) || 1);
+  const browserMaxHeight = 16384;
+  const maxAllowedHeight = Math.floor(browserMaxHeight / resolution);
+
+  useEffect(() => {
+    if (settings.maxImageHeight > maxAllowedHeight) {
+      onSettingChange('maxImageHeight', maxAllowedHeight);
+    }
+  }, [settings.imageResolution, settings.maxImageHeight, maxAllowedHeight, onSettingChange]);
+
   return (
     <div className="mobile-settings-container">
       {/* 미리보기 옵션 */}
@@ -113,7 +124,7 @@ const MobileToolsPanel: React.FC<MobileToolsPanelProps> = ({ settings, onSetting
                   value={settings.maxImageHeight || 10000} 
                   onChange={(e) => onSettingChange('maxImageHeight', parseInt(e.target.value, 10))} 
                   min="1000" 
-                  max="50000" 
+                  max={maxAllowedHeight} 
                   step="1000"
                 />
               </div>

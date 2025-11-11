@@ -14,9 +14,15 @@ const LogContainer: React.FC<LogContainerProps> = (props) => {
     charInfo,
     selectedThemeKey = 'basic',
     selectedColorKey = 'dark',
+    customCss,
     showAvatar = true,
     showHeader = true,
+    showHeaderIcon,
+    headerTags,
     showFooter = true,
+    footerLeft,
+    footerCenter,
+    footerRight,
     showBubble = true,
     isForArca = false,
     embedImagesAsBlob = true,
@@ -36,7 +42,7 @@ const LogContainer: React.FC<LogContainerProps> = (props) => {
   const [isReady, setIsReady] = useState(false);
 
   const themeInfo = THEMES[selectedThemeKey] || THEMES.basic;
-  const color: ColorPalette = (selectedThemeKey === 'basic') ? (COLORS[selectedColorKey] || COLORS.dark) : (themeInfo.color || COLORS.dark);
+  const color: ColorPalette = (selectedThemeKey === 'basic' || selectedThemeKey === 'custom') ? (COLORS[selectedColorKey] || COLORS.dark) : (themeInfo.color || COLORS.dark);
 
   useEffect(() => {
     let isMounted = true;
@@ -74,7 +80,8 @@ const LogContainer: React.FC<LogContainerProps> = (props) => {
 
   return (
     <div style={containerStyle}>
-      {showHeader && <LogHeader charInfo={charInfo} color={color} embedImagesAsBlob={embedImagesAsBlob} />}
+      {selectedThemeKey === 'custom' && customCss && <style>{customCss}</style>}
+      {showHeader && <LogHeader charInfo={charInfo} color={color} embedImagesAsBlob={embedImagesAsBlob} showHeaderIcon={showHeaderIcon} headerTags={headerTags} />}
       <main>
         {nodes.map((node, index) => (
           <MessageRenderer
@@ -99,7 +106,7 @@ const LogContainer: React.FC<LogContainerProps> = (props) => {
           />
         ))}
       </main>
-      {showFooter && <LogFooter color={color} />}
+      {showFooter && <LogFooter color={color} footerLeft={footerLeft} footerCenter={footerCenter} footerRight={footerRight} />}
     </div>
   );
 };

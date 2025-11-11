@@ -155,6 +155,25 @@ const MobileSettingsPanel: React.FC<MobileSettingsPanelProps> = ({
         </div>
       )}
 
+      {/* 커스텀 CSS (커스텀 테마일 때만) */}
+      {settings.theme === 'custom' && (
+        <div className="mobile-card">
+          <div className="mobile-card-header">
+            <span className="mobile-card-icon">✍️</span>
+            <span className="mobile-card-title">커스텀 CSS</span>
+          </div>
+          <div className="mobile-card-content">
+            <textarea
+              className="mobile-textarea"
+              style={{ minHeight: '200px' }}
+              value={settings.customCss || ''}
+              onChange={(e) => onSettingChange('customCss', e.target.value)}
+              placeholder="여기에 CSS 코드를 입력하세요..."
+            />
+          </div>
+        </div>
+      )}
+
       {/* 표시 옵션 (기본 형식일 때만) */}
       {(settings.format === 'basic' || !settings.format) && (
         <div className="mobile-card">
@@ -191,6 +210,23 @@ const MobileSettingsPanel: React.FC<MobileSettingsPanelProps> = ({
                   <div className="mobile-switch-thumb"></div>
                 </div>
               </div>
+              {settings.showHeader !== false && (
+                <div style={{padding: '10px 20px 0', display: 'flex', flexDirection: 'column', gap: '16px'}}>
+                  <div className="mobile-toggle-item" style={{padding: 0}}>
+                    <span className="mobile-toggle-label" style={{fontSize: '0.9em'}}>🖼️ 헤더 아이콘</span>
+                    <div 
+                      className={`mobile-switch ${settings.showHeaderIcon !== false ? 'active' : ''}`}
+                      onClick={() => onSettingChange('showHeaderIcon', settings.showHeaderIcon === false)}
+                    >
+                      <div className="mobile-switch-thumb"></div>
+                    </div>
+                  </div>
+                  <div className="mobile-field" style={{marginTop: '10px'}}>
+                    <label className="mobile-field-label">헤더 태그 (쉼표로 구분)</label>
+                    <input type="text" className="mobile-input" value={settings.headerTags || ''} onChange={(e) => onSettingChange('headerTags', e.target.value)} />
+                  </div>
+                </div>
+              )}
               <div className="mobile-toggle-item">
                 <span className="mobile-toggle-label">📝 푸터</span>
                 <div 
@@ -201,6 +237,22 @@ const MobileSettingsPanel: React.FC<MobileSettingsPanelProps> = ({
                 </div>
               </div>
             </div>
+            {settings.showFooter !== false && (
+              <div style={{marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '16px'}}>
+                <div className="mobile-field">
+                  <label className="mobile-field-label">푸터 (왼쪽)</label>
+                  <input type="text" className="mobile-input" value={settings.footerLeft || ''} onChange={(e) => onSettingChange('footerLeft', e.target.value)} />
+                </div>
+                <div className="mobile-field">
+                  <label className="mobile-field-label">푸터 (중앙)</label>
+                  <input type="text" className="mobile-input" value={settings.footerCenter || ''} onChange={(e) => onSettingChange('footerCenter', e.target.value)} />
+                </div>
+                <div className="mobile-field">
+                  <label className="mobile-field-label">푸터 (오른쪽)</label>
+                  <input type="text" className="mobile-input" value={settings.footerRight || ''} onChange={(e) => onSettingChange('footerRight', e.target.value)} />
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

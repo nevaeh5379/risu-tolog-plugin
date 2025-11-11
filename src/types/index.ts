@@ -31,7 +31,7 @@ description: string;
   color?: ColorPalette;
 }
 
-export type ThemeKey = 'basic' | 'modern' | 'fantasy' | 'fantasy2' | 'royal' | 'ocean' | 'sakura' | 'matrix' | 'log' | 'raw';
+export type ThemeKey = 'basic' | 'custom' | 'modern' | 'fantasy' | 'fantasy2' | 'royal' | 'ocean' | 'sakura' | 'matrix' | 'log' | 'raw';
 export type ColorKey =
   | 'dark'
   | 'classic'
@@ -51,9 +51,15 @@ export interface LogContainerProps {
   charInfo: CharInfo;
   selectedThemeKey?: ThemeKey;
   selectedColorKey?: ColorKey;
+  customCss?: string;
   showAvatar?: boolean;
   showHeader?: boolean;
+  showHeaderIcon?: boolean;
+  headerTags?: string;
   showFooter?: boolean;
+  footerLeft?: string;
+  footerCenter?: string;
+  footerRight?: string;
   showBubble?: boolean;
   isForArca?: boolean;
   embedImagesAsBlob?: boolean;

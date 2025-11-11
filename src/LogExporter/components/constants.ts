@@ -7,6 +7,10 @@ export const THEMES: Record<ThemeKey, ThemeInfo> = {
         description: '가장 일반적인 말풍선 디자인입니다. 색상 팔레트를 자유롭게 변경할 수 있습니다.'
         // 이 테마는 COLORS 객체에서 선택된 색상을 사용합니다.
     },
+    custom: {
+        name: '커스텀 (CSS)',
+        description: '사용자가 직접 CSS를 작성하여 테마를 꾸밀 수 있습니다.'
+    },
     modern: {
         name: '현대',
         description: '카드형 UI와 깔끔한 선으로 구성된 모던한 다크 디자인입니다.',
