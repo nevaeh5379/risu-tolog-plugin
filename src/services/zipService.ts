@@ -240,8 +240,8 @@ export async function downloadImagesAsZip(
 
     await Promise.all(mediaPromises);
     const content = await zip.generateAsync({ type: "blob" });
-    const safeCharName = charName.replace(/[\/\\?%*:|"<>]/g, '-');
-    const safeChatName = chatName.replace(/[\/\\?%*:|"<>]/g, '-');
+    const safeCharName = charName.replace(/["\/\\?%*:|"<>]/g, '-');
+    const safeChatName = chatName.replace(/["\/\\?%*:|"<>]/g, '-');
     const zipFilename = `Risu_Log_Media_${safeCharName}_${safeChatName}${sequentialNaming ? '_Arca' : ''}.zip`;
 
     const link = document.createElement('a');
