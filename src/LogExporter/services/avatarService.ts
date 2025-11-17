@@ -28,14 +28,45 @@ export const collectCharacterAvatars = async (
   for (const node of nodes) {
     const name = getNameFromNode(node as HTMLElement, globalSettings, charInfoName);
     if (!avatarMap.has(name) && !avatarPromises.has(name)) {
-      const avatarDiv = node.querySelector('[style*="background-image"]');
-      let avatarUrl = ''
-      if(avatarDiv) {
-          const style = (avatarDiv as HTMLElement).style.backgroundImage;
-          const urlMatch = style.match(/url\(['"]?(.*?)['"]?\)/);
-          if(urlMatch && urlMatch[1]) {
-              avatarUrl = urlMatch[1];
+      
+      let avatarUrl = '';
+      let avatarElement: HTMLElement | null = null;
+
+      // 1. Try user-defined profile classes first
+      if (globalSettings && Array.isArray(globalSettings.profileClasses)) {
+        for (const cls of globalSettings.profileClasses) {
+          if (!cls || typeof cls !== 'string') continue;
+          try {
+            const candidates = node.querySelectorAll<HTMLElement>(`.${CSS.escape(cls)}`);
+            for (const candidate of Array.from(candidates)) {
+              if (!candidate.closest('.prose, .chattext')) {
+                avatarElement = candidate;
+                break;
+              }
+            }
+          } catch (e) { /* ignore invalid selectors */ }
+          if (avatarElement) break;
+        }
+      }
+
+      // 2. If not found, try the generic selector for background style
+      if (!avatarElement) {
+        const candidates = node.querySelectorAll<HTMLElement>('[style*="background"]');
+        for (const candidate of Array.from(candidates)) {
+          if (!candidate.closest('.prose, .chattext')) {
+            avatarElement = candidate;
+            break;
           }
+        }
+      }
+
+      // 3. Extract URL from the found element
+      if (avatarElement) {
+        const style = avatarElement.style.backgroundImage;
+        const urlMatch = style.match(/url\(['"]?(.*?)['"]?\)/);
+        if (urlMatch && urlMatch[1]) {
+          avatarUrl = urlMatch[1];
+        }
       }
 
       if (avatarUrl) {
