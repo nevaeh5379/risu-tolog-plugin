@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import type { MessageProps } from '../../../types';
 import { useMessageProcessor } from '../../hooks/useMessageProcessor';
 import { getNameFromNode } from '../../utils/domUtils';
@@ -8,21 +8,7 @@ const LogMessage: React.FC<MessageProps> = (props) => {
   const { node, index, charInfoName, color, allowHtmlRendering, globalSettings, isEditable, onMessageUpdate, imageScale } = props;
   const originalMessageEl = node.querySelector('.prose, .chattext');
   const messageHtml = useMessageProcessor(originalMessageEl, false, allowHtmlRendering, color, imageScale);
-
-  if (!messageHtml || messageHtml.trim().length === 0) return null;
-
-  const isUser = node.classList.contains('justify-end');
-  const name = getNameFromNode(node as HTMLElement, globalSettings, charInfoName);
-
-  const handleBlur = (e: React.FocusEvent<HTMLDivElement>) => {
-    if (onMessageUpdate) {
-        onMessageUpdate(index, e.currentTarget.innerHTML);
-    }
-  };
-
-  const lineNumber = String(index + 1).padStart(4, '0');
-  const logBg = isUser ? color.cardBgUser : color.cardBg;
-  const statusIcon = isUser ? '→' : '←';
+  const contentRef = useRef<HTMLDivElement>(null);
 
   const tempMessageDiv = document.createElement('div');
   tempMessageDiv.innerHTML = messageHtml;
@@ -31,6 +17,33 @@ const LogMessage: React.FC<MessageProps> = (props) => {
       p.style.padding = '0';
   });
   const finalMessageHtml = tempMessageDiv.innerHTML;
+
+  useEffect(() => {
+    if (contentRef.current && finalMessageHtml !== contentRef.current.innerHTML) {
+      contentRef.current.innerHTML = finalMessageHtml;
+    }
+  }, [finalMessageHtml]);
+
+  if (!finalMessageHtml || finalMessageHtml.trim().length === 0) return null;
+
+  const isUser = node.classList.contains('justify-end');
+  const name = getNameFromNode(node as HTMLElement, globalSettings, charInfoName);
+
+  const handleBlur = (e: React.FocusEvent<HTMLDivElement>) => {
+    if (onMessageUpdate && e.currentTarget.innerHTML !== finalMessageHtml) {
+        onMessageUpdate(index, e.currentTarget.innerHTML);
+    }
+  };
+
+  const handleContentClick = (e: React.MouseEvent) => {
+    if (isEditable) {
+      e.stopPropagation();
+    }
+  };
+
+  const lineNumber = String(index + 1).padStart(4, '0');
+  const logBg = isUser ? color.cardBgUser : color.cardBg;
+  const statusIcon = isUser ? '→' : '←';
 
   return (
     <div className="chat-message-container" style={{
@@ -48,7 +61,7 @@ const LogMessage: React.FC<MessageProps> = (props) => {
       <div style={{ color: color.nameColor, fontWeight: 'bold', width: '80px', flexShrink: 0, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', fontSize: '0.85em' }}>
         [{name.toUpperCase()}]
       </div>
-      <div style={{ color: color.text, flex: 1, lineHeight: 1.4, wordWrap: 'break-word' }} dangerouslySetInnerHTML={{ __html: finalMessageHtml }} contentEditable={isEditable} onBlur={handleBlur} suppressContentEditableWarning={true} />
+      <div ref={contentRef} style={{ color: color.text, flex: 1, lineHeight: 1.4, wordWrap: 'break-word' }} contentEditable={isEditable} onBlur={handleBlur} onClick={handleContentClick} suppressContentEditableWarning={true} />
       {isEditable && <button className="log-exporter-delete-msg-btn" data-message-index={index} title="메시지 삭제">&times;</button>}
     </div>
   );

@@ -1,14 +1,21 @@
 
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import type { MessageProps } from '../../../types';
 import Avatar from '../Avatar';
 import { useMessageProcessor } from '../../hooks/useMessageProcessor';
 import { getNameFromNode } from '../../utils/domUtils';
 
 const SakuraMessage: React.FC<MessageProps> = (props) => {
-  const { node, index, charInfoName, color, showAvatar, isForArca, embedImagesAsBlob, allowHtmlRendering, globalSettings, isEditable, onMessageUpdate, imageScale } = props;
+  const { node, index, charInfoName, color, showAvatar, isForArca, embedImagesAsBlob, allowHtmlRendering, globalSettings, isEditable, onMessageUpdate, imageScale, isForExport } = props;
   const originalMessageEl = node.querySelector('.prose, .chattext');
   const messageHtml = useMessageProcessor(originalMessageEl, embedImagesAsBlob, allowHtmlRendering, color, imageScale);
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (contentRef.current && messageHtml !== contentRef.current.innerHTML) {
+      contentRef.current.innerHTML = messageHtml;
+    }
+  }, [messageHtml]);
 
   if (!messageHtml || messageHtml.trim().length === 0) return null;
 
@@ -17,8 +24,14 @@ const SakuraMessage: React.FC<MessageProps> = (props) => {
   const avatarSrc = props.avatarMap.get(name);
 
   const handleBlur = (e: React.FocusEvent<HTMLDivElement>) => {
-    if (onMessageUpdate) {
+    if (onMessageUpdate && e.currentTarget.innerHTML !== messageHtml) {
         onMessageUpdate(index, e.currentTarget.innerHTML);
+    }
+  };
+
+  const handleContentClick = (e: React.MouseEvent) => {
+    if (isEditable) {
+      e.stopPropagation();
     }
   };
 
@@ -40,12 +53,12 @@ const SakuraMessage: React.FC<MessageProps> = (props) => {
       )}
       <div className="chat-message-container" style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', marginBottom: '2em', flexDirection: isUser ? 'row-reverse' : 'row' }}>
         {isEditable && <button className="log-exporter-delete-msg-btn" data-message-index={index} title="메시지 삭제">&times;</button>}
-        <Avatar avatarSrc={avatarSrc} name={name} isUser={isUser} isForArca={isForArca} showAvatar={showAvatar} baseStyle={avatarBaseStyle} marginStyle={avatarMarginStyle} />
+        <Avatar avatarSrc={avatarSrc} name={name} isUser={isUser} isForArca={isForArca} showAvatar={showAvatar} baseStyle={avatarBaseStyle} marginStyle={avatarMarginStyle} isForExport={isForExport} />
         <div style={{ flex: 1 }}>
           <strong style={{ color: `${color.nameColor} !important`, fontWeight: 600, fontSize: '0.95em', display: 'block', marginBottom: '8px', textAlign: isUser ? 'right' : 'left', textShadow: '0 0 6px rgba(244, 114, 182, 0.3)' }}>{name}</strong>
           <div style={{ background: isUser ? color.cardBgUser : color.cardBg, borderRadius: '20px', padding: '15px 18px', boxShadow: color.shadow, border: '1px solid rgba(244, 114, 182, 0.2)', color: `${color.text} !important`, lineHeight: 1.7, wordWrap: 'break-word', position: 'relative', overflow: 'hidden' }}>
             <div style={{ position: 'absolute', top: '-50%', right: '-50%', width: '100%', height: '200%', background: 'radial-gradient(circle, rgba(244, 114, 182, 0.05), transparent 60%)', pointerEvents: 'none', animation: 'float 6s ease-in-out infinite' }}></div>
-            <div style={{ position: 'relative', zIndex: 1 }} dangerouslySetInnerHTML={{ __html: messageHtml }} contentEditable={isEditable} onBlur={handleBlur} suppressContentEditableWarning={true} />
+            <div ref={contentRef} style={{ position: 'relative', zIndex: 1 }} contentEditable={isEditable} onBlur={handleBlur} onClick={handleContentClick} suppressContentEditableWarning={true} />
           </div>
         </div>
       </div>

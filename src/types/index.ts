@@ -2,6 +2,7 @@ export interface CharInfo {
   name: string;
   chatName: string;
   avatarUrl: string;
+  profileImageUrl?: string;
 }
 
 export interface ColorPalette {
@@ -51,11 +52,16 @@ export interface LogContainerProps {
   charInfo: CharInfo;
   selectedThemeKey?: ThemeKey;
   selectedColorKey?: ColorKey;
+  color?: ColorPalette;
   customCss?: string;
   showAvatar?: boolean;
   showHeader?: boolean;
   showHeaderIcon?: boolean;
   headerTags?: string;
+  headerLayout?: 'default' | 'compact' | 'banner';
+  headerBannerUrl?: string;
+  headerBannerBlur?: boolean;
+  headerBannerAlign?: number;
   showFooter?: boolean;
   footerLeft?: string;
   footerCenter?: string;
@@ -75,6 +81,7 @@ export interface LogContainerProps {
   selectedIndices?: Set<number>;
   onMessageSelect?: (index: number, e: React.MouseEvent) => void;
   isForImageExport?: boolean;
+  isForExport?: boolean;
 }
 
 // 메시지 컴포넌트 Props
@@ -96,6 +103,7 @@ export interface MessageProps {
   onMessageUpdate?: (index: number, newHtml: string) => void;
   isSelected?: boolean;
   onSelect?: (index: number, e: React.MouseEvent) => void;
+  isForExport?: boolean;
 }
 
 export type LogNode = HTMLElement;

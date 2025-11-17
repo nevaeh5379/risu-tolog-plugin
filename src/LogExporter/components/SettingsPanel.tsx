@@ -169,6 +169,14 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onSettingChange
                             )}
                         </select>
                     </div>
+                    <div className="desktop-option-row">
+                        <span className="desktop-option-label">헤더 레이아웃</span>
+                        <select className="desktop-select" value={settings.headerLayout || 'default'} onChange={(e) => onSettingChange('headerLayout', e.target.value)}>
+                            <option value="default">기본</option>
+                            <option value="compact">컴팩트</option>
+                            <option value="banner">배너</option>
+                        </select>
+                    </div>
                     <Toggle settingKey="showAvatar" label="💬 아바타 표시" value={settings.showAvatar} />
                     <Toggle settingKey="showBubble" label="💭 말풍선 표시" value={settings.showBubble} />
                     <Toggle settingKey="showHeader" label="📌 헤더 표시" value={settings.showHeader} />

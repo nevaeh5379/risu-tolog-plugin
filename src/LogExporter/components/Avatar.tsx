@@ -10,14 +10,23 @@ interface AvatarProps {
   showAvatar: boolean;
   baseStyle: React.CSSProperties;
   marginStyle: React.CSSProperties;
+  isForExport?: boolean;
 }
 
-const Avatar: React.FC<AvatarProps> = ({ avatarSrc, name, isUser, isForArca, showAvatar, baseStyle, marginStyle }) => {
+const Avatar: React.FC<AvatarProps> = ({ avatarSrc, name, isUser, isForArca, showAvatar, baseStyle, marginStyle, isForExport }) => {
   if (!showAvatar) return null;
 
   const fullStyle = { ...baseStyle, ...marginStyle };
 
-  if (isForArca) {
+  if (isForArca || isForExport) {
+    if (!avatarSrc) { // Render a placeholder if no avatar is available
+        const letter = isUser ? 'U' : name.charAt(0).toUpperCase();
+        return (
+          <div {...{ [AVATAR_ATTR]: '' }} style={{ ...fullStyle, backgroundColor: '#ccc', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <span style={{ color: '#fff', fontWeight: 'bold', fontSize: '1.2em' }}>{letter}</span>
+          </div>
+        );
+    }
     return <img {...{ [AVATAR_ATTR]: '' }} data-user={isUser} style={fullStyle} src={avatarSrc} />;
   }
 

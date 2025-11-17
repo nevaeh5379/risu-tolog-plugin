@@ -68,7 +68,7 @@ const MessageRenderer: React.FC<MessageProps> = (props) => {
         readOnly // State is controlled by parent
         style={{ margin: '0 10px' }}
       />
-      <div style={{ flex: 1, pointerEvents: 'none' }}>
+      <div style={{ flex: 1 }}>
         <MessageComponent {...props} />
       </div>
     </div>

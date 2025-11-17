@@ -12,11 +12,12 @@ interface ArcaHelperModalProps {
   settings: any;
   globalSettings: any;
   uiTheme: string;
+  colorPalette: any;
 }
 
 type Step = 'intro' | 'paste_urls' | 'done';
 
-const ArcaHelperModal: React.FC<ArcaHelperModalProps> = ({ isOpen, onClose, messageNodes, charInfo, settings, globalSettings, uiTheme }) => {
+const ArcaHelperModal: React.FC<ArcaHelperModalProps> = ({ isOpen, onClose, messageNodes, charInfo, settings, globalSettings, uiTheme, colorPalette }) => {
   const [step, setStep] = useState<Step>('intro');
   const [baseHtml, setBaseHtml] = useState('');
   const [images, setImages] = useState<ArcaImage[]>([]);
@@ -46,21 +47,30 @@ const ArcaHelperModal: React.FC<ArcaHelperModalProps> = ({ isOpen, onClose, mess
       const logHtml = await getLogHtml({
         nodes: messageNodes,
         charInfo,
-        selectedThemeKey: 'basic',
-        selectedColorKey: 'dark',
+        selectedThemeKey: settings.theme,
+        color: colorPalette,
         showAvatar: settings.showAvatar,
         showHeader: settings.showHeader,
+        showHeaderIcon: settings.showHeaderIcon,
+        headerTags: settings.headerTags,
+        headerLayout: settings.headerLayout,
+        headerBannerUrl: settings.headerBannerUrl,
+        headerBannerBlur: settings.headerBannerBlur,
+        headerBannerAlign: settings.headerBannerAlign,
         showFooter: settings.showFooter,
         showBubble: settings.showBubble,
         embedImagesAsBlob: false,
         globalSettings,
+        isForExport: true,
       });
 
       const tempDiv = document.createElement('div');
       tempDiv.innerHTML = logHtml;
 
       const collectedImages: ArcaImage[] = [];
+      const processedUrls = new Set<string>();
       let mediaCounter = 0;
+      
       const mediaElements = Array.from(tempDiv.querySelectorAll('img, video'));
 
       for (const el of mediaElements) {
@@ -69,14 +79,19 @@ const ArcaHelperModal: React.FC<ArcaHelperModalProps> = ({ isOpen, onClose, mess
 
         if (!src || src.startsWith('data:')) continue;
 
-        const placeholder = `__TOLOG_PLACEHOLDER_${mediaCounter}__`;
-        const urlLower = src.toLowerCase();
-        const isWebM = urlLower.includes('.webm') || urlLower.includes('2e7765626d');
-        let extension = isWebM && settings.convertWebM ? 'webp' : ((el as HTMLElement).dataset.extension || 'jpg');
-        const filename = `image-${mediaCounter}.${extension}`;
+        if (!processedUrls.has(src)) {
+          processedUrls.add(src);
+          mediaCounter++;
+          
+          const urlLower = src.toLowerCase();
+          const isWebM = urlLower.includes('.webm') || urlLower.includes('2e7765626d');
+          let extension = isWebM && settings.convertWebM ? 'webp' : ((el as HTMLElement).dataset.extension || 'jpg');
+          const filename = `${String(mediaCounter).padStart(3, '0')}.${extension}`;
 
-        collectedImages.push({ url: src, filename, isWebM });
+          collectedImages.push({ url: src, filename, isWebM });
+        }
         
+        const placeholder = `__TOLOG_PLACEHOLDER_${src}__`;
         if (isVideo) {
           (el as HTMLVideoElement).src = placeholder;
           const source = el.querySelector('source');
@@ -84,7 +99,6 @@ const ArcaHelperModal: React.FC<ArcaHelperModalProps> = ({ isOpen, onClose, mess
         } else {
           (el as HTMLImageElement).src = placeholder;
         }
-        mediaCounter++;
       }
 
       setBaseHtml(tempDiv.innerHTML);
@@ -110,7 +124,7 @@ const ArcaHelperModal: React.FC<ArcaHelperModalProps> = ({ isOpen, onClose, mess
     } finally {
       setIsProcessing(false);
     }
-  }, [messageNodes, charInfo, settings, globalSettings]);
+  }, [messageNodes, charInfo, settings, globalSettings, colorPalette]);
 
   const generateFinalHtml = () => {
     if (!pastedHtml) {
@@ -130,8 +144,8 @@ const ArcaHelperModal: React.FC<ArcaHelperModalProps> = ({ isOpen, onClose, mess
     }
 
     let finalOutputHtml = baseHtml;
-    images.forEach((_, index) => {
-      const placeholder = `__TOLOG_PLACEHOLDER_${index}__`;
+    images.forEach((imageInfo, index) => {
+      const placeholder = `__TOLOG_PLACEHOLDER_${imageInfo.url}__`;
       const newUrl = newImageUrls[index];
       if (newUrl) {
         finalOutputHtml = finalOutputHtml.replace(new RegExp(placeholder, 'g'), newUrl);

@@ -29,7 +29,7 @@ export const getLogHtml = (props: Omit<LogContainerProps, 'onReady'>): Promise<s
     root.render(
       <LogContainer {...props} onReady={onReady} />
     );
-       });
+  });
 };
 
 

@@ -151,6 +151,18 @@ const MobileSettingsPanel: React.FC<MobileSettingsPanelProps> = ({
                 )}
               </select>
             </div>
+            <div className="mobile-field">
+              <label className="mobile-field-label">헤더 레이아웃</label>
+              <select 
+                className="mobile-select" 
+                value={settings.headerLayout || 'default'} 
+                onChange={(e) => onSettingChange('headerLayout', e.target.value)}
+              >
+                <option value="default">기본</option>
+                <option value="compact">컴팩트</option>
+                <option value="banner">배너</option>
+              </select>
+            </div>
           </div>
         </div>
       )}
@@ -225,6 +237,37 @@ const MobileSettingsPanel: React.FC<MobileSettingsPanelProps> = ({
                     <label className="mobile-field-label">헤더 태그 (쉼표로 구분)</label>
                     <input type="text" className="mobile-input" value={settings.headerTags || ''} onChange={(e) => onSettingChange('headerTags', e.target.value)} />
                   </div>
+                  {settings.headerLayout === 'banner' && (
+                    <>
+                      <div className="mobile-field" style={{marginTop: '10px'}}>
+                        <label className="mobile-field-label">배너 이미지 URL</label>
+                        <input type="text" className="mobile-input" value={settings.headerBannerUrl || ''} onChange={(e) => onSettingChange('headerBannerUrl', e.target.value)} placeholder="https://..." />
+                      </div>
+                      <div className="mobile-toggle-item" style={{padding: '10px 0'}}>
+                        <span className="mobile-toggle-label">블러 효과</span>
+                        <div 
+                          className={`mobile-switch ${settings.headerBannerBlur !== false ? 'active' : ''}`}
+                          onClick={() => onSettingChange('headerBannerBlur', settings.headerBannerBlur === false)}
+                        >
+                          <div className="mobile-switch-thumb"></div>
+                        </div>
+                      </div>
+                      <div className="mobile-field">
+                        <label className="mobile-field-label">이미지 정렬</label>
+                        <div className="mobile-slider-field">
+                          <input 
+                            type="range" 
+                            min="0" 
+                            max="100" 
+                            value={settings.headerBannerAlign || 50} 
+                            className="mobile-slider" 
+                            onChange={(e) => onSettingChange('headerBannerAlign', parseInt(e.target.value, 10))} 
+                          />
+                          <div className="mobile-slider-value">{settings.headerBannerAlign || 50}%</div>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
               <div className="mobile-toggle-item">

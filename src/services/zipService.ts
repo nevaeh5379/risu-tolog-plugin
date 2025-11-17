@@ -8,6 +8,43 @@ import { convertWebMToAnimatedWebP } from './webmConverter'; // 예시 경로
 import { loadGlobalSettings } from '../LogExporter/services/settingsService';
 import type { ArcaImage } from '../types';
 
+const getBlobFromUrl = (url: string): Promise<Blob> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "Anonymous";
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        return reject(new Error('Could not get canvas context'));
+      }
+      ctx.drawImage(img, 0, 0);
+      canvas.toBlob((blob) => {
+        if (blob) {
+          resolve(blob);
+        } else {
+          reject(new Error('Canvas toBlob failed for ' + url));
+        }
+      });
+    };
+    img.onerror = () => {
+      // If the canvas method fails (e.g., tainted by CORS), fall back to a direct fetch.
+      // This will work for same-origin or CORS-enabled images.
+      fetch(url)
+        .then(res => {
+          if (!res.ok) throw new Error(`Fallback fetch failed: ${res.statusText} for ${url}`);
+          return res.blob();
+        })
+        .then(resolve)
+        .catch(reject);
+    };
+    img.src = url;
+  });
+};
+
+
 export async function createZipFromMediaList(
   images: ArcaImage[],
   options: { convertWebM: boolean }
@@ -15,11 +52,7 @@ export async function createZipFromMediaList(
   const zip = new JSZip();
 
   const mediaPromises = images.map(image => 
-    fetch(image.url)
-      .then(res => {
-        if (!res.ok) throw new Error(`미디어 다운로드 실패: ${image.url}`);
-        return res.blob();
-      })
+    (image.isWebM ? fetch(image.url).then(res => res.blob()) : getBlobFromUrl(image.url))
       .then(async (blob) => {
         if (options.convertWebM && image.isWebM) {
           try {
@@ -29,7 +62,6 @@ export async function createZipFromMediaList(
             return;
           } catch (e) {
             console.error(`[Arca Zip] WebM 변환 실패, 원본 저장: ${image.url}`, e);
-            // 변환 실패 시 원본 저장 로직으로 넘어감
           }
         }
         zip.file(image.filename, blob);

@@ -14,11 +14,16 @@ const LogContainer: React.FC<LogContainerProps> = (props) => {
     charInfo,
     selectedThemeKey = 'basic',
     selectedColorKey = 'dark',
+    color: colorProp,
     customCss,
     showAvatar = true,
     showHeader = true,
     showHeaderIcon,
     headerTags,
+    headerLayout,
+    headerBannerUrl,
+    headerBannerBlur,
+    headerBannerAlign,
     showFooter = true,
     footerLeft,
     footerCenter,
@@ -36,13 +41,15 @@ const LogContainer: React.FC<LogContainerProps> = (props) => {
     selectedIndices,
     onMessageSelect,
     isForImageExport,
+    isForExport,
   } = props;
 
   const [avatarMap, setAvatarMap] = useState<Map<string, string>>(preCollectedAvatarMap || new Map());
   const [isReady, setIsReady] = useState(false);
 
   const themeInfo = THEMES[selectedThemeKey] || THEMES.basic;
-  const color: ColorPalette = (selectedThemeKey === 'basic' || selectedThemeKey === 'custom') ? (COLORS[selectedColorKey] || COLORS.dark) : (themeInfo.color || COLORS.dark);
+  const color: ColorPalette = colorProp 
+    || ((selectedThemeKey === 'basic' || selectedThemeKey === 'custom') ? (COLORS[selectedColorKey] || COLORS.dark) : (themeInfo.color || COLORS.dark));
 
   useEffect(() => {
     let isMounted = true;
@@ -81,7 +88,18 @@ const LogContainer: React.FC<LogContainerProps> = (props) => {
   return (
     <div style={containerStyle}>
       {selectedThemeKey === 'custom' && customCss && <style>{customCss}</style>}
-      {showHeader && <LogHeader charInfo={charInfo} color={color} embedImagesAsBlob={embedImagesAsBlob} showHeaderIcon={showHeaderIcon} headerTags={headerTags} />}
+      {showHeader && <LogHeader 
+        layout={headerLayout} 
+        charInfo={charInfo} 
+        color={color} 
+        embedImagesAsBlob={embedImagesAsBlob} 
+        showHeaderIcon={showHeaderIcon} 
+        headerTags={headerTags} 
+        headerBannerUrl={headerBannerUrl}
+        headerBannerBlur={headerBannerBlur}
+        headerBannerAlign={headerBannerAlign}
+        isForExport={isForExport}
+      />}
       <main>
         {nodes.map((node, index) => (
           <MessageRenderer
@@ -103,6 +121,7 @@ const LogContainer: React.FC<LogContainerProps> = (props) => {
             onMessageUpdate={props.onMessageUpdate}
             isSelected={selectedIndices?.has(index)}
             onSelect={onMessageSelect}
+            isForExport={isForExport}
           />
         ))}
       </main>

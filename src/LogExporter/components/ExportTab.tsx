@@ -104,6 +104,14 @@ const ExportTab: React.FC<ExportTabProps> = ({ settings, onSettingChange, themes
                 )}
               </select>
             </div>
+            <div className="tab-option-row">
+              <span className="option-label">헤더 레이아웃</span>
+              <select className="tab-select" value={settings.headerLayout || 'default'} onChange={(e) => onSettingChange('headerLayout', e.target.value)}>
+                <option value="default">기본</option>
+                <option value="compact">컴팩트</option>
+                <option value="banner">배너</option>
+              </select>
+            </div>
           </div>
 
           {settings.theme === 'custom' && (
@@ -131,6 +139,28 @@ const ExportTab: React.FC<ExportTabProps> = ({ settings, onSettingChange, themes
                   <span className="option-label">헤더 태그</span>
                   <input type="text" className="tab-input" value={settings.headerTags || ''} onChange={(e) => onSettingChange('headerTags', e.target.value)} placeholder="쉼표로 태그 구분" />
                 </div>
+                {settings.headerLayout === 'banner' && (
+                  <>
+                    <div className="tab-option-row">
+                      <span className="option-label">배너 이미지 URL</span>
+                      <input type="text" className="tab-input" value={settings.headerBannerUrl || ''} onChange={(e) => onSettingChange('headerBannerUrl', e.target.value)} placeholder="https://..." />
+                    </div>
+                    <Toggle settingKey="headerBannerBlur" label="블러 효과" description="배너 이미지에 블러 효과 적용" value={settings.headerBannerBlur} />
+                                      <div className="tab-option-row">
+                                        <span className="option-label">이미지 정렬</span>
+                                        <div className="slider-container" style={{ flex: 1 }}>
+                                          <input 
+                                            type="range" 
+                                            min="0" 
+                                            max="100" 
+                                            value={settings.headerBannerAlign || 50} 
+                                            className="tab-slider" 
+                                            onChange={(e) => onSettingChange('headerBannerAlign', parseInt(e.target.value, 10))} 
+                                          />
+                                          <div className="slider-value">{settings.headerBannerAlign || 50}%</div>
+                                        </div>
+                                      </div>                  </>
+                )}
               </div>
             )}
             <Toggle settingKey="showFooter" label="푸터" description="하단 정보 표시" value={settings.showFooter} />

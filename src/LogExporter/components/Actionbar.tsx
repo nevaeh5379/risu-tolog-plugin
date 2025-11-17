@@ -10,6 +10,7 @@ interface ActionbarProps {
   messageNodes: HTMLElement[];
   settings: any;
   backgroundColor: string;
+  color?: any;
   charAvatarUrl: string;
   onOpenArcaHelper?: () => void;
   onProgressStart: (message: string, total?: number) => void;
@@ -21,7 +22,7 @@ interface ActionbarProps {
   hasSelection?: boolean;
 }
 
-const Actionbar: React.FC<ActionbarProps> = ({ charName, chatName, getPreviewContent, messageNodes, settings, backgroundColor, charAvatarUrl, onOpenArcaHelper, onProgressStart, onProgressUpdate, onProgressEnd, onSaveLogData, onLoadLogData, onDeleteSelected, hasSelection }) => {
+const Actionbar: React.FC<ActionbarProps> = ({ charName, chatName, getPreviewContent, messageNodes, settings, backgroundColor, color, charAvatarUrl, onOpenArcaHelper, onProgressStart, onProgressUpdate, onProgressEnd, onSaveLogData, onLoadLogData, onDeleteSelected, hasSelection }) => {
 
     const handleCopyHtml = async () => {
         const content = await getPreviewContent();
@@ -43,6 +44,7 @@ const Actionbar: React.FC<ActionbarProps> = ({ charName, chatName, getPreviewCon
             charAvatarUrl,
             themes: THEMES,
             colors: COLORS,
+            color: color,
             onProgressStart,
             onProgressUpdate,
             onProgressEnd,

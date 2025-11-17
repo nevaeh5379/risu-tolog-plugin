@@ -35,6 +35,10 @@ interface Settings {
   showHeader?: boolean;
   showHeaderIcon?: boolean;
   headerTags?: string;
+  headerLayout?: 'default' | 'compact' | 'banner';
+  headerBannerUrl?: string;
+  headerBannerBlur?: boolean;
+  headerBannerAlign?: number;
   showFooter?: boolean;
   footerLeft?: string;
   footerCenter?: string;
@@ -97,6 +101,10 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
         showHeader: true,
         showHeaderIcon: true,
         headerTags: '',
+        headerLayout: 'default',
+        headerBannerUrl: '',
+        headerBannerBlur: true,
+        headerBannerAlign: 50,
         showFooter: true,
         footerLeft: '',
         footerCenter: 'Created by Log Plugin',
@@ -174,6 +182,7 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
     };
 
     const isMobile = useMediaQuery('(max-width: 768px)');
+    const isTablet = useMediaQuery('(min-width: 769px) and (max-width: 1024px)');
 
     const themeInfo = THEMES[savedSettings.theme || 'basic'] || THEMES.basic;
     const colorPalette = savedSettings.theme === 'basic' ? (COLORS[savedSettings.color || 'dark'] || COLORS.dark) : (themeInfo.color || COLORS.dark);
@@ -328,11 +337,16 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
         charInfo: { name: charName, chatName: chatName, avatarUrl: charAvatarUrl },
         selectedThemeKey: savedSettings.theme || 'basic',
         selectedColorKey: savedSettings.color || 'dark',
+        color: colorPalette,
         customCss: savedSettings.customCss,
         showAvatar: savedSettings.showAvatar,
         showHeader: savedSettings.showHeader,
         showHeaderIcon: savedSettings.showHeaderIcon,
         headerTags: savedSettings.headerTags,
+        headerLayout: savedSettings.headerLayout,
+        headerBannerUrl: savedSettings.headerBannerUrl,
+        headerBannerBlur: savedSettings.headerBannerBlur,
+        headerBannerAlign: savedSettings.headerBannerAlign,
         showFooter: savedSettings.showFooter,
         footerLeft: savedSettings.footerLeft,
         footerCenter: savedSettings.footerCenter,
@@ -350,6 +364,7 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
         charName, chatName, charAvatarUrl, 
         savedSettings, 
         globalSettings, 
+        colorPalette,
         handleMessageUpdate
     ]);
 
@@ -460,6 +475,7 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
                     settings={savedSettings}
                     globalSettings={globalSettings}
                     uiTheme={uiTheme}
+                    colorPalette={colorPalette}
                 />
             ) : (
                 <div className="log-exporter-modal" data-theme={uiTheme} onClick={(e) => e.stopPropagation()}>
@@ -477,7 +493,7 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
                             <div className="desktop-spinner"></div>
                             <p>로그 데이터를 불러오는 중...</p>
                         </div>
-                    ) : isMobile ? (
+                    ) : (isMobile || isTablet) ? (
                         <div className="log-exporter-modal-content">
                             <div className="mobile-tab-navigation">
                                 <button className={`mobile-tab-btn ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
@@ -532,6 +548,7 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
                                     messageNodes={nodesForExport}
                                     settings={savedSettings}
                                     backgroundColor={backgroundColor}
+                                    color={colorPalette}
                                     charAvatarUrl={charAvatarUrl}
                                     onOpenArcaHelper={() => setIsArcaHelperOpen(true)}
                                     onProgressStart={handleProgressStart}
@@ -619,6 +636,7 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
                                     messageNodes={nodesForExport}
                                     settings={savedSettings}
                                     backgroundColor={backgroundColor}
+                                    color={colorPalette}
                                     charAvatarUrl={charAvatarUrl}
                                     onOpenArcaHelper={() => setIsArcaHelperOpen(true)}
                                     onProgressStart={handleProgressStart}

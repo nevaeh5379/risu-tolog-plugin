@@ -1,14 +1,21 @@
 
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import type { MessageProps } from '../../../types';
 import Avatar from '../Avatar';
 import { useMessageProcessor } from '../../hooks/useMessageProcessor';
 import { getNameFromNode } from '../../utils/domUtils';
 
 const Fantasy2Message: React.FC<MessageProps> = (props) => {
-  const { node, index, charInfoName, color, showAvatar, isForArca, embedImagesAsBlob, allowHtmlRendering, globalSettings, isEditable, onMessageUpdate, imageScale } = props;
+  const { node, index, charInfoName, color, showAvatar, isForArca, embedImagesAsBlob, allowHtmlRendering, globalSettings, isEditable, onMessageUpdate, imageScale, isForExport } = props;
   const originalMessageEl = node.querySelector('.prose, .chattext');
   const messageHtml = useMessageProcessor(originalMessageEl, embedImagesAsBlob, allowHtmlRendering, color, imageScale);
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (contentRef.current && messageHtml !== contentRef.current.innerHTML) {
+      contentRef.current.innerHTML = messageHtml;
+    }
+  }, [messageHtml]);
 
   if (!messageHtml || messageHtml.trim().length === 0) return null;
 
@@ -18,8 +25,14 @@ const Fantasy2Message: React.FC<MessageProps> = (props) => {
   const elfFont = `'Nanum Myeongjo', serif`;
 
   const handleBlur = (e: React.FocusEvent<HTMLDivElement>) => {
-    if (onMessageUpdate) {
+    if (onMessageUpdate && e.currentTarget.innerHTML !== messageHtml) {
         onMessageUpdate(index, e.currentTarget.innerHTML);
+    }
+  };
+
+  const handleContentClick = (e: React.MouseEvent) => {
+    if (isEditable) {
+      e.stopPropagation();
     }
   };
 
@@ -43,13 +56,13 @@ const Fantasy2Message: React.FC<MessageProps> = (props) => {
       )}
       <div className="chat-message-container" style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', gap: '16px', fontFamily: isForArca ? '' : elfFont, marginBottom: '2em', flexDirection: isUser ? 'row-reverse' : 'row' }}>
         {isEditable && <button className="log-exporter-delete-msg-btn" data-message-index={index} title="메시지 삭제">&times;</button>}
-        <Avatar avatarSrc={avatarSrc} name={name} isUser={isUser} isForArca={isForArca} showAvatar={showAvatar} baseStyle={avatarBaseStyle} marginStyle={{}} />
+        <Avatar avatarSrc={avatarSrc} name={name} isUser={isUser} isForArca={isForArca} showAvatar={showAvatar} baseStyle={avatarBaseStyle} marginStyle={{}} isForExport={isForExport} />
         <div style={{ flex: 1, position: 'relative' }}>
           <div style={{ position: 'absolute', top: '-5px', left: isUser ? 'auto' : '-8px', right: isUser ? '-8px' : 'auto', width: '3px', height: 'calc(100% + 10px)', background: color.border, borderRadius: '2px', opacity: 0.6 }}></div>
           <strong style={{ color: color.nameColor, fontWeight: 600, fontSize: '1.2em', textShadow: '0 0 8px rgba(52, 211, 153, 0.4)', letterSpacing: '1px', marginBottom: '0.8em', display: 'block', textAlign: isUser ? 'right' : 'left' }}>{name}</strong>
           <div style={{ background: isUser ? color.cardBgUser : color.cardBg, borderRadius: '15px', padding: '16px 20px', boxShadow: color.shadow, border: '1px solid rgba(52, 211, 153, 0.2)', position: 'relative', overflow: 'hidden' }}>
             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '1px', background: `linear-gradient(90deg, transparent, ${color.nameColor}, transparent)` }}></div>
-            <div style={{ color: color.text, lineHeight: 1.7, fontSize: '1.05em', position: 'relative', zIndex: 1 }} dangerouslySetInnerHTML={{ __html: messageHtml }} contentEditable={isEditable} onBlur={handleBlur} suppressContentEditableWarning={true} />
+            <div ref={contentRef} style={{ color: color.text, lineHeight: 1.7, fontSize: '1.05em', position: 'relative', zIndex: 1 }} contentEditable={isEditable} onBlur={handleBlur} onClick={handleContentClick} suppressContentEditableWarning={true} />
           </div>
         </div>
       </div>
