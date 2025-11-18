@@ -99,6 +99,7 @@ const LogContainer: React.FC<LogContainerProps> = (props) => {
         headerBannerBlur={headerBannerBlur}
         headerBannerAlign={headerBannerAlign}
         isForExport={isForExport}
+        isForArca={isForArca}
       />}
       <main>
         {nodes.map((node, index) => (

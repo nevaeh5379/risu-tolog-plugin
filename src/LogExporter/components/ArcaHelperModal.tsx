@@ -58,10 +58,14 @@ const ArcaHelperModal: React.FC<ArcaHelperModalProps> = ({ isOpen, onClose, mess
         headerBannerBlur: settings.headerBannerBlur,
         headerBannerAlign: settings.headerBannerAlign,
         showFooter: settings.showFooter,
+        footerLeft: settings.footerLeft,
+        footerCenter: settings.footerCenter,
+        footerRight: settings.footerRight,
         showBubble: settings.showBubble,
         embedImagesAsBlob: false,
         globalSettings,
         isForExport: true,
+        isForArca: true,
       });
 
       const tempDiv = document.createElement('div');
@@ -71,6 +75,29 @@ const ArcaHelperModal: React.FC<ArcaHelperModalProps> = ({ isOpen, onClose, mess
       const processedUrls = new Set<string>();
       let mediaCounter = 0;
       
+      // 1. Process Banner Header first
+      const headerElement = tempDiv.querySelector('[data-is-banner-header="true"]') as HTMLDivElement;
+      if (headerElement && headerElement.style.backgroundImage) {
+        const style = headerElement.style.backgroundImage;
+        const urlRegex = /url\("([^"]+)"\)/;
+        const match = style.match(urlRegex);
+
+        if (match && match[1]) {
+            const bannerUrl = match[1];
+            if (bannerUrl && !bannerUrl.startsWith('data:')) {
+                processedUrls.add(bannerUrl);
+                mediaCounter++;
+                const extension = 'jpg';
+                const filename = `${String(mediaCounter).padStart(3, '0')}.${extension}`;
+                collectedImages.push({ url: bannerUrl, filename, isWebM: false });
+                
+                const placeholder = `__TOLOG_PLACEHOLDER_${bannerUrl}__`;
+                headerElement.style.backgroundImage = style.replace(bannerUrl, placeholder);
+            }
+        }
+      }
+
+      // 2. Process other media elements
       const mediaElements = Array.from(tempDiv.querySelectorAll('img, video'));
 
       for (const el of mediaElements) {

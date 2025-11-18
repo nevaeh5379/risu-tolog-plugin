@@ -18,6 +18,7 @@ interface LogHeaderProps {
   headerBannerBlur?: boolean;
   headerBannerAlign?: number;
   isForExport?: boolean;
+  isForArca?: boolean;
 }
 
 const headerMap = {
