@@ -175,6 +175,8 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onSettingChange
                             <option value="default">기본</option>
                             <option value="compact">컴팩트</option>
                             <option value="banner">배너</option>
+                            <option value="smart">스마트</option>
+                            <option value="cover">커버</option>
                         </select>
                     </div>
                     <Toggle settingKey="showAvatar" label="💬 아바타 표시" value={settings.showAvatar} />

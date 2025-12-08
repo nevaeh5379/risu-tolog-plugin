@@ -161,6 +161,8 @@ const MobileSettingsPanel: React.FC<MobileSettingsPanelProps> = ({
                 <option value="default">기본</option>
                 <option value="compact">컴팩트</option>
                 <option value="banner">배너</option>
+                <option value="smart">스마트</option>
+                <option value="cover">커버</option>
               </select>
             </div>
           </div>

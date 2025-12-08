@@ -8,7 +8,7 @@ import { getNameFromNode } from '../../utils/domUtils';
 const ModernMessage: React.FC<MessageProps> = (props) => {
   const { node, index, charInfoName, color, showAvatar, isForArca, embedImagesAsBlob, allowHtmlRendering, globalSettings, isEditable, onMessageUpdate, imageScale, isForExport } = props;
   const originalMessageEl = node.querySelector('.prose, .chattext');
-  const messageHtml = useMessageProcessor(originalMessageEl, embedImagesAsBlob, allowHtmlRendering, color, imageScale);
+  const messageHtml = useMessageProcessor(originalMessageEl, embedImagesAsBlob, allowHtmlRendering, color, imageScale, props.onRendered);
   const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

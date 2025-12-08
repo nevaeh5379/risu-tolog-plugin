@@ -7,19 +7,18 @@ import { getNameFromNode } from '../../utils/domUtils';
 const CustomMessage: React.FC<MessageProps> = (props) => {
   const { node, index, charInfoName, color, showBubble, showAvatar, isForArca, embedImagesAsBlob, allowHtmlRendering, globalSettings, isEditable, onMessageUpdate, imageScale, isForExport } = props;
   const originalMessageEl = node.querySelector('.prose, .chattext');
-  const messageHtml = useMessageProcessor(originalMessageEl, embedImagesAsBlob, allowHtmlRendering, color, imageScale);
-  const contentRef = useRef<HTMLDivElement>(null);
+  const messageHtml = useMessageProcessor(originalMessageEl, embedImagesAsBlob, allowHtmlRendering, color, imageScale, props.onRendered);
 
+  const name = getNameFromNode(node as HTMLElement, globalSettings, charInfoName);
+  const isUser = node.classList.contains('justify-end');
+  const contentRef = useRef<HTMLDivElement>(null);
+  
   useEffect(() => {
     if (contentRef.current && messageHtml !== contentRef.current.innerHTML) {
       contentRef.current.innerHTML = messageHtml;
     }
   }, [messageHtml]);
 
-  if (!messageHtml || messageHtml.trim().length === 0) return null;
-
-  const isUser = node.classList.contains('justify-end');
-  const name = getNameFromNode(node as HTMLElement, globalSettings, charInfoName);
   const avatarSrc = props.avatarMap.get(name);
 
   const handleBlur = (e: React.FocusEvent<HTMLDivElement>) => {

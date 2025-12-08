@@ -13,6 +13,35 @@ import { mergePNGsBinary } from './image/png';
 import { mergeJPEGsBinary } from './image/jpeg';
 import { mergeWebPsBinary } from './image/webp';
 
+const waitForMedia = async (element: HTMLElement) => {
+    const images = Array.from(element.querySelectorAll('img'));
+    const videos = Array.from(element.querySelectorAll('video'));
+    
+    const promises = [
+        ...images.map(img => {
+            if (img.complete) return Promise.resolve();
+            return new Promise<void>(resolve => {
+                img.onload = () => resolve();
+                img.onerror = () => resolve();
+            });
+        }),
+        ...videos.map(video => {
+            if (video.readyState >= 2) return Promise.resolve();
+            return new Promise<void>(resolve => {
+                video.onloadeddata = () => resolve();
+                video.onerror = () => resolve();
+            });
+        })
+    ];
+    
+    if (promises.length === 0) return;
+    
+    await Promise.race([
+        Promise.all(promises),
+        new Promise(resolve => setTimeout(resolve, 5000)) // 5s timeout
+    ]);
+};
+
 // 큰 메시지를 분할하여 캡처한 후 하나의 이미지로 병합하는 함수
 const splitAndMergeAsOneFile = async (
     element: HTMLElement,
@@ -483,6 +512,7 @@ export const saveAsImage = async (nodes: HTMLElement[] | HTMLElement, format: 'p
                     onProgressUpdate({ message: `[경고] 해상도(${oldRes}x)가 너무 높아 ${finalResolution}x로 자동 조정됨.` });
                 }
                 
+                await waitForMedia(elementToRender);
                 await renderImage(elementToRender, finalResolution, i, chunks.length);
             }
         } finally {
@@ -534,8 +564,9 @@ export const saveAsImage = async (nodes: HTMLElement[] | HTMLElement, format: 'p
                     embedImagesAsBlob: true,
                     globalSettings: loadGlobalSettings(),
                     onReady: onReady,
-                    fontSize: htmlOptions.previewFontSize,
+                    fontSize: Number(htmlOptions.previewFontSize),
                     containerWidth: htmlOptions.previewWidth,
+                    imageScale: Number(htmlOptions.imageScale),
                     isForImageExport: true,
                 };
                 const root = createRoot(container);
@@ -569,6 +600,7 @@ export const saveAsImage = async (nodes: HTMLElement[] | HTMLElement, format: 'p
                 onProgressUpdate({ message: `[경고] 해상도(${oldRes}x)가 너무 높아 ${finalResolution}x로 자동 조정됨.` });
             }
 
+            await waitForMedia(elementToRender);
             await renderImage(elementToRender, finalResolution, i, chunks.length);
             container.innerHTML = '';
         }

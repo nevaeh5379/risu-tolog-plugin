@@ -4,12 +4,8 @@ import type { MessageProps, ThemeKey } from '../../types';
 import BasicMessage from './themes/BasicMessage';
 import CustomMessage from './themes/CustomMessage';
 import ModernMessage from './themes/ModernMessage';
-import FantasyMessage from './themes/FantasyMessage';
-import Fantasy2Message from './themes/Fantasy2Message';
-import RoyalMessage from './themes/RoyalMessage';
-import OceanMessage from './themes/OceanMessage';
-import SakuraMessage from './themes/SakuraMessage';
-import MatrixMessage from './themes/MatrixMessage';
+import SmartMessage from './themes/SmartMessage';
+import SimpleMessage from './themes/SimpleMessage';
 import LogMessage from './themes/LogMessage';
 import RawMessage from './themes/RawMessage';
 
@@ -17,12 +13,8 @@ const themeMap: Record<ThemeKey, React.FC<MessageProps>> = {
   basic: BasicMessage,
   custom: CustomMessage,
   modern: ModernMessage,
-  fantasy: FantasyMessage,
-  fantasy2: Fantasy2Message,
-  royal: RoyalMessage,
-  ocean: OceanMessage,
-  sakura: SakuraMessage,
-  matrix: MatrixMessage,
+  smart: SmartMessage,
+  simple: SimpleMessage,
   log: LogMessage,
   raw: RawMessage,
 };
@@ -47,7 +39,7 @@ const MessageRenderer: React.FC<MessageProps> = (props) => {
   };
 
   if (!isEditable) {
-    return <MessageComponent {...props} />;
+    return <MessageComponent {...props} onRendered={props.onRendered} />;
   }
 
   return (
@@ -69,7 +61,7 @@ const MessageRenderer: React.FC<MessageProps> = (props) => {
         style={{ margin: '0 10px' }}
       />
       <div style={{ flex: 1 }}>
-        <MessageComponent {...props} />
+        <MessageComponent {...props} onRendered={props.onRendered} />
       </div>
     </div>
   );

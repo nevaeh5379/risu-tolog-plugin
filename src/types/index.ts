@@ -32,7 +32,7 @@ description: string;
   color?: ColorPalette;
 }
 
-export type ThemeKey = 'basic' | 'custom' | 'modern' | 'fantasy' | 'fantasy2' | 'royal' | 'ocean' | 'sakura' | 'matrix' | 'log' | 'raw';
+export type ThemeKey = 'basic' | 'custom' | 'modern' | 'smart' | 'simple' | 'log' | 'raw';
 export type ColorKey =
   | 'dark'
   | 'classic'
@@ -58,7 +58,7 @@ export interface LogContainerProps {
   showHeader?: boolean;
   showHeaderIcon?: boolean;
   headerTags?: string;
-  headerLayout?: 'default' | 'compact' | 'banner';
+  headerLayout?: 'default' | 'compact' | 'banner' | 'smart' | 'cover';
   headerBannerUrl?: string;
   headerBannerBlur?: boolean;
   headerBannerAlign?: number;
@@ -104,6 +104,7 @@ export interface MessageProps {
   isSelected?: boolean;
   onSelect?: (index: number, e: React.MouseEvent) => void;
   isForExport?: boolean;
+  onRendered?: () => void;
 }
 
 export type LogNode = HTMLElement;

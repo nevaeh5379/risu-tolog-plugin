@@ -1,5 +1,4 @@
-
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import type { LogContainerProps, ColorPalette } from '../../types';
 import { THEMES, COLORS } from './constants';
 import { collectCharacterAvatars } from '../services/avatarService';
@@ -45,7 +44,18 @@ const LogContainer: React.FC<LogContainerProps> = (props) => {
   } = props;
 
   const [avatarMap, setAvatarMap] = useState<Map<string, string>>(preCollectedAvatarMap || new Map());
-  const [isReady, setIsReady] = useState(false);
+  const [isAvatarReady, setIsAvatarReady] = useState(false);
+
+  const renderedIndicesRef = useRef<Set<number>>(new Set());
+  const [allMessagesReady, setAllMessagesReady] = useState(false);
+
+  const handleMessageRendered = useCallback((index: number) => {
+    renderedIndicesRef.current.add(index);
+    // nodes.length check ensures we wait for all messages
+    if (renderedIndicesRef.current.size >= nodes.length) {
+        setAllMessagesReady(true);
+    }
+  }, [nodes.length]);
 
   const themeInfo = THEMES[selectedThemeKey] || THEMES.basic;
   const color: ColorPalette = colorProp 
@@ -57,21 +67,38 @@ const LogContainer: React.FC<LogContainerProps> = (props) => {
       collectCharacterAvatars(nodes, charInfo.name, isForArca, globalSettings).then(map => {
         if (isMounted) {
           setAvatarMap(map);
-          setIsReady(true);
+          setIsAvatarReady(true);
         }
       });
     } else {
-      setIsReady(true);
+      setIsAvatarReady(true);
     }
     return () => { isMounted = false; };
   }, [nodes, charInfo.name, isForArca, preCollectedAvatarMap, globalSettings]);
 
   useEffect(() => {
-    if (isReady && onReady) {
+    if (nodes.length === 0) {
+        setAllMessagesReady(true);
+    } else {
+       // Reset ready state if nodes change (though typically they don't in export)
+       // Actually, if nodes change, we should reset renderedIndicesRef too?
+       // For the export use case, nodes are static. For preview, it updates.
+       // In preview, onReady isn't usually used.
+       if (renderedIndicesRef.current.size >= nodes.length) {
+           setAllMessagesReady(true);
+       } else {
+           setAllMessagesReady(false);
+       }
+    }
+  }, [nodes.length]);
+
+
+  useEffect(() => {
+    if (isAvatarReady && allMessagesReady && onReady) {
       // Use a microtask to ensure the DOM is updated before the callback fires
       Promise.resolve().then(onReady);
     }
-  }, [isReady, onReady]);
+  }, [isAvatarReady, allMessagesReady, onReady]);
 
   const containerStyle: React.CSSProperties = {
       margin: isForImageExport ? '0' : '16px auto',
@@ -89,9 +116,10 @@ const LogContainer: React.FC<LogContainerProps> = (props) => {
     <div style={containerStyle}>
       {selectedThemeKey === 'custom' && customCss && <style>{customCss}</style>}
       {showHeader && <LogHeader 
+        themeKey={selectedThemeKey} // 테마 키 전달
         layout={headerLayout} 
         charInfo={charInfo} 
-        color={color} 
+        color={color}
         embedImagesAsBlob={embedImagesAsBlob} 
         showHeaderIcon={showHeaderIcon} 
         headerTags={headerTags} 
@@ -123,10 +151,11 @@ const LogContainer: React.FC<LogContainerProps> = (props) => {
             isSelected={selectedIndices?.has(index)}
             onSelect={onMessageSelect}
             isForExport={isForExport}
+            onRendered={() => handleMessageRendered(index)}
           />
         ))}
       </main>
-      {showFooter && <LogFooter color={color} footerLeft={footerLeft} footerCenter={footerCenter} footerRight={footerRight} />}
+      {showFooter && <LogFooter themeKey={selectedThemeKey} color={color} footerLeft={footerLeft} footerCenter={footerCenter} footerRight={footerRight} />}
     </div>
   );
 };

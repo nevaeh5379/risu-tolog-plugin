@@ -17,6 +17,12 @@ interface ArcaHelperModalProps {
 
 type Step = 'intro' | 'paste_urls' | 'done';
 
+const STEPS = [
+    { id: 'intro', label: '이미지 저장', step: 1 },
+    { id: 'paste_urls', label: 'URL 붙여넣기', step: 2 },
+    { id: 'done', label: '완료', step: 3 },
+];
+
 const ArcaHelperModal: React.FC<ArcaHelperModalProps> = ({ isOpen, onClose, messageNodes, charInfo, settings, globalSettings, uiTheme, colorPalette }) => {
   const [step, setStep] = useState<Step>('intro');
   const [baseHtml, setBaseHtml] = useState('');
@@ -183,6 +189,14 @@ const ArcaHelperModal: React.FC<ArcaHelperModalProps> = ({ isOpen, onClose, mess
     setStep('done');
   };
 
+  const getStepStatus = (stepId: string) => {
+      const stepIndex = STEPS.findIndex(s => s.id === stepId);
+      const currentStepIndex = STEPS.findIndex(s => s.id === step);
+      if (stepIndex < currentStepIndex) return 'completed';
+      if (stepIndex === currentStepIndex) return 'active';
+      return 'pending';
+  };
+
   if (!isOpen) return null;
 
   const renderContent = () => {
@@ -190,8 +204,8 @@ const ArcaHelperModal: React.FC<ArcaHelperModalProps> = ({ isOpen, onClose, mess
         return (
             <div className="arca-helper-step arca-helper-processing">
                 <div className="desktop-spinner"></div>
-                <p>파일 생성 중...</p>
-                <span>잠시만 기다려주세요.</span>
+                <div className="processing-text">파일 생성 중...</div>
+                <div className="processing-subtext">잠시만 기다려주세요.</div>
             </div>
         );
     }
@@ -200,41 +214,80 @@ const ArcaHelperModal: React.FC<ArcaHelperModalProps> = ({ isOpen, onClose, mess
       case 'intro':
         return (
           <div className="arca-helper-step">
-            <h3>1단계: 이미지 파일 다운로드</h3>
-            <p>아카라이브에 업로드할 이미지들을 ZIP 파일로 묶어 다운로드합니다.</p>
-            <ol>
-                <li>아래 버튼을 클릭하여 이미지 압축 파일을 받으세요.</li>
-                <li>다음 단계로 자동 이동합니다.</li>
-            </ol>
+            <div className="arca-instruction-card">
+                <h3 className="arca-step-title">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="7 10 12 15 17 10" />
+                        <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                    1단계: 이미지 파일 다운로드
+                </h3>
+                <p className="arca-step-desc">아카라이브에 업로드할 이미지들을 ZIP 파일로 묶어 다운로드합니다.</p>
+                <ul className="arca-list">
+                    <li className="arca-list-item">
+                        <span className="arca-num-badge">1</span>
+                        <span>하단의 <b>'이미지 ZIP 생성'</b> 버튼을 클릭하세요.</span>
+                    </li>
+                    <li className="arca-list-item">
+                        <span className="arca-num-badge">2</span>
+                        <span>다운로드된 ZIP 파일의 압축을 풀어주세요.</span>
+                    </li>
+                </ul>
+            </div>
           </div>
         );
       case 'paste_urls':
         return (
           <div className="arca-helper-step">
-            <h3>2단계: 이미지 URL 붙여넣기</h3>
-            <p>먼저, 다운로드한 ZIP 파일의 압축을 풀고 아카라이브 글쓰기 창에 모든 이미지를 업로드하세요.</p>
-            <ol>
-              <li>아카라이브 편집기를 **HTML 모드**로 전환합니다.</li>
-              <li>업로드된 이미지에 해당하는 `{'<img>'}` 태그 전체를 복사합니다.</li>
-              <li>복사한 코드를 아래 입력창에 붙여넣습니다.</li>
-            </ol>
+            <div className="arca-instruction-card">
+                <h3 className="arca-step-title">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                    </svg>
+                    2단계: 이미지 URL 붙여넣기
+                </h3>
+                <p className="arca-step-desc">압축 푼 이미지들을 아카라이브 글쓰기 창에 업로드한 후, HTML 코드를 가져오세요.</p>
+                <ul className="arca-list">
+                    <li className="arca-list-item">
+                        <span className="arca-num-badge">1</span>
+                        <span>아카라이브 편집기를 <b>HTML 모드</b>로 전환합니다.</span>
+                    </li>
+                    <li className="arca-list-item">
+                        <span className="arca-num-badge">2</span>
+                        <span>업로드된 이미지 태그(<code>{'<img>'}</code>) 전체를 복사합니다.</span>
+                    </li>
+                </ul>
+            </div>
             <textarea 
-              className="desktop-input arca-paste-area"
+              className="arca-paste-area"
               value={pastedHtml}
               onChange={(e) => setPastedHtml(e.target.value)}
-              placeholder="여기에 아카라이브 편집기에서 복사한 {'<img>'} 태그들을 붙여넣으세요..."
+              placeholder="여기에 아카라이브 편집기에서 복사한 <img> 태그들을 붙여넣으세요..."
+              spellCheck={false}
             />
           </div>
         );
       case 'done':
         return (
           <div className="arca-helper-step">
-            <h3>3단계: 최종 HTML 복사</h3>
-            <p>완성되었습니다! 아래 코드를 복사하여 아카라이브 **HTML 편집기**에 그대로 붙여넣으세요.</p>
+            <div className="arca-instruction-card">
+                <h3 className="arca-step-title" style={{ color: 'var(--btn-success-bg)' }}>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                        <polyline points="22 4 12 14.01 9 11.01" />
+                    </svg>
+                    3단계: 최종 HTML 복사
+                </h3>
+                <p className="arca-step-desc">완성되었습니다! 아래 코드를 복사하여 아카라이브 <b>HTML 편집기</b>에 그대로 붙여넣으세요.</p>
+            </div>
             <textarea 
-              className="desktop-input arca-paste-area"
+              className="arca-paste-area"
               value={finalHtml} 
               readOnly
+              spellCheck={false}
+              onClick={(e) => (e.target as HTMLTextAreaElement).select()}
             />
           </div>
         );
@@ -252,8 +305,34 @@ const ArcaHelperModal: React.FC<ArcaHelperModalProps> = ({ isOpen, onClose, mess
       </div>
       
       <div className="desktop-modal-content">
-        {error && <div className="arca-helper-error">{error}</div>}
-        {renderContent()}
+        <div className="arca-stepper">
+            {STEPS.map((s) => (
+                <div key={s.id} className={`arca-step-item ${getStepStatus(s.id)}`}>
+                    <div className="arca-step-circle">
+                        {getStepStatus(s.id) === 'completed' ? (
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                        ) : s.step}
+                    </div>
+                    <span className="arca-step-label">{s.label}</span>
+                </div>
+            ))}
+        </div>
+        
+        <div className="arca-content-body">
+            {error && (
+                <div className="arca-helper-error">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="8" x2="12" y2="12" />
+                        <line x1="12" y1="16" x2="12.01" y2="16" />
+                    </svg>
+                    <span>{error}</span>
+                </div>
+            )}
+            {renderContent()}
+        </div>
       </div>
 
       <div className="desktop-modal-footer">

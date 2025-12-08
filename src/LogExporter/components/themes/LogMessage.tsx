@@ -7,30 +7,21 @@ import { getNameFromNode } from '../../utils/domUtils';
 const LogMessage: React.FC<MessageProps> = (props) => {
   const { node, index, charInfoName, color, allowHtmlRendering, globalSettings, isEditable, onMessageUpdate, imageScale } = props;
   const originalMessageEl = node.querySelector('.prose, .chattext');
-  const messageHtml = useMessageProcessor(originalMessageEl, false, allowHtmlRendering, color, imageScale);
-  const contentRef = useRef<HTMLDivElement>(null);
+  const messageHtml = useMessageProcessor(originalMessageEl, false, allowHtmlRendering, color, imageScale, props.onRendered);
 
-  const tempMessageDiv = document.createElement('div');
-  tempMessageDiv.innerHTML = messageHtml;
-  tempMessageDiv.querySelectorAll('p').forEach(p => { 
-      p.style.margin = '0'; 
-      p.style.padding = '0';
-  });
-  const finalMessageHtml = tempMessageDiv.innerHTML;
-
-  useEffect(() => {
-    if (contentRef.current && finalMessageHtml !== contentRef.current.innerHTML) {
-      contentRef.current.innerHTML = finalMessageHtml;
-    }
-  }, [finalMessageHtml]);
-
-  if (!finalMessageHtml || finalMessageHtml.trim().length === 0) return null;
-
-  const isUser = node.classList.contains('justify-end');
   const name = getNameFromNode(node as HTMLElement, globalSettings, charInfoName);
+  const isUser = node.classList.contains('justify-end');
+  const contentRef = useRef<HTMLDivElement>(null);
+  
+  useEffect(() => {
+    if (contentRef.current && messageHtml !== contentRef.current.innerHTML) {
+      contentRef.current.innerHTML = messageHtml;
+    }
+  }, [messageHtml]);
+
 
   const handleBlur = (e: React.FocusEvent<HTMLDivElement>) => {
-    if (onMessageUpdate && e.currentTarget.innerHTML !== finalMessageHtml) {
+    if (onMessageUpdate && e.currentTarget.innerHTML !== messageHtml) {
         onMessageUpdate(index, e.currentTarget.innerHTML);
     }
   };

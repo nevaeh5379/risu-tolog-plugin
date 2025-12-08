@@ -104,14 +104,16 @@ const ExportTab: React.FC<ExportTabProps> = ({ settings, onSettingChange, themes
                 )}
               </select>
             </div>
-            <div className="tab-option-row">
-              <span className="option-label">헤더 레이아웃</span>
-              <select className="tab-select" value={settings.headerLayout || 'default'} onChange={(e) => onSettingChange('headerLayout', e.target.value)}>
-                <option value="default">기본</option>
-                <option value="compact">컴팩트</option>
-                <option value="banner">배너</option>
-              </select>
-            </div>
+              <div className="tab-option-row">
+                <span className="option-label">헤더 레이아웃</span>
+                <select className="tab-select" value={settings.headerLayout || 'default'} onChange={(e) => onSettingChange('headerLayout', e.target.value)}>
+                  <option value="default">기본</option>
+                  <option value="compact">컴팩트</option>
+                  <option value="banner">배너</option>
+                  <option value="smart">스마트</option>
+                  <option value="cover">커버</option>
+                </select>
+              </div>
           </div>
 
           {settings.theme === 'custom' && (

@@ -7,7 +7,8 @@ export const useMessageProcessor = (
   embedImagesAsBlob: boolean,
   allowHtmlRendering: boolean,
   color: ColorPalette,
-  imageScale?: number
+  imageScale?: number,
+  onComplete?: () => void
 ) => {
   const [processedContent, setProcessedContent] = useState('');
 
@@ -20,10 +21,13 @@ export const useMessageProcessor = (
       } else {
         setProcessedContent(await processMessageContent(originalMessageEl, embedImagesAsBlob, color, imageScale));
       }
+      if (onComplete) {
+        onComplete();
+      }
     };
 
     process();
-  }, [originalMessageEl, embedImagesAsBlob, allowHtmlRendering, color, imageScale]);
+  }, [originalMessageEl, embedImagesAsBlob, allowHtmlRendering, color, imageScale, onComplete]);
 
   return processedContent;
 };
