@@ -10,6 +10,7 @@ import PluginSettingsModal from './components/PluginSettingsModal';
 import ExportTab from './components/ExportTab';
 import FilterTab from './components/FilterTab';
 import AdvancedTab from './components/AdvancedTab';
+import ReplacementTab from './components/ReplacementTab';
 import MobileSettingsPanel from './components/MobileSettingsPanel';
 import MobileToolsPanel from './components/MobileToolsPanel';
 
@@ -21,6 +22,7 @@ import { generateMarkdownLog, generateTextLog, generateHtmlPreview } from './ser
 import { getLogHtml } from './services/htmlGenerator';
 import { collectUIClasses, filterWithCustomClasses, getNameFromNode } from './utils/domUtils';
 import type { UIClassInfo } from './utils/domUtils';
+import type { ReplacementRule } from '../types';
 import { loadAllCharSettings, loadGlobalSettings } from './services/settingsService';
 import { saveAsFile } from './services/fileService';
 import { clearBlobUrlCache } from './utils/imageUtils';
@@ -57,6 +59,8 @@ interface Settings {
   isEditable?: boolean;
   splitImage?: 'none' | 'chunk' | 'message';
   maxImageHeight?: number;
+  replacementRules?: ReplacementRule[];
+  disableAnimations?: boolean;
 }
 
 
@@ -122,6 +126,8 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
         splitImage: 'none',
         maxImageHeight: 10000,
         customFilters: {},
+        replacementRules: [],
+        disableAnimations: true,
       };
 
     const [savedSettings, setSavedSettings] = useState<Settings>(defaultSettings);
@@ -359,6 +365,8 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
         imageScale: savedSettings.imageScale,
         isEditable: savedSettings.isEditable,
         onMessageUpdate: handleMessageUpdate,
+        replacementRules: savedSettings.replacementRules,
+        disableAnimations: savedSettings.disableAnimations,
     }), [
         finalNodes, 
         charName, chatName, charAvatarUrl, 
@@ -432,9 +440,9 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
               }
             </style>`);
         } else if (savedSettings.format === 'markdown') {
-            return await generateMarkdownLog(nodesForExport, charName);
+            return await generateMarkdownLog(nodesForExport, charName, savedSettings);
         } else if (savedSettings.format === 'text') {
-            return await generateTextLog(nodesForExport, charName);
+            return await generateTextLog(nodesForExport, charName, savedSettings);
         }
         return '';
     };
@@ -579,6 +587,12 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
                                             🔍 필터
                                         </button>
                                         <button 
+                                            className={`tab-button ${activeTab === 'replacement' ? 'active' : ''}`}
+                                            onClick={() => setActiveTab('replacement')}
+                                        >
+                                            🔤 단어 바꾸기
+                                        </button>
+                                        <button 
                                             className={`tab-button ${activeTab === 'advanced' ? 'active' : ''}`}
                                             onClick={() => setActiveTab('advanced')}
                                         >
@@ -602,6 +616,12 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
                                                 globalSettings={globalSettings}
                                                 onGlobalSettingChange={handleGlobalSettingChange}
                                                 uiClasses={uiClasses}
+                                            />
+                                        )}
+                                        {activeTab === 'replacement' && (
+                                            <ReplacementTab 
+                                                rules={savedSettings.replacementRules || []}
+                                                onRulesChange={(rules) => handleSettingChange('replacementRules', rules)}
                                             />
                                         )}
                                         {activeTab === 'advanced' && (

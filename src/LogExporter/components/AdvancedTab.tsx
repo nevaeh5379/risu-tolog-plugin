@@ -174,6 +174,13 @@ const AdvancedTab: React.FC<AdvancedTabProps> = ({ settings, onSettingChange, im
           value={settings.isEditable} 
           defaultOn={false} 
         />
+        <Toggle 
+          settingKey="disableAnimations" 
+          label="CSS 애니메이션 제외" 
+          description="미리보기 및 저장 시 애니메이션 제거 (권장)"
+          value={settings.disableAnimations} 
+          defaultOn={true} 
+        />
       </div>
     </div>
   );

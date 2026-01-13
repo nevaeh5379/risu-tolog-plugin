@@ -41,6 +41,7 @@ const LogContainer: React.FC<LogContainerProps> = (props) => {
     onMessageSelect,
     isForImageExport,
     isForExport,
+    disableAnimations,
   } = props;
 
   const [avatarMap, setAvatarMap] = useState<Map<string, string>>(preCollectedAvatarMap || new Map());
@@ -114,6 +115,23 @@ const LogContainer: React.FC<LogContainerProps> = (props) => {
 
   return (
     <div style={containerStyle}>
+      {disableAnimations && (
+        <style>{`
+          *, *::before, *::after {
+            animation: none !important;
+            transition: none !important;
+          }
+        `}</style>
+      )}
+      {selectedThemeKey === 'raw' && (
+        <style>{`
+          .raw-message-wrapper .prose, 
+          .raw-message-wrapper .chattext {
+            font-size: 1em !important;
+            line-height: inherit;
+          }
+        `}</style>
+      )}
       {selectedThemeKey === 'custom' && customCss && <style>{customCss}</style>}
       {showHeader && <LogHeader 
         themeKey={selectedThemeKey} // 테마 키 전달
@@ -152,6 +170,7 @@ const LogContainer: React.FC<LogContainerProps> = (props) => {
             onSelect={onMessageSelect}
             isForExport={isForExport}
             onRendered={() => handleMessageRendered(index)}
+            replacementRules={props.replacementRules}
           />
         ))}
       </main>

@@ -5,9 +5,9 @@ import { useMessageProcessor } from '../../hooks/useMessageProcessor';
 import { getNameFromNode } from '../../utils/domUtils';
 
 const LogMessage: React.FC<MessageProps> = (props) => {
-  const { node, index, charInfoName, color, allowHtmlRendering, globalSettings, isEditable, onMessageUpdate, imageScale } = props;
+  const { node, index, charInfoName, color, allowHtmlRendering, globalSettings, isEditable, onMessageUpdate, imageScale, replacementRules } = props;
   const originalMessageEl = node.querySelector('.prose, .chattext');
-  const messageHtml = useMessageProcessor(originalMessageEl, false, allowHtmlRendering, color, imageScale, props.onRendered);
+  const messageHtml = useMessageProcessor(originalMessageEl, false, allowHtmlRendering, color, imageScale, props.onRendered, replacementRules);
 
   const name = getNameFromNode(node as HTMLElement, globalSettings, charInfoName);
   const isUser = node.classList.contains('justify-end');

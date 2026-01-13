@@ -568,6 +568,7 @@ export const saveAsImage = async (nodes: HTMLElement[] | HTMLElement, format: 'p
                     containerWidth: htmlOptions.previewWidth,
                     imageScale: Number(htmlOptions.imageScale),
                     isForImageExport: true,
+                    replacementRules: htmlOptions.replacementRules,
                 };
                 const root = createRoot(container);
                 root.render(<LogContainer {...props} />);

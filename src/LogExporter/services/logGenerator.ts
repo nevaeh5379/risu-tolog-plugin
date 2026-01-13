@@ -1,4 +1,4 @@
-import { getNameFromNode } from '../utils/domUtils';
+import { getNameFromNode, applyReplacements } from '../utils/domUtils';
 import { imageUrlToBlob } from '../utils/imageUtils';
 import { loadGlobalSettings } from './settingsService';
 
@@ -44,25 +44,47 @@ export const generateBasicLog = async (nodes: HTMLElement[], charName: string, c
     return `<div style="padding: 20px; background-color: ${colorPalette.background};">${contentHtml}</div>`;
 };
 
-export const generateMarkdownLog = async (nodes: HTMLElement[], charName: string) => {
+export const generateMarkdownLog = async (nodes: HTMLElement[], charName: string, settings?: any) => {
     let markdown = '';
     const globalSettings = loadGlobalSettings();
     for (const node of nodes) {
         const name = getNameFromNode(node, globalSettings, charName);
         const messageEl = node.querySelector('.prose, .chattext');
-        const messageText = messageEl ? (messageEl as HTMLElement).innerText : '';
+        
+        let messageText = '';
+        if (messageEl) {
+             if (settings?.replacementRules && settings.replacementRules.length > 0) {
+                 const clonedEl = messageEl.cloneNode(true) as HTMLElement;
+                 applyReplacements(clonedEl, settings.replacementRules);
+                 messageText = clonedEl.innerText;
+             } else {
+                 messageText = (messageEl as HTMLElement).innerText;
+             }
+        }
+        
         markdown += `**${name}**\n\n${messageText}\n\n---\n\n`;
     }
     return markdown;
 };
 
-export const generateTextLog = async (nodes: HTMLElement[], charName: string) => {
+export const generateTextLog = async (nodes: HTMLElement[], charName: string, settings?: any) => {
     let text = '';
     const globalSettings = loadGlobalSettings();
     for (const node of nodes) {
         const name = getNameFromNode(node, globalSettings, charName);
         const messageEl = node.querySelector('.prose, .chattext');
-        const messageText = messageEl ? (messageEl as HTMLElement).innerText : '';
+        
+        let messageText = '';
+        if (messageEl) {
+             if (settings?.replacementRules && settings.replacementRules.length > 0) {
+                 const clonedEl = messageEl.cloneNode(true) as HTMLElement;
+                 applyReplacements(clonedEl, settings.replacementRules);
+                 messageText = clonedEl.innerText;
+             } else {
+                 messageText = (messageEl as HTMLElement).innerText;
+             }
+        }
+
         text += `${name}: ${messageText}\n\n`;
     }
     return text;
@@ -157,14 +179,39 @@ export const generateHtmlPreview = async (nodes: HTMLElement[], settings: any) =
                 }
             }
         }
+        
+        if (settings.replacementRules && settings.replacementRules.length > 0) {
+            // Apply replacements to the message content within the cloned node
+            const messageEl = clonedNode.querySelector('.prose, .chattext');
+            if (messageEl) {
+                applyReplacements(messageEl as HTMLElement, settings.replacementRules);
+            }
+        }
+        
         return clonedNode.outerHTML;
     }));
 
     let fullCss = await getComprehensivePageCSS();
     let extraCss = '';
     if (settings.expandHover) {
-        extraCss = await generateForceHoverCss();
+        extraCss += await generateForceHoverCss();
     }
+    if (settings.disableAnimations) {
+        extraCss += `
+            *, *::before, *::after {
+                animation: none !important;
+                transition: none !important;
+            }
+        `;
+    }
+
+    // Force font size inheritance for HTML preview
+    extraCss += `
+        .prose, .chattext {
+            font-size: 1em !important;
+            line-height: inherit;
+        }
+    `;
 
     const wrapperClass = settings.expandHover ? 'class="expand-hover-globally"' : '';
     const wrapperStyle = `

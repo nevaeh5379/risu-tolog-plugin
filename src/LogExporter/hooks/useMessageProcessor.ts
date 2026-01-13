@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { imageUrlToBlob } from '../utils/imageUtils';
-import type { ColorPalette } from '../../types';
+import { applyReplacements } from '../utils/domUtils';
+import type { ColorPalette, ReplacementRule } from '../../types';
 
 export const useMessageProcessor = (
   originalMessageEl: Element | null,
@@ -8,7 +9,8 @@ export const useMessageProcessor = (
   allowHtmlRendering: boolean,
   color: ColorPalette,
   imageScale?: number,
-  onComplete?: () => void
+  onComplete?: () => void,
+  replacementRules?: ReplacementRule[]
 ) => {
   const [processedContent, setProcessedContent] = useState('');
 
@@ -17,9 +19,9 @@ export const useMessageProcessor = (
 
     const process = async () => {
       if (allowHtmlRendering) {
-        setProcessedContent(await processRawHtmlContent(originalMessageEl, embedImagesAsBlob));
+        setProcessedContent(await processRawHtmlContent(originalMessageEl, embedImagesAsBlob, replacementRules));
       } else {
-        setProcessedContent(await processMessageContent(originalMessageEl, embedImagesAsBlob, color, imageScale));
+        setProcessedContent(await processMessageContent(originalMessageEl, embedImagesAsBlob, color, imageScale, replacementRules));
       }
       if (onComplete) {
         onComplete();
@@ -27,12 +29,12 @@ export const useMessageProcessor = (
     };
 
     process();
-  }, [originalMessageEl, embedImagesAsBlob, allowHtmlRendering, color, imageScale, onComplete]);
+  }, [originalMessageEl, embedImagesAsBlob, allowHtmlRendering, color, imageScale, onComplete, replacementRules]);
 
   return processedContent;
 };
 
-const processRawHtmlContent = async (originalMessageEl: Element, embedImages: boolean): Promise<string> => {
+const processRawHtmlContent = async (originalMessageEl: Element, embedImages: boolean, replacementRules?: ReplacementRule[]): Promise<string> => {
     const clonedContentEl = originalMessageEl.cloneNode(true) as HTMLElement;
     clonedContentEl.querySelectorAll('button, .log-exporter-msg-btn-group').forEach(btn => btn.remove());
 
@@ -58,10 +60,13 @@ const processRawHtmlContent = async (originalMessageEl: Element, embedImages: bo
     });
 
     await Promise.all(mediaPromises);
+
+    applyReplacements(clonedContentEl, replacementRules);
+
     return clonedContentEl.outerHTML.trim();
 };
 
-const processMessageContent = async (originalMessageEl: Element, embedImages: boolean, color: ColorPalette, imageScale?: number): Promise<string> => {
+const processMessageContent = async (originalMessageEl: Element, embedImages: boolean, color: ColorPalette, imageScale?: number, replacementRules?: ReplacementRule[]): Promise<string> => {
     let contentSourceEl = originalMessageEl.cloneNode(true) as HTMLElement;
     contentSourceEl.querySelectorAll('script, style, .log-exporter-msg-btn-group').forEach(el => el.remove());
 
@@ -100,6 +105,8 @@ const processMessageContent = async (originalMessageEl: Element, embedImages: bo
         const mark = markEl as HTMLElement;
         Object.assign(mark.style, { backgroundColor: color.quoteBg, color: color.quoteText, padding: '0.1em 0.3em', borderRadius: '3px', textDecoration: 'none' });
     });
+
+    applyReplacements(contentSourceEl, replacementRules);
 
     return contentSourceEl.innerHTML.trim();
 };

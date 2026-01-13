@@ -1,4 +1,5 @@
 // src/LogExporter/utils/domUtils.ts
+import type { ReplacementRule } from '../../types';
 
 // Assuming global settings are loaded and passed in.
 export const getNameFromNode = (node: HTMLElement, globalSettings: any, charName = 'Assistant'): string => {
@@ -197,3 +198,42 @@ export function filterWithCustomClasses(node: HTMLElement, selectedClasses: stri
 
     return tempEl;
 }
+
+export const applyReplacements = (root: HTMLElement, rules?: ReplacementRule[]) => {
+    if (!rules || rules.length === 0) return;
+
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+    const nodes: Node[] = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+
+    nodes.forEach(node => {
+        if (!node.nodeValue) return;
+        let text = node.nodeValue;
+        let modified = false;
+
+        rules.forEach(rule => {
+            if (rule.isEnabled === false) return;
+
+            try {
+                if (rule.isRegex) {
+                     const regex = new RegExp(rule.pattern, rule.flags || 'g');
+                     if (regex.test(text)) {
+                         text = text.replace(regex, rule.replacement);
+                         modified = true;
+                     }
+                } else {
+                     if (text.includes(rule.pattern)) {
+                         text = text.split(rule.pattern).join(rule.replacement);
+                         modified = true;
+                     }
+                }
+            } catch (e) {
+                // ignore invalid regex
+            }
+        });
+
+        if (modified) {
+            node.nodeValue = text;
+        }
+    });
+};

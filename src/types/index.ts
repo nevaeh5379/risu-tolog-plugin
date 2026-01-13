@@ -82,6 +82,8 @@ export interface LogContainerProps {
   onMessageSelect?: (index: number, e: React.MouseEvent) => void;
   isForImageExport?: boolean;
   isForExport?: boolean;
+  replacementRules?: ReplacementRule[];
+  disableAnimations?: boolean;
 }
 
 // 메시지 컴포넌트 Props
@@ -105,6 +107,7 @@ export interface MessageProps {
   onSelect?: (index: number, e: React.MouseEvent) => void;
   isForExport?: boolean;
   onRendered?: () => void;
+  replacementRules?: ReplacementRule[];
 }
 
 export type LogNode = HTMLElement;
@@ -121,4 +124,13 @@ export interface GlobalSettings {
   defaultClassesAdded?: boolean;
   uiTheme?: string;
   filteredParticipants?: string[];
+}
+
+export interface ReplacementRule {
+  id: string;
+  pattern: string;
+  replacement: string;
+  flags?: string;
+  isRegex?: boolean;
+  isEnabled?: boolean;
 }
