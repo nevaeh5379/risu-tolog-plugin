@@ -1,10 +1,10 @@
 // src/services/zipService.ts
 
 import JSZip from 'jszip';
-import { processChatLog } from '../utils/domParser'; // 예시 경로
-import { getLogHtml } from '../LogExporter/services/htmlGenerator'; // 예시 경로
-import { collectCharacterAvatars } from '../LogExporter/services/avatarService'; // 예시 경로
-import { convertWebMToAnimatedWebP } from './webmConverter'; // 예시 경로
+import { processChatLog } from './chatData';
+import { getLogHtml } from '../LogExporter/services/htmlGenerator';
+import { collectCharacterAvatars } from '../LogExporter/services/avatarService';
+import { convertWebMToAnimatedWebP } from './webmConverter';
 import { loadGlobalSettings } from '../LogExporter/services/settingsService';
 import type { ArcaImage } from '../types';
 
@@ -211,7 +211,7 @@ export async function downloadImagesAsZip(
       }
       const { charAvatarUrl } = await processChatLog(parseInt(selectedChatIdx, 10));
       const charInfoForLog = { name: charName, chatName: chatName, avatarUrl: charAvatarUrl };
-      const globalSettings = loadGlobalSettings();
+      const globalSettings = await loadGlobalSettings();
       const baseHtml = await getLogHtml({nodes, charInfo: charInfoForLog, selectedThemeKey: 'basic', selectedColorKey: 'dark', showAvatar, showHeader: true, showFooter: false, showBubble: true, isForArca: true, embedImagesAsBlob: false, preCollectedAvatarMap: new Map(), globalSettings});
       const tempDiv = document.createElement('div');
       tempDiv.innerHTML = baseHtml;

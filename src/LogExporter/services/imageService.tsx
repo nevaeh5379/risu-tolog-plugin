@@ -648,7 +648,7 @@ export const downloadImagesAsZip = async (
             const baseFilename = `media_${String(mediaCounter).padStart(3, '0')}`;
 
             mediaPromises.push(
-                fetch(src)
+                Risuai.nativeFetch(src, { method: 'GET' } as any)
                     .then(res => {
                         if (!res.ok) throw new Error(`Media download failed: ${src}`);
                         return res.blob();

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import ReactDOM from 'react-dom/client';
 import './showCopyPreviewModal.css';
-import { processChatLog } from '../utils/domParser';
+import { processChatLog, serializeNodes } from '../services/chatData';
 import { THEMES, COLORS } from './components/constants';
 import type { RisuCharacter } from '../types/risuai';
 import type { ThemeKey, ColorKey } from '../types';
@@ -23,7 +23,7 @@ import { getLogHtml } from './services/htmlGenerator';
 import { collectUIClasses, filterWithCustomClasses, getNameFromNode } from './utils/domUtils';
 import type { UIClassInfo } from './utils/domUtils';
 import type { ReplacementRule } from '../types';
-import { loadAllCharSettings, loadGlobalSettings } from './services/settingsService';
+import { loadAllCharSettings, loadGlobalSettings, saveCharSettings, saveGlobalSettings } from './services/settingsService';
 import { saveAsFile } from './services/fileService';
 import { clearBlobUrlCache } from './utils/imageUtils';
 
@@ -64,29 +64,44 @@ interface Settings {
 }
 
 
-// Helper functions from the original script (to be moved to service files later)
-
-
 interface ShowCopyPreviewModalProps {
-  chatIndex: number;
   options?: any;
   onClose: () => void;
 }
 
 const useMediaQuery = (query: string) => {
     const [matches, setMatches] = useState(window.matchMedia(query).matches);
-  
+
     useEffect(() => {
       const media = window.matchMedia(query);
       const listener = () => setMatches(media.matches);
       media.addEventListener('change', listener);
       return () => media.removeEventListener('change', listener);
     }, [query]);
-  
+
     return matches;
   };
 
-const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, options, onClose }) => {
+// SafeElement[]의 outerHTML을 받아 iframe 내 표준 HTMLElement[]로 재구성
+function parseHtmlToElements(htmlStrings: string[]): HTMLElement[] {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString('<div></div>', 'text/html');
+  const container = doc.body.firstElementChild as HTMLElement;
+  const nodes: HTMLElement[] = [];
+  for (const html of htmlStrings) {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    if (tmp.firstElementChild) {
+      nodes.push(tmp.firstElementChild as HTMLElement);
+    } else {
+      nodes.push(tmp);
+    }
+  }
+  void container;
+  return nodes;
+}
+
+const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ options, onClose }) => {
     const [charName, setCharName] = useState('');
     const [chatName, setChatName] = useState('');
     const [charAvatarUrl, setCharAvatarUrl] = useState('');
@@ -199,10 +214,11 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
         setSavedSettings(newSettings);
     };
 
+    // 전역 설정 변경: 상태 + pluginStorage에 저장
     const handleGlobalSettingChange = (key: string, value: any) => {
         const newSettings = { ...globalSettings, [key]: value };
         setGlobalSettings(newSettings);
-        localStorage.setItem('logExporterGlobalSettings', JSON.stringify(newSettings));
+        saveGlobalSettings(newSettings);
     };
 
     const handleMessageUpdate = useCallback((index: number, newHtml: string) => {
@@ -248,7 +264,7 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
                     setCharName(data.charName);
                     setChatName(data.chatName);
                     setCharAvatarUrl(data.charAvatarUrl);
-                    
+
                     const newNodes = data.messageNodes.map((html: string) => {
                         const tempDiv = document.createElement('div');
                         tempDiv.innerHTML = html;
@@ -267,13 +283,10 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
         input.click();
     };
 
+    // 캐릭터별 설정 저장 (pluginStorage)
     useEffect(() => {
         if (character?.chaId && Object.keys(savedSettings).length > 0) {
-            const allSettings = loadAllCharSettings();
-            const charId = String(character.chaId);
-            const existingSettings = allSettings[charId] || {};
-            allSettings[charId] = { ...existingSettings, ...savedSettings };
-            localStorage.setItem('logExporterCharacterSettings', JSON.stringify(allSettings));
+            saveCharSettings(String(character.chaId), savedSettings);
         }
     }, [savedSettings, character]);
 
@@ -281,28 +294,32 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
         const fetchData = async () => {
             setIsLoading(true);
             try {
-                const { charName, chatName, charAvatarUrl, messageNodes, character } = await processChatLog(chatIndex, options);
+                // v3.0: processChatLog이 SafeElement[] 반환 → outerHTML로 직렬화 후 iframe 내 HTMLElement로 재구성
+                const { charName, chatName, charAvatarUrl, messageNodes: safeNodes, character } = await processChatLog(undefined, options);
+                const htmlStrings = await serializeNodes(safeNodes);
+                const nodes = parseHtmlToElements(htmlStrings);
+
                 setCharName(charName);
                 setChatName(chatName);
                 setCharAvatarUrl(charAvatarUrl);
-                setMessageNodes(messageNodes);
+                setMessageNodes(nodes);
                 setCharacter(character);
 
-                const allCharSettings = loadAllCharSettings();
-                const charSettings = character ? allCharSettings[character.chaId] || {} : {};
+                const allCharSettings = await loadAllCharSettings();
+                const charSettings = character ? allCharSettings[String(character.chaId)] || {} : {};
                 setSavedSettings({ ...defaultSettings, ...charSettings });
 
-                const loadedGlobalSettings = loadGlobalSettings();
+                const loadedGlobalSettings = await loadGlobalSettings();
                 setGlobalSettings(loadedGlobalSettings);
 
                 const newParticipants = new Set<string>();
-                messageNodes.forEach((node: HTMLElement) => {
+                nodes.forEach((node: HTMLElement) => {
                     const name = getNameFromNode(node, loadedGlobalSettings, charName);
                     if (name) newParticipants.add(name);
                 });
                 setParticipants(newParticipants);
 
-                setUiClasses(collectUIClasses(messageNodes));
+                setUiClasses(collectUIClasses(nodes));
 
             } catch (error) {
                 console.error('[Log Exporter] Modal open error:', error);
@@ -312,18 +329,18 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
         };
 
         fetchData();
-    }, [chatIndex, options]);
+    }, [options]);
 
     const activeFilters = savedSettings.customFilters ? Object.entries(savedSettings.customFilters).filter(([, checked]) => checked).map(([key]) => key) : [];
-    
+
     const finalNodes = messageNodes
-        .map(node => { // for customFilters
+        .map(node => {
             if (activeFilters.length > 0) {
                 return filterWithCustomClasses(node, activeFilters, globalSettings);
             }
             return node;
         })
-        .filter(node => { // for participant filter
+        .filter(node => {
             const isMessageNode = node.querySelector('.prose, .chattext');
             if (isMessageNode) {
                 const name = getNameFromNode(node as HTMLElement, globalSettings, charName);
@@ -368,10 +385,10 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
         replacementRules: savedSettings.replacementRules,
         disableAnimations: savedSettings.disableAnimations,
     }), [
-        finalNodes, 
-        charName, chatName, charAvatarUrl, 
-        savedSettings, 
-        globalSettings, 
+        finalNodes,
+        charName, chatName, charAvatarUrl,
+        savedSettings,
+        globalSettings,
         colorPalette,
         handleMessageUpdate
     ]);
@@ -379,19 +396,19 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
     const handleDimensionsChange = useCallback((dims: { width: number, height: number, maxMessageHeight: number }) => {
         setEstimatedImageSize(dims);
     }, []);
-    
+
     useEffect(() => {
         if (!estimatedImageSize) {
             setImageSizeWarning('');
             return;
         }
-    
+
         const MAX_DIMENSION = 16384;
         const resolution = savedSettings.imageResolution === 'auto' ? 1 : (Number(savedSettings.imageResolution) || 1);
-        
+
         const finalWidth = estimatedImageSize.width * resolution;
         const finalHeight = estimatedImageSize.height * resolution;
-    
+
         let warnings = [];
         if (finalWidth > MAX_DIMENSION || finalHeight > MAX_DIMENSION) {
             let warning = `예상 이미지 크기(${Math.round(finalWidth)}x${Math.round(finalHeight)}px)가 브라우저 한계를 초과할 수 있습니다.`;
@@ -413,11 +430,6 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
         }
 
         setImageSizeWarning(warnings.join(' '));
-
-        console.log('[Log Exporter Debug] Estimated Size:', estimatedImageSize);
-        console.log('[Log Exporter Debug] Final Calculated Dims:', { width: Math.round(finalWidth), height: Math.round(finalHeight) });
-        console.log('[Log Exporter Debug] Generated Warning:', warnings.join(' '));
-    
     }, [estimatedImageSize, savedSettings.imageResolution, savedSettings.splitImage, savedSettings.maxImageHeight]);
 
     const getPreviewContentForExport = async () => {
@@ -465,10 +477,26 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
         generateOtherFormatPreview();
     }, [finalNodes, selectedIndices, savedSettings, globalSettings, charName]);
 
-    const handleClose = () => {
+    const handleClose = async () => {
         clearBlobUrlCache();
+        // React unmount를 먼저 수행하여 이벤트 핸들러/리스너를 정리한 뒤
+        // iframe을 숨깁니다. 순서가 중요: unmount → container.remove → hideContainer.
         onClose();
+        await Risuai.hideContainer();
     };
+
+    // ESC 단축키로 닫기 (중복 호출 방지)
+    const closedRef = { current: false };
+    useEffect(() => {
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === 'Escape' && !closedRef.current) {
+                closedRef.current = true;
+                handleClose();
+            }
+        };
+        document.addEventListener('keydown', onKey);
+        return () => document.removeEventListener('keydown', onKey);
+    }, []);
 
     const uiTheme = globalSettings.uiTheme || 'dark';
 
@@ -515,11 +543,11 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
                                 </button>
                             </div>
                             <div className={`mobile-tab-content mobile-settings-tab ${activeTab === 'settings' ? 'active' : ''}`}>
-                                <MobileSettingsPanel 
-                                    settings={savedSettings} 
-                                    onSettingChange={handleSettingChange} 
-                                    themes={THEMES} 
-                                    colors={COLORS} 
+                                <MobileSettingsPanel
+                                    settings={savedSettings}
+                                    onSettingChange={handleSettingChange}
+                                    themes={THEMES}
+                                    colors={COLORS}
                                     participants={participants}
                                     globalSettings={globalSettings}
                                     onGlobalSettingChange={handleGlobalSettingChange}
@@ -527,7 +555,7 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
                                 />
                             </div>
                             <div className={`mobile-tab-content mobile-preview-tab ${activeTab === 'preview' ? 'active' : ''}`}>
-                                <PreviewPanel 
+                                <PreviewPanel
                                     logContainerProps={logContainerProps}
                                     settings={savedSettings}
                                     otherFormatContent={otherFormatContent}
@@ -542,17 +570,17 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
                                 />
                             </div>
                             <div className={`mobile-tab-content mobile-tools-tab ${activeTab === 'tools' ? 'active' : ''}`}>
-                                <MobileToolsPanel 
+                                <MobileToolsPanel
                                     settings={savedSettings}
                                     onSettingChange={handleSettingChange}
                                     imageSizeWarning={imageSizeWarning}
                                 />
                             </div>
                             <div className="mobile-action-bar">
-                                <Actionbar 
-                                    charName={charName} 
-                                    chatName={chatName} 
-                                    getPreviewContent={getPreviewContentForExport} 
+                                <Actionbar
+                                    charName={charName}
+                                    chatName={chatName}
+                                    getPreviewContent={getPreviewContentForExport}
                                     messageNodes={nodesForExport}
                                     settings={savedSettings}
                                     backgroundColor={backgroundColor}
@@ -574,25 +602,25 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
                             <div className="log-exporter-modal-content">
                                 <div className="desktop-settings-panel">
                                     <div className="tab-navigation">
-                                        <button 
+                                        <button
                                             className={`tab-button ${activeTab === 'export' ? 'active' : ''}`}
                                             onClick={() => setActiveTab('export')}
                                         >
                                             📤 내보내기
                                         </button>
-                                        <button 
+                                        <button
                                             className={`tab-button ${activeTab === 'filter' ? 'active' : ''}`}
                                             onClick={() => setActiveTab('filter')}
                                         >
                                             🔍 필터
                                         </button>
-                                        <button 
+                                        <button
                                             className={`tab-button ${activeTab === 'replacement' ? 'active' : ''}`}
                                             onClick={() => setActiveTab('replacement')}
                                         >
                                             🔤 단어 바꾸기
                                         </button>
-                                        <button 
+                                        <button
                                             className={`tab-button ${activeTab === 'advanced' ? 'active' : ''}`}
                                             onClick={() => setActiveTab('advanced')}
                                         >
@@ -601,7 +629,7 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
                                     </div>
                                     <div style={{flex: 1, overflow: 'hidden'}}>
                                         {activeTab === 'export' && (
-                                            <ExportTab 
+                                            <ExportTab
                                                 settings={savedSettings}
                                                 onSettingChange={handleSettingChange}
                                                 themes={THEMES}
@@ -609,7 +637,7 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
                                             />
                                         )}
                                         {activeTab === 'filter' && (
-                                            <FilterTab 
+                                            <FilterTab
                                                 settings={savedSettings}
                                                 onSettingChange={handleSettingChange}
                                                 participants={participants}
@@ -619,13 +647,13 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
                                             />
                                         )}
                                         {activeTab === 'replacement' && (
-                                            <ReplacementTab 
+                                            <ReplacementTab
                                                 rules={savedSettings.replacementRules || []}
                                                 onRulesChange={(rules) => handleSettingChange('replacementRules', rules)}
                                             />
                                         )}
                                         {activeTab === 'advanced' && (
-                                            <AdvancedTab 
+                                            <AdvancedTab
                                                 settings={savedSettings}
                                                 onSettingChange={handleSettingChange}
                                                 imageSizeWarning={imageSizeWarning}
@@ -634,7 +662,7 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
                                     </div>
                                 </div>
                                 <div className="desktop-preview-panel">
-                                                                    <PreviewPanel 
+                                                                    <PreviewPanel
                                                                         logContainerProps={logContainerProps}
                                                                         settings={savedSettings}
                                                                         otherFormatContent={otherFormatContent}
@@ -649,10 +677,10 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
                                                                     />                                </div>
                             </div>
                             <div className="desktop-action-bar">
-                                <Actionbar 
-                                    charName={charName} 
-                                    chatName={chatName} 
-                                    getPreviewContent={getPreviewContentForExport} 
+                                <Actionbar
+                                    charName={charName}
+                                    chatName={chatName}
+                                    getPreviewContent={getPreviewContentForExport}
                                     messageNodes={nodesForExport}
                                     settings={savedSettings}
                                     backgroundColor={backgroundColor}
@@ -670,8 +698,8 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
                             </div>
                         </>
                     )}
-                    
-                    <PluginSettingsModal 
+
+                    <PluginSettingsModal
                         isOpen={isPluginSettingsOpen}
                         onClose={() => setIsPluginSettingsOpen(false)}
                         globalSettings={globalSettings}
@@ -693,35 +721,59 @@ const ShowCopyPreviewModal: React.FC<ShowCopyPreviewModalProps> = ({ chatIndex, 
 };
 
 let root: ReactDOM.Root | null = null;
+let container: HTMLDivElement | null = null;
+let isModalOpen = false;
 
-export const showCopyPreviewModal = (chatIndex: number, options = {}) => {
-  // Remove existing modal if any
-  const existingModal = document.getElementById('log-exporter-react-modal-root');
-  if (existingModal) {
-    existingModal.remove();
+/**
+ * 로그 내보내기 모달을 iframe 내부에서 풀스크린으로 엽니다.
+ * v3.0: iframe DOM에 React 렌더 → Risuai.showContainer('fullscreen')
+ */
+export const showCopyPreviewModal = async (options: {
+  startIndex?: number;
+  endIndex?: number;
+  singleMessage?: boolean;
+} = {}): Promise<void> => {
+  // 이미 열려있으면 먼저 닫기
+  if (root) {
+    root.unmount();
+    root = null;
   }
+  if (container) {
+    container.remove();
+    container = null;
+  }
+  isModalOpen = false;
 
-  const container = document.createElement('div');
+  // iframe 내부 document에 컨테이너 생성
+  container = document.createElement('div');
   container.id = 'log-exporter-react-modal-root';
   document.body.appendChild(container);
 
   root = ReactDOM.createRoot(container);
-  
-  const handleClose = () => {
+  isModalOpen = true;
+
+  const handleClose = async () => {
+    if (!isModalOpen) return;
+    isModalOpen = false;
     if (root) {
       root.unmount();
+      root = null;
     }
     if (container) {
       container.remove();
+      container = null;
     }
-    root = null;
+    await Risuai.hideContainer();
   };
 
   root.render(
     <React.StrictMode>
-      <ShowCopyPreviewModal chatIndex={chatIndex} options={options} onClose={handleClose} />
+      <ShowCopyPreviewModal options={options} onClose={handleClose} />
     </React.StrictMode>
   );
+
+  // iframe 전체화면 표시 (v3.0)
+  await Risuai.showContainer('fullscreen');
 };
 
 export default ShowCopyPreviewModal;
